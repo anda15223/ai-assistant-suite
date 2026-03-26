@@ -75,6 +75,15 @@ export const tasks = mysqlTable("tasks", {
   category: varchar("category", { length: 100 }),
   source: mysqlEnum("source", ["email", "whatsapp", "manual"]).default("email").notNull(),
   metadata: json("metadata"),
+  // Eisenhower Matrix urgency scoring
+  urgencyScore: int("urgencyScore").default(5),
+  importanceScore: int("importanceScore").default(5),
+  priorityScore: int("priorityScore").default(50),
+  quadrant: mysqlEnum("quadrant", ["do_first", "schedule", "delegate", "archive"]).default("schedule"),
+  escalationLevel: int("escalationLevel").default(0),
+  suggestedAction: text("suggestedAction"),
+  isOverdue: boolean("isOverdue").default(false),
+  snoozedUntil: timestamp("snoozedUntil"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

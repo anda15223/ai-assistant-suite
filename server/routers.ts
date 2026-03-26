@@ -5,7 +5,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { fetchEmails, testConnection, sendEmail } from "./emailService";
-import { classifyEmail, generateDraftReply } from "./aiService";
+import { classifyEmail, generateDraftReply, scoreTaskUrgency, computeEscalation } from "./aiService";
 import { sendWhatsAppMessage } from "./whatsappService";
 
 export const appRouter = router({
@@ -153,7 +153,8 @@ export const appRouter = router({
           const td = classification.taskData;
           const inv = classification.invoiceData;
           const isInvoice = classification.classification === "invoice";
-          await db.insertTask({
+          const urg = classification.urgency;
+          const taskId = await db.insertTask({
             userId: ctx.user.id,
             emailId,
             title: isInvoice && inv
@@ -169,6 +170,17 @@ export const appRouter = router({
               : safeParseDueDate(td?.dueDate),
             source: "email",
           });
+          // Save urgency scores if available
+          if (urg && taskId) {
+            await db.updateTaskUrgency(taskId, ctx.user.id, {
+              urgencyScore: urg.urgencyScore,
+              importanceScore: urg.importanceScore,
+              priorityScore: Math.round(urg.priorityScore * 10),
+              quadrant: urg.quadrant,
+              suggestedAction: urg.suggestedAction,
+              isOverdue: urg.deadlineDate ? new Date(urg.deadlineDate) < new Date() : false,
+            });
+          }
         } catch (aiErr) {
           console.error("[AI] Classification failed for email:", emailId, aiErr);
           // Fallback: create a basic task even if AI fails
@@ -426,6 +438,75 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().optional() }).optional())
       .query(async ({ ctx, input }) => {
         return db.getTasksByUser(ctx.user.id, input?.limit || 100);
+      }),
+    prioritized: protectedProcedure
+      .input(z.object({ limit: z.number().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        return db.getTasksByUserPrioritized(ctx.user.id, input?.limit || 200);
+      }),
+    byQuadrant: protectedProcedure
+      .input(z.object({ quadrant: z.enum(["do_first", "schedule", "delegate", "archive"]) }))
+      .query(async ({ ctx, input }) => {
+        return db.getTasksByQuadrant(ctx.user.id, input.quadrant);
+      }),
+    priorityDistribution: protectedProcedure.query(async ({ ctx }) => {
+        return db.getPriorityDistribution(ctx.user.id);
+      }),
+    reprioritize: protectedProcedure.mutation(async ({ ctx }) => {
+        console.log(`[Reprioritize] Starting for user ${ctx.user.id}`);
+        const pendingTasks = await db.getPendingTasksForReprioritization(ctx.user.id);
+        let updated = 0;
+        let failed = 0;
+        for (const task of pendingTasks) {
+          try {
+            // First apply rule-based escalation
+            const escalation = computeEscalation({
+              dueDate: task.dueDate,
+              createdAt: task.createdAt,
+              status: task.status,
+              urgencyScore: task.urgencyScore,
+              escalationLevel: task.escalationLevel,
+            });
+            // Then re-score with AI
+            const scoring = await scoreTaskUrgency(
+              task.title,
+              task.description || "",
+              task.dueDate ? task.dueDate.toISOString().split("T")[0] : null,
+              task.category || "other",
+              task.createdAt.toISOString().split("T")[0]
+            );
+            // Apply escalation boost to urgency
+            const finalUrgency = Math.min(10, scoring.urgencyScore + escalation.urgencyBoost);
+            const finalPriorityScore = finalUrgency * 0.6 + scoring.importanceScore * 0.4;
+            const finalQuadrant = finalUrgency >= 6 && scoring.importanceScore >= 6 ? "do_first" as const
+              : finalUrgency < 6 && scoring.importanceScore >= 6 ? "schedule" as const
+              : finalUrgency >= 6 && scoring.importanceScore < 6 ? "delegate" as const
+              : "archive" as const;
+            await db.updateTaskUrgency(task.id, ctx.user.id, {
+              urgencyScore: finalUrgency,
+              importanceScore: scoring.importanceScore,
+              priorityScore: Math.round(finalPriorityScore * 10),
+              quadrant: finalQuadrant,
+              escalationLevel: escalation.newEscalationLevel,
+              suggestedAction: scoring.suggestedAction,
+              isOverdue: escalation.isOverdue,
+            });
+            updated++;
+            if (updated % 10 === 0) console.log(`[Reprioritize] Progress: ${updated}/${pendingTasks.length}`);
+          } catch (err) {
+            console.error(`[Reprioritize] Failed for task ${task.id}:`, err);
+            failed++;
+          }
+        }
+        console.log(`[Reprioritize] Complete: ${updated} updated, ${failed} failed`);
+        return { total: pendingTasks.length, updated, failed };
+      }),
+    snooze: protectedProcedure
+      .input(z.object({ taskId: z.number(), hours: z.number().default(24) }))
+      .mutation(async ({ ctx, input }) => {
+        const until = new Date(Date.now() + input.hours * 60 * 60 * 1000);
+        await db.snoozeTask(input.taskId, ctx.user.id, until);
+        return { success: true, snoozedUntil: until };
       }),
     create: protectedProcedure
       .input(z.object({

@@ -423,3 +423,72 @@ export async function deleteEmployee(employeeId: number, userId: number) {
   if (!db) return;
   await db.update(employees).set({ isActive: false }).where(and(eq(employees.id, employeeId), eq(employees.userId, userId)));
 }
+
+// ===== URGENCY / PRIORITY QUERIES =====
+
+export async function updateTaskUrgency(taskId: number, userId: number, data: {
+  urgencyScore: number;
+  importanceScore: number;
+  priorityScore: number;
+  quadrant: "do_first" | "schedule" | "delegate" | "archive";
+  escalationLevel?: number;
+  suggestedAction?: string;
+  isOverdue?: boolean;
+  snoozedUntil?: Date | null;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(tasks).set(data).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function getTasksByUserPrioritized(userId: number, limit: number = 200) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks)
+    .where(eq(tasks.userId, userId))
+    .orderBy(desc(tasks.priorityScore), desc(tasks.urgencyScore))
+    .limit(limit);
+}
+
+export async function getTasksByQuadrant(userId: number, quadrant: "do_first" | "schedule" | "delegate" | "archive") {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks)
+    .where(and(eq(tasks.userId, userId), eq(tasks.quadrant, quadrant)))
+    .orderBy(desc(tasks.priorityScore))
+    .limit(200);
+}
+
+export async function getPendingTasksForReprioritization(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks)
+    .where(and(
+      eq(tasks.userId, userId),
+      sql`${tasks.status} IN ('pending', 'in_progress')`
+    ))
+    .orderBy(desc(tasks.createdAt));
+}
+
+export async function getPriorityDistribution(userId: number) {
+  const db = await getDb();
+  if (!db) return { do_first: 0, schedule: 0, delegate: 0, archive: 0, unscored: 0 };
+  const [doFirst] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "do_first")));
+  const [schedule] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "schedule")));
+  const [delegate] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "delegate")));
+  const [archive] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "archive")));
+  const [unscored] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), sql`${tasks.urgencyScore} IS NULL OR ${tasks.urgencyScore} = 5`));
+  return {
+    do_first: doFirst?.count || 0,
+    schedule: schedule?.count || 0,
+    delegate: delegate?.count || 0,
+    archive: archive?.count || 0,
+    unscored: unscored?.count || 0,
+  };
+}
+
+export async function snoozeTask(taskId: number, userId: number, until: Date) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(tasks).set({ snoozedUntil: until }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}

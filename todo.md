@@ -73,3 +73,15 @@
 - [x] Update sidebar navigation with WhatsApp pages
 - [ ] Request WhatsApp API secrets from user (deferred — user will add later)
 - [x] Write vitest tests for WhatsApp integration (23/23 passing)
+
+## Urgency-Based Task Prioritization (Eisenhower Matrix)
+- [x] Add urgency/importance scoring fields to tasks table (urgencyScore, importanceScore, priorityScore, quadrant, escalationLevel, isOverdue, snoozedUntil)
+- [x] Update AI classification to score urgency (1-10) and importance (1-10) for each task
+- [x] Implement priority score formula: priorityScore = urgency * 0.6 + importance * 0.4
+- [x] Assign Eisenhower quadrant: do_first / schedule / delegate / archive
+- [x] Add escalation logic: auto-bump overdue tasks, detect follow-ups, deadline alerts
+- [x] Add re-prioritization endpoint to recalculate all task priorities
+- [x] Build Priority View page with 2x2 Eisenhower Matrix grid
+- [x] Update Task Board with priority sorting, urgency badges, quadrant indicators
+- [x] Add Priority Matrix to sidebar navigation
+- [x] Write vitest tests for urgency scoring and escalation (17 tests, 40 total passing)
