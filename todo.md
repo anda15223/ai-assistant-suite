@@ -105,3 +105,14 @@
 - [x] Update Task Board UI with email link button, category dropdown, and new filter tabs (Lectures, Learn, Interesting)
 - [x] Update Priority Matrix task cards with email link button and category dropdown
 - [x] Write vitest tests for category reassignment and email link (21 tests, 79 total passing)
+
+## Email Detail Page
+- [x] Add tRPC endpoint to fetch single email by ID with linked tasks and draft replies (updated email.get to include linkedTasks)
+- [x] Add getTasksByEmailId db helper to fetch tasks linked to an email
+- [x] Build EmailDetail page showing full email body, headers (From/To/Date/MessageID), sender, classification badge
+- [x] Show linked tasks on the email detail page with category badges, quadrant icons, priority scores, and status
+- [x] Show draft replies on the email detail page (pending draft with approve/edit/reject, sent history)
+- [x] HTML/Plain text toggle for emails with HTML content
+- [x] Route /emails/:id already existed in App.tsx — confirmed working
+- [x] "Open Email" button in Task Board and Priority Matrix already navigates to /emails/:emailId
+- [x] Write vitest tests for email detail logic (20 tests, 99 total passing across 8 files)

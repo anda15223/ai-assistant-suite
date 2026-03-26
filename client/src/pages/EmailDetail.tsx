@@ -3,7 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Bot, Send, Check, X, RefreshCw, Loader2, FileText, CheckSquare, Clock, Mail } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ArrowLeft, Bot, Send, Check, X, RefreshCw, Loader2, FileText,
+  CheckSquare, Clock, Mail, User, Calendar, Tag, ArrowRight,
+  BookOpen, GraduationCap, Lightbulb, Flame, Users, Archive,
+  Zap, AlertTriangle,
+} from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -17,6 +24,45 @@ const classificationConfig: Record<string, { label: string; color: string; icon:
   irrelevant: { label: "Irrelevant", color: "bg-gray-500/10 text-gray-500 border-gray-500/20", icon: Mail },
 };
 
+const categoryColorMap: Record<string, string> = {
+  task: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  invoice: "bg-green-500/10 text-green-400 border-green-500/30",
+  read_lecture: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  read_learn: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+  might_be_interesting: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
+};
+
+const categoryLabelMap: Record<string, string> = {
+  task: "Task",
+  invoice: "Invoice",
+  read_lecture: "Lecture",
+  read_learn: "Learn",
+  might_be_interesting: "Interesting",
+  correspondence: "Correspondence",
+};
+
+const categoryIconMap: Record<string, any> = {
+  task: CheckSquare,
+  invoice: FileText,
+  read_lecture: BookOpen,
+  read_learn: GraduationCap,
+  might_be_interesting: Lightbulb,
+};
+
+const statusConfig: Record<string, { label: string; color: string }> = {
+  pending: { label: "Pending", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+  in_progress: { label: "In Progress", color: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
+  completed: { label: "Completed", color: "bg-green-500/10 text-green-500 border-green-500/20" },
+  dismissed: { label: "Dismissed", color: "bg-gray-500/10 text-gray-400 border-gray-500/20" },
+};
+
+const quadrantConfig: Record<string, { icon: any; color: string; label: string }> = {
+  do_first: { icon: Flame, color: "text-red-400", label: "Do First" },
+  schedule: { icon: Calendar, color: "text-amber-400", label: "Schedule" },
+  delegate: { icon: Users, color: "text-blue-400", label: "Delegate" },
+  archive: { icon: Archive, color: "text-gray-400", label: "Archive" },
+};
+
 export default function EmailDetail({ id }: { id: string }) {
   const [, navigate] = useLocation();
   const emailId = parseInt(id, 10);
@@ -24,6 +70,7 @@ export default function EmailDetail({ id }: { id: string }) {
   const [draftBody, setDraftBody] = useState("");
   const [instructions, setInstructions] = useState("");
   const [showInstructions, setShowInstructions] = useState(false);
+  const [showHtml, setShowHtml] = useState(false);
 
   const generateDraft = trpc.draft.generate.useMutation({
     onSuccess: (data) => {
@@ -66,8 +113,9 @@ export default function EmailDetail({ id }: { id: string }) {
   if (!email.data) {
     return (
       <div className="text-center py-20">
-        <p className="text-muted-foreground">Email not found</p>
-        <Button variant="ghost" onClick={() => navigate("/emails")} className="mt-4">
+        <Mail className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+        <p className="text-muted-foreground mb-4">Email not found</p>
+        <Button variant="ghost" onClick={() => navigate("/emails")}>
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Inbox
         </Button>
       </div>
@@ -76,8 +124,11 @@ export default function EmailDetail({ id }: { id: string }) {
 
   const e = email.data;
   const config = classificationConfig[e.classification || "general"];
+  const ClassIcon = config?.icon || Mail;
   const analysis = e.aiAnalysis as any;
   const pendingDraft = e.drafts?.find((d: any) => d.status === "pending");
+  const linkedTasks = (e as any).linkedTasks || [];
+  const hasHtml = !!e.bodyHtml;
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -86,34 +137,167 @@ export default function EmailDetail({ id }: { id: string }) {
         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Inbox
       </Button>
 
-      {/* Email header */}
+      {/* Email header card */}
       <Card>
         <CardContent className="pt-6">
+          {/* Subject + Classification */}
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex-1 min-w-0">
               <h1 className="text-xl font-bold text-foreground mb-2">{e.subject || "(No Subject)"}</h1>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{e.fromName || e.fromAddress}</span>
-                {e.fromName && <span>&lt;{e.fromAddress}&gt;</span>}
-                <span>·</span>
-                <span>{e.receivedAt ? format(new Date(e.receivedAt), "MMM d, yyyy 'at' HH:mm") : ""}</span>
+              <div className="flex items-center gap-2">
+                {e.classification && (
+                  <Badge variant="outline" className={`${config?.color || ""}`}>
+                    <ClassIcon className="w-3 h-3 mr-1" />
+                    {config?.label}
+                  </Badge>
+                )}
+                {e.isRead ? (
+                  <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-400 border-green-500/20">Read</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20">Unread</Badge>
+                )}
               </div>
             </div>
-            {e.classification && (
-              <Badge variant="outline" className={`${config?.color || ""} shrink-0`}>
-                {config?.label}
-              </Badge>
+          </div>
+
+          {/* Sender/Recipient details */}
+          <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border/50">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground w-12 shrink-0">From:</span>
+              <User className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="font-medium text-foreground">{e.fromName || "Unknown"}</span>
+              {e.fromAddress && (
+                <span className="text-muted-foreground">&lt;{e.fromAddress}&gt;</span>
+              )}
+            </div>
+            {e.toAddress && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground w-12 shrink-0">To:</span>
+                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-foreground">{e.toAddress}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground w-12 shrink-0">Date:</span>
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-foreground">
+                {e.receivedAt ? format(new Date(e.receivedAt), "EEEE, MMMM d, yyyy 'at' HH:mm") : "Unknown date"}
+              </span>
+            </div>
+            {e.messageId && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground w-12 shrink-0">ID:</span>
+                <span className="text-xs text-muted-foreground font-mono truncate">{e.messageId}</span>
+              </div>
             )}
           </div>
 
+          <Separator className="my-4" />
+
           {/* Email body */}
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="prose prose-sm prose-invert max-w-none text-sm text-muted-foreground whitespace-pre-wrap">
-              {e.body || "(No content)"}
-            </div>
+          <div>
+            {hasHtml && (
+              <div className="flex justify-end mb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-6"
+                  onClick={() => setShowHtml(!showHtml)}
+                >
+                  {showHtml ? "Show Plain Text" : "Show HTML"}
+                </Button>
+              </div>
+            )}
+            {showHtml && hasHtml ? (
+              <div
+                className="prose prose-sm prose-invert max-w-none text-sm rounded-lg border border-border/50 p-4 bg-background overflow-auto max-h-[600px]"
+                dangerouslySetInnerHTML={{ __html: e.bodyHtml! }}
+              />
+            ) : (
+              <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-[600px] overflow-auto">
+                {e.body || "(No content)"}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Linked Tasks */}
+      {linkedTasks.length > 0 && (
+        <Card className="border-teal-500/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <CheckSquare className="w-4 h-4 text-teal-500" />
+                Linked Tasks
+              </CardTitle>
+              <Badge variant="outline" className="text-[10px]">{linkedTasks.length}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {linkedTasks.map((task: any) => {
+              const catColor = task.category ? categoryColorMap[task.category] || "" : "";
+              const catLabel = task.category ? (categoryLabelMap[task.category] || task.category) : "Uncategorized";
+              const CatIcon = task.category ? (categoryIconMap[task.category] || Tag) : Tag;
+              const sConfig = statusConfig[task.status] || statusConfig.pending;
+              const qConfig = task.quadrant ? quadrantConfig[task.quadrant] : null;
+              const QuadrantIcon = qConfig?.icon || null;
+              const hasUrgency = task.urgencyScore && task.urgencyScore !== 5;
+              const priorityScore = hasUrgency ? Math.round((task.urgencyScore || 5) * 0.6 + (task.importanceScore || 5) * 0.4) : null;
+
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card hover:border-teal-500/30 transition-colors cursor-pointer"
+                  onClick={() => navigate("/tasks")}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {QuadrantIcon && (
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <QuadrantIcon className={`w-4 h-4 shrink-0 ${qConfig?.color}`} />
+                        </TooltipTrigger>
+                        <TooltipContent>{qConfig?.label}</TooltipContent>
+                      </Tooltip>
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-foreground truncate">{task.title}</span>
+                        {priorityScore && (
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-mono ${
+                            priorityScore >= 8 ? "bg-red-500/20 text-red-400 border-red-500/40"
+                            : priorityScore >= 6 ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                            : "bg-blue-500/20 text-blue-400 border-blue-500/40"
+                          }`}>
+                            <Zap className="inline h-2.5 w-2.5 mr-0.5" />
+                            {priorityScore}/10
+                          </Badge>
+                        )}
+                      </div>
+                      {task.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{task.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${catColor}`}>
+                      <CatIcon className="inline h-2.5 w-2.5 mr-0.5" />
+                      {catLabel}
+                    </Badge>
+                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${sConfig.color}`}>
+                      {sConfig.label}
+                    </Badge>
+                    {task.isOverdue && (
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                    )}
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* AI Analysis */}
       {e.isProcessed && (
@@ -198,7 +382,7 @@ export default function EmailDetail({ id }: { id: string }) {
                 </div>
                 <Textarea
                   value={draftBody || pendingDraft.body}
-                  onChange={(e) => setDraftBody(e.target.value)}
+                  onChange={(ev) => setDraftBody(ev.target.value)}
                   rows={6}
                   className="mt-2"
                 />
@@ -255,7 +439,7 @@ export default function EmailDetail({ id }: { id: string }) {
                 <Textarea
                   placeholder="Optional: Add instructions for the AI (e.g., 'Be more formal', 'Mention the deadline')"
                   value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
+                  onChange={(ev) => setInstructions(ev.target.value)}
                   rows={2}
                 />
               )}

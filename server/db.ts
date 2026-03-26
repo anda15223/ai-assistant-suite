@@ -278,6 +278,12 @@ export async function getDraftsByEmail(emailId: number, userId: number) {
   return db.select().from(draftReplies).where(and(eq(draftReplies.emailId, emailId), eq(draftReplies.userId, userId))).orderBy(desc(draftReplies.createdAt));
 }
 
+export async function getTasksByEmailId(emailId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks).where(and(eq(tasks.emailId, emailId), eq(tasks.userId, userId))).orderBy(desc(tasks.createdAt));
+}
+
 export async function getDraftsByUser(userId: number) {
   const db = await getDb();
   if (!db) return [];

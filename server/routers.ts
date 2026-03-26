@@ -90,7 +90,8 @@ export const appRouter = router({
         if (!email) throw new Error("Email not found");
         if (!email.isRead) await db.markEmailRead(email.id);
         const drafts = await db.getDraftsByEmail(email.id, ctx.user.id);
-        return { ...email, drafts };
+        const linkedTasks = await db.getTasksByEmailId(email.id, ctx.user.id);
+        return { ...email, drafts, linkedTasks };
       }),
     sync: protectedProcedure
       .input(z.object({ fullResync: z.boolean().optional() }).optional())
