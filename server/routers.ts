@@ -584,6 +584,28 @@ export const appRouter = router({
         await db.touchTaskActivity(input.taskId, ctx.user.id);
         return { success: true };
       }),
+
+    // ===== CATEGORY REASSIGNMENT =====
+    updateCategory: protectedProcedure
+      .input(z.object({
+        taskId: z.number(),
+        category: z.string().min(1).max(100),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.updateTaskCategory(input.taskId, ctx.user.id, input.category);
+        // Touch activity since user is interacting with this task
+        await db.touchTaskActivity(input.taskId, ctx.user.id);
+        console.log(`[CategoryUpdate] Task ${input.taskId} → "${input.category}" by user ${ctx.user.id}`);
+        return { success: true, category: input.category };
+      }),
+
+    // ===== EMAIL LINK =====
+    getEmailId: protectedProcedure
+      .input(z.object({ taskId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const emailId = await db.getTaskEmailId(input.taskId, ctx.user.id);
+        return { emailId };
+      }),
   }),
 });
 

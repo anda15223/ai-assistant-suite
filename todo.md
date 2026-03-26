@@ -95,3 +95,13 @@
 - [x] Add auto-archive card to Dashboard (shows candidates count + dismiss button)
 - [x] Add auto-archive section to Priority Matrix page (preview list + dismiss button)
 - [x] Write vitest tests for auto-archive logic (18 tests, 58 total passing)
+
+## Task-Email Linking & Category Reassignment
+- [x] Add "Open Email" button on every task card that links to the original email
+- [x] Add manual category reassignment dropdown on task cards
+- [x] Add new task categories: "read_lecture" (Read as Lecture), "read_learn" (Read to Learn), "might_be_interesting" (Might Be Interesting)
+- [x] Create tRPC endpoints for updating task category (updateCategory) and getting email link (getEmailId)
+- [x] Add db helpers: updateTaskCategory, getTaskEmailId
+- [x] Update Task Board UI with email link button, category dropdown, and new filter tabs (Lectures, Learn, Interesting)
+- [x] Update Priority Matrix task cards with email link button and category dropdown
+- [x] Write vitest tests for category reassignment and email link (21 tests, 79 total passing)

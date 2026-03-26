@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { trpc } from "@/lib/trpc";
 import {
   AlertTriangle,
@@ -20,9 +21,41 @@ import {
   Moon,
   Trash2,
   Timer,
+  ExternalLink,
+  Tag,
+  BookOpen,
+  GraduationCap,
+  Lightbulb,
+  FileText,
+  CheckSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useLocation } from "wouter";
+
+const TASK_CATEGORIES = [
+  { value: "task", label: "Task", icon: CheckSquare, color: "text-blue-400" },
+  { value: "invoice", label: "Invoice", icon: FileText, color: "text-green-400" },
+  { value: "read_lecture", label: "Read as Lecture", icon: BookOpen, color: "text-purple-400" },
+  { value: "read_learn", label: "Read to Learn", icon: GraduationCap, color: "text-cyan-400" },
+  { value: "might_be_interesting", label: "Might Be Interesting", icon: Lightbulb, color: "text-yellow-400" },
+];
+
+const categoryColorMap: Record<string, string> = {
+  task: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  invoice: "bg-green-500/10 text-green-400 border-green-500/30",
+  read_lecture: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  read_learn: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+  might_be_interesting: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
+};
+
+const categoryLabelMap: Record<string, string> = {
+  task: "Task",
+  invoice: "Invoice",
+  read_lecture: "Lecture",
+  read_learn: "Learn",
+  might_be_interesting: "Interesting",
+};
 
 const quadrantConfig = {
   do_first: {
@@ -73,13 +106,18 @@ function UrgencyBar({ score, label }: { score: number; label: string }) {
   );
 }
 
-function TaskCard({ task, onSnooze, onStatusChange }: {
+function TaskCard({ task, onSnooze, onStatusChange, onCategoryChange, onOpenEmail }: {
   task: any;
   onSnooze: (taskId: number) => void;
   onStatusChange: (taskId: number, status: string) => void;
+  onCategoryChange: (taskId: number, category: string) => void;
+  onOpenEmail: (emailId: number) => void;
 }) {
   const isOverdue = task.isOverdue;
   const isSnoozed = task.snoozedUntil && new Date(task.snoozedUntil) > new Date();
+  const hasEmail = task.emailId != null;
+  const catColor = task.category ? categoryColorMap[task.category] || "" : "";
+  const catLabel = task.category ? (categoryLabelMap[task.category] || task.category) : "other";
 
   return (
     <div className={`p-3 rounded-lg border transition-all hover:border-amber-500/40 ${
@@ -88,6 +126,16 @@ function TaskCard({ task, onSnooze, onStatusChange }: {
       <div className="flex items-start justify-between gap-2 mb-2">
         <h4 className="text-sm font-medium text-foreground leading-tight line-clamp-2">{task.title}</h4>
         <div className="flex items-center gap-1 shrink-0">
+          {hasEmail && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-blue-400 hover:text-blue-300" onClick={() => onOpenEmail(task.emailId)}>
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Open email</TooltipContent>
+            </Tooltip>
+          )}
           {isOverdue && (
             <Tooltip>
               <TooltipTrigger>
@@ -129,9 +177,38 @@ function TaskCard({ task, onSnooze, onStatusChange }: {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-            {task.category || "other"}
-          </Badge>
+          {/* Category badge with dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="inline-flex items-center focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded">
+                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 cursor-pointer hover:opacity-80 transition-opacity ${catColor}`}>
+                  <Tag className="inline h-2.5 w-2.5 mr-0.5" />
+                  {catLabel}
+                </Badge>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuLabel className="text-xs">Change Category</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {TASK_CATEGORIES.map(cat => {
+                const CatIcon = cat.icon;
+                const isActive = task.category === cat.value;
+                return (
+                  <DropdownMenuItem
+                    key={cat.value}
+                    onClick={() => {
+                      if (!isActive) onCategoryChange(task.id, cat.value);
+                    }}
+                    className={`cursor-pointer ${isActive ? "bg-accent" : ""}`}
+                  >
+                    <CatIcon className={`w-3.5 h-3.5 mr-2 ${cat.color}`} />
+                    <span className="text-sm">{cat.label}</span>
+                    {isActive && <span className="ml-auto text-xs text-muted-foreground">current</span>}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {task.dueDate && (
             <span className={`text-[10px] ${isOverdue ? "text-red-400" : "text-muted-foreground"}`}>
               <Clock className="inline h-2.5 w-2.5 mr-0.5" />
@@ -164,11 +241,13 @@ function TaskCard({ task, onSnooze, onStatusChange }: {
   );
 }
 
-function QuadrantPanel({ quadrant, tasks, onSnooze, onStatusChange }: {
+function QuadrantPanel({ quadrant, tasks, onSnooze, onStatusChange, onCategoryChange, onOpenEmail }: {
   quadrant: keyof typeof quadrantConfig;
   tasks: any[];
   onSnooze: (taskId: number) => void;
   onStatusChange: (taskId: number, status: string) => void;
+  onCategoryChange: (taskId: number, category: string) => void;
+  onOpenEmail: (emailId: number) => void;
 }) {
   const config = quadrantConfig[quadrant];
   const Icon = config.icon;
@@ -191,7 +270,14 @@ function QuadrantPanel({ quadrant, tasks, onSnooze, onStatusChange }: {
           <p className="text-xs text-muted-foreground text-center py-4">No tasks in this quadrant</p>
         ) : (
           activeTasks.map(task => (
-            <TaskCard key={task.id} task={task} onSnooze={onSnooze} onStatusChange={onStatusChange} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              onSnooze={onSnooze}
+              onStatusChange={onStatusChange}
+              onCategoryChange={onCategoryChange}
+              onOpenEmail={onOpenEmail}
+            />
           ))
         )}
       </CardContent>
@@ -201,6 +287,7 @@ function QuadrantPanel({ quadrant, tasks, onSnooze, onStatusChange }: {
 
 export default function PriorityView() {
   const { user, loading: authLoading } = useAuth();
+  const [, navigate] = useLocation();
   const [isReprioritizing, setIsReprioritizing] = useState(false);
 
   const { data: allTasks, isLoading: tasksLoading, refetch: refetchTasks } = trpc.task.prioritized.useQuery();
@@ -252,6 +339,15 @@ export default function PriorityView() {
     },
   });
 
+  const categoryMutation = trpc.task.updateCategory.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Category changed to "${categoryLabelMap[data.category] || data.category}"`);
+      refetchTasks();
+      refetchDist();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   if (authLoading) return <DashboardLayoutSkeleton />;
   if (!user) return <DashboardLayoutSkeleton />;
 
@@ -264,6 +360,14 @@ export default function PriorityView() {
   };
 
   const totalActive = (allTasks || []).filter((t: any) => t.status !== "completed" && t.status !== "dismissed").length;
+
+  const handleCategoryChange = (taskId: number, category: string) => {
+    categoryMutation.mutate({ taskId, category });
+  };
+
+  const handleOpenEmail = (emailId: number) => {
+    navigate(`/emails/${emailId}`);
+  };
 
   return (
     <DashboardLayout>
@@ -331,12 +435,16 @@ export default function PriorityView() {
               tasks={tasksByQuadrant.do_first}
               onSnooze={(id) => snoozeMutation.mutate({ taskId: id, hours: 24 })}
               onStatusChange={(id, status) => statusMutation.mutate({ taskId: id, status: status as any })}
+              onCategoryChange={handleCategoryChange}
+              onOpenEmail={handleOpenEmail}
             />
             <QuadrantPanel
               quadrant="schedule"
               tasks={tasksByQuadrant.schedule}
               onSnooze={(id) => snoozeMutation.mutate({ taskId: id, hours: 24 })}
               onStatusChange={(id, status) => statusMutation.mutate({ taskId: id, status: status as any })}
+              onCategoryChange={handleCategoryChange}
+              onOpenEmail={handleOpenEmail}
             />
             {/* Row 2: Urgent+Not Important | Not Urgent+Not Important */}
             <QuadrantPanel
@@ -344,12 +452,16 @@ export default function PriorityView() {
               tasks={tasksByQuadrant.delegate}
               onSnooze={(id) => snoozeMutation.mutate({ taskId: id, hours: 24 })}
               onStatusChange={(id, status) => statusMutation.mutate({ taskId: id, status: status as any })}
+              onCategoryChange={handleCategoryChange}
+              onOpenEmail={handleOpenEmail}
             />
             <QuadrantPanel
               quadrant="archive"
               tasks={tasksByQuadrant.archive}
               onSnooze={(id) => snoozeMutation.mutate({ taskId: id, hours: 24 })}
               onStatusChange={(id, status) => statusMutation.mutate({ taskId: id, status: status as any })}
+              onCategoryChange={handleCategoryChange}
+              onOpenEmail={handleOpenEmail}
             />
           </div>
         )}

@@ -6,15 +6,41 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   CheckSquare, Plus, Loader2, Mail, MessageSquare, User, ArrowRight,
   Flame, Calendar, Users, Archive, AlertTriangle, ArrowUp, Zap,
+  ExternalLink, Tag, BookOpen, GraduationCap, Lightbulb, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+
+const TASK_CATEGORIES = [
+  { value: "task", label: "Task", icon: CheckSquare, color: "text-blue-400" },
+  { value: "invoice", label: "Invoice", icon: FileText, color: "text-green-400" },
+  { value: "read_lecture", label: "Read as Lecture", icon: BookOpen, color: "text-purple-400" },
+  { value: "read_learn", label: "Read to Learn", icon: GraduationCap, color: "text-cyan-400" },
+  { value: "might_be_interesting", label: "Might Be Interesting", icon: Lightbulb, color: "text-yellow-400" },
+];
+
+const categoryColorMap: Record<string, string> = {
+  task: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  invoice: "bg-green-500/10 text-green-400 border-green-500/30",
+  read_lecture: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  read_learn: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+  might_be_interesting: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
+};
+
+const categoryLabelMap: Record<string, string> = {
+  task: "Task",
+  invoice: "Invoice",
+  read_lecture: "Lecture",
+  read_learn: "Learn",
+  might_be_interesting: "Interesting",
+};
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
   urgent: { label: "Urgent", color: "bg-red-500/10 text-red-500 border-red-500/20" },
@@ -70,6 +96,7 @@ function UrgencyBadge({ urgency, importance }: { urgency: number; importance: nu
 }
 
 export default function TaskBoard() {
+  const [, navigate] = useLocation();
   const taskList = trpc.task.prioritized.useQuery();
   const taskStats = trpc.task.stats.useQuery();
   const createTask = trpc.task.create.useMutation({
@@ -91,6 +118,14 @@ export default function TaskBoard() {
     },
     onError: (err) => toast.error(err.message),
   });
+  const updateCategory = trpc.task.updateCategory.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Category changed to "${categoryLabelMap[data.category] || data.category}"`);
+      taskList.refetch();
+      taskStats.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   const [statusFilter, setStatusFilter] = useState("active");
   const [sortBy, setSortBy] = useState<"priority" | "date" | "due">("priority");
@@ -104,6 +139,9 @@ export default function TaskBoard() {
     let filtered: typeof taskList.data;
     if (statusFilter === "active") filtered = taskList.data.filter(t => t.status === "pending" || t.status === "in_progress");
     else if (statusFilter === "invoices") filtered = taskList.data.filter(t => t.category === "invoice" && (t.status === "pending" || t.status === "in_progress"));
+    else if (statusFilter === "read_lecture") filtered = taskList.data.filter(t => t.category === "read_lecture");
+    else if (statusFilter === "read_learn") filtered = taskList.data.filter(t => t.category === "read_learn");
+    else if (statusFilter === "might_be_interesting") filtered = taskList.data.filter(t => t.category === "might_be_interesting");
     else if (statusFilter === "completed") filtered = taskList.data.filter(t => t.status === "completed");
     else if (statusFilter === "dismissed") filtered = taskList.data.filter(t => t.status === "dismissed");
     else filtered = [...taskList.data];
@@ -123,6 +161,18 @@ export default function TaskBoard() {
     }
     return filtered;
   }, [taskList.data, statusFilter, sortBy]);
+
+  // Count tasks per category for filter tabs
+  const categoryCounts = useMemo(() => {
+    if (!taskList.data) return {} as Record<string, number>;
+    const counts: Record<string, number> = {};
+    taskList.data.forEach(t => {
+      if (t.category) {
+        counts[t.category] = (counts[t.category] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [taskList.data]);
 
   return (
     <div className="space-y-4">
@@ -209,21 +259,28 @@ export default function TaskBoard() {
         <div className="flex gap-1.5 flex-wrap">
           {[
             { key: "active", label: "Active" },
-            { key: "invoices", label: "Invoices" },
+            { key: "invoices", label: `Invoices${categoryCounts["invoice"] ? ` (${categoryCounts["invoice"]})` : ""}` },
+            { key: "read_lecture", label: `Lectures${categoryCounts["read_lecture"] ? ` (${categoryCounts["read_lecture"]})` : ""}`, icon: BookOpen },
+            { key: "read_learn", label: `Learn${categoryCounts["read_learn"] ? ` (${categoryCounts["read_learn"]})` : ""}`, icon: GraduationCap },
+            { key: "might_be_interesting", label: `Interesting${categoryCounts["might_be_interesting"] ? ` (${categoryCounts["might_be_interesting"]})` : ""}`, icon: Lightbulb },
             { key: "completed", label: "Completed" },
             { key: "dismissed", label: "Dismissed" },
             { key: "all", label: "All" },
-          ].map(f => (
-            <Button
-              key={f.key}
-              variant={statusFilter === f.key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter(f.key)}
-              className={statusFilter === f.key ? "bg-amber-500 hover:bg-amber-600 text-black" : ""}
-            >
-              {f.label}
-            </Button>
-          ))}
+          ].map(f => {
+            const FIcon = (f as any).icon;
+            return (
+              <Button
+                key={f.key}
+                variant={statusFilter === f.key ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter(f.key)}
+                className={statusFilter === f.key ? "bg-amber-500 hover:bg-amber-600 text-black" : ""}
+              >
+                {FIcon && <FIcon className="w-3 h-3 mr-1" />}
+                {f.label}
+              </Button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground">Sort:</span>
@@ -254,7 +311,7 @@ export default function TaskBoard() {
         <Card>
           <CardContent className="py-16 text-center">
             <CheckSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <h3 className="font-semibold text-foreground mb-1">No tasks found</h3>
+            <h3 className="text-lg font-semibold mb-1">No tasks found</h3>
             <p className="text-sm text-muted-foreground">
               Tasks will appear here when extracted from emails or created manually.
             </p>
@@ -269,6 +326,9 @@ export default function TaskBoard() {
             const qConfig = task.quadrant ? quadrantConfig[task.quadrant] : null;
             const QuadrantIcon = qConfig?.icon || null;
             const hasUrgency = task.urgencyScore && task.urgencyScore !== 5;
+            const catColor = task.category ? categoryColorMap[task.category] || "" : "";
+            const catLabel = task.category ? (categoryLabelMap[task.category] || task.category) : null;
+            const hasEmail = task.emailId != null;
 
             return (
               <Card key={task.id} className={`hover:border-amber-500/20 transition-colors ${task.isOverdue ? "border-red-500/30 bg-red-500/5" : ""}`}>
@@ -297,11 +357,40 @@ export default function TaskBoard() {
                         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${sConfig?.color || ""}`}>
                           {sConfig?.label}
                         </Badge>
-                        {task.category && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                            {task.category}
-                          </Badge>
-                        )}
+                        {/* Category badge with dropdown to reassign */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="inline-flex items-center focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded">
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 cursor-pointer hover:opacity-80 transition-opacity ${catColor}`}>
+                                <Tag className="inline h-2.5 w-2.5 mr-0.5" />
+                                {catLabel || "Uncategorized"}
+                              </Badge>
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuLabel className="text-xs">Change Category</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {TASK_CATEGORIES.map(cat => {
+                              const CatIcon = cat.icon;
+                              const isActive = task.category === cat.value;
+                              return (
+                                <DropdownMenuItem
+                                  key={cat.value}
+                                  onClick={() => {
+                                    if (!isActive) {
+                                      updateCategory.mutate({ taskId: task.id, category: cat.value });
+                                    }
+                                  }}
+                                  className={`cursor-pointer ${isActive ? "bg-accent" : ""}`}
+                                >
+                                  <CatIcon className={`w-3.5 h-3.5 mr-2 ${cat.color}`} />
+                                  <span className="text-sm">{cat.label}</span>
+                                  {isActive && <span className="ml-auto text-xs text-muted-foreground">current</span>}
+                                </DropdownMenuItem>
+                              );
+                            })}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         {task.isOverdue && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-500/20 text-red-400 border-red-500/40">
                             <AlertTriangle className="inline h-2.5 w-2.5 mr-0.5" />
@@ -335,7 +424,23 @@ export default function TaskBoard() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
+                    <div className="flex flex-col gap-1 shrink-0">
+                      {/* Open Email button */}
+                      {hasEmail && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs text-blue-400 hover:text-blue-300"
+                              onClick={() => navigate(`/emails/${task.emailId}`)}
+                            >
+                              <ExternalLink className="w-3 h-3 mr-1" /> Email
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Open original email</TooltipContent>
+                        </Tooltip>
+                      )}
                       {task.status === "pending" && (
                         <>
                           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => updateStatus.mutate({ taskId: task.id, status: "in_progress" })}>

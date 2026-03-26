@@ -242,6 +242,19 @@ export async function updateTaskStatus(taskId: number, userId: number, status: "
   await db.update(tasks).set({ status }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
 }
 
+export async function updateTaskCategory(taskId: number, userId: number, category: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(tasks).set({ category }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function getTaskEmailId(taskId: number, userId: number): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select({ emailId: tasks.emailId }).from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).limit(1);
+  return rows[0]?.emailId ?? null;
+}
+
 export async function getTaskStats(userId: number) {
   const db = await getDb();
   if (!db) return { total: 0, pending: 0, inProgress: 0, completed: 0 };
