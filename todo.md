@@ -85,3 +85,13 @@
 - [x] Update Task Board with priority sorting, urgency badges, quadrant indicators
 - [x] Add Priority Matrix to sidebar navigation
 - [x] Write vitest tests for urgency scoring and escalation (17 tests, 40 total passing)
+
+## Auto-Archive Feature
+- [x] Add auto-archive logic: dismiss tasks in 'archive' quadrant after 30 days of inactivity
+- [x] Add lastActivityAt and autoArchivedAt fields to tasks table (already existed in schema)
+- [x] Create auto-archive query helpers (getStaleArchiveTasks, autoArchiveTasks, touchTaskActivity, getAutoArchiveStats)
+- [x] Create auto-archive tRPC endpoints (autoArchiveStats, autoArchivePreview, autoArchiveRun, touchActivity)
+- [x] Touch lastActivityAt on every task status change to reset inactivity timer
+- [x] Add auto-archive card to Dashboard (shows candidates count + dismiss button)
+- [x] Add auto-archive section to Priority Matrix page (preview list + dismiss button)
+- [x] Write vitest tests for auto-archive logic (18 tests, 58 total passing)

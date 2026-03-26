@@ -536,11 +536,54 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         await db.updateTaskStatus(input.taskId, ctx.user.id, input.status);
+        // Touch activity so the inactivity timer resets on any status change
+        await db.touchTaskActivity(input.taskId, ctx.user.id);
         return { success: true };
       }),
     stats: protectedProcedure.query(async ({ ctx }) => {
       return db.getTaskStats(ctx.user.id);
     }),
+
+    // ===== AUTO-ARCHIVE FEATURE =====
+    autoArchiveStats: protectedProcedure
+      .input(z.object({ daysInactive: z.number().min(1).max(365).default(30) }).optional())
+      .query(async ({ ctx, input }) => {
+        const days = input?.daysInactive || 30;
+        return db.getAutoArchiveStats(ctx.user.id, days);
+      }),
+    autoArchivePreview: protectedProcedure
+      .input(z.object({ daysInactive: z.number().min(1).max(365).default(30) }).optional())
+      .query(async ({ ctx, input }) => {
+        const days = input?.daysInactive || 30;
+        const staleTasks = await db.getStaleArchiveTasks(ctx.user.id, days);
+        return staleTasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          category: t.category,
+          lastActivityAt: t.lastActivityAt,
+          createdAt: t.createdAt,
+          quadrant: t.quadrant,
+          urgencyScore: t.urgencyScore,
+          importanceScore: t.importanceScore,
+        }));
+      }),
+    autoArchiveRun: protectedProcedure
+      .input(z.object({ daysInactive: z.number().min(1).max(365).default(30) }).optional())
+      .mutation(async ({ ctx, input }) => {
+        const days = input?.daysInactive || 30;
+        const staleTasks = await db.getStaleArchiveTasks(ctx.user.id, days);
+        if (staleTasks.length === 0) return { archived: 0, taskIds: [] as number[] };
+        const taskIds = staleTasks.map(t => t.id);
+        const count = await db.autoArchiveTasks(taskIds, ctx.user.id);
+        console.log(`[AutoArchive] Dismissed ${count} stale archive tasks for user ${ctx.user.id} (${days}-day threshold)`);
+        return { archived: count, taskIds };
+      }),
+    touchActivity: protectedProcedure
+      .input(z.object({ taskId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await db.touchTaskActivity(input.taskId, ctx.user.id);
+        return { success: true };
+      }),
   }),
 });
 

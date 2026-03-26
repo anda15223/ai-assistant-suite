@@ -18,6 +18,8 @@ import {
   Users,
   ArrowUp,
   Moon,
+  Trash2,
+  Timer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -203,6 +205,24 @@ export default function PriorityView() {
 
   const { data: allTasks, isLoading: tasksLoading, refetch: refetchTasks } = trpc.task.prioritized.useQuery();
   const { data: distribution, refetch: refetchDist } = trpc.task.priorityDistribution.useQuery();
+  const { data: autoArchiveStats, refetch: refetchAutoArchive } = trpc.task.autoArchiveStats.useQuery();
+  const { data: autoArchivePreview, refetch: refetchPreview } = trpc.task.autoArchivePreview.useQuery();
+  const [isAutoArchiving, setIsAutoArchiving] = useState(false);
+
+  const autoArchiveRun = trpc.task.autoArchiveRun.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Auto-archived ${result.archived} stale tasks`);
+      refetchTasks();
+      refetchDist();
+      refetchAutoArchive();
+      refetchPreview();
+      setIsAutoArchiving(false);
+    },
+    onError: (err) => {
+      toast.error(`Auto-archive failed: ${err.message}`);
+      setIsAutoArchiving(false);
+    },
+  });
 
   const reprioritize = trpc.task.reprioritize.useMutation({
     onSuccess: (result) => {
@@ -333,6 +353,65 @@ export default function PriorityView() {
             />
           </div>
         )}
+
+        {/* Auto-Archive Section */}
+        <Card className="border-orange-500/20 bg-orange-500/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Timer className="h-5 w-5 text-orange-400" />
+                <CardTitle className="text-base font-bold text-orange-400">Auto-Archive (30-Day Rule)</CardTitle>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <span className="text-sm font-bold text-orange-400">{autoArchiveStats?.candidates ?? 0}</span>
+                  <span className="text-xs text-muted-foreground ml-1">candidates</span>
+                  <span className="text-xs text-muted-foreground mx-2">|</span>
+                  <span className="text-sm font-bold text-muted-foreground">{autoArchiveStats?.alreadyArchived ?? 0}</span>
+                  <span className="text-xs text-muted-foreground ml-1">previously archived</span>
+                </div>
+                <Button
+                  onClick={() => {
+                    setIsAutoArchiving(true);
+                    autoArchiveRun.mutate();
+                  }}
+                  disabled={isAutoArchiving || isReprioritizing || (autoArchiveStats?.candidates ?? 0) === 0}
+                  size="sm"
+                  className="bg-orange-500 hover:bg-orange-600 text-black font-semibold"
+                >
+                  {isAutoArchiving ? (
+                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Archiving...</>
+                  ) : (
+                    <><Trash2 className="mr-1.5 h-3.5 w-3.5" />Dismiss Stale</>
+                  )}
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Tasks in the Archive quadrant with no activity for 30+ days are automatically eligible for dismissal.
+            </p>
+          </CardHeader>
+          {(autoArchivePreview?.length ?? 0) > 0 && (
+            <CardContent className="pt-0 pb-3">
+              <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                {autoArchivePreview?.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between p-2 rounded border border-orange-500/10 bg-background/50 text-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Archive className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      <span className="truncate text-foreground">{task.title}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{task.category || "other"}</Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        Last active: {task.lastActivityAt ? new Date(task.lastActivityAt).toLocaleDateString() : "never"}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
+        </Card>
       </div>
     </DashboardLayout>
   );

@@ -84,6 +84,8 @@ export const tasks = mysqlTable("tasks", {
   suggestedAction: text("suggestedAction"),
   isOverdue: boolean("isOverdue").default(false),
   snoozedUntil: timestamp("snoozedUntil"),
+  lastActivityAt: timestamp("lastActivityAt").defaultNow().notNull(),
+  autoArchivedAt: timestamp("autoArchivedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

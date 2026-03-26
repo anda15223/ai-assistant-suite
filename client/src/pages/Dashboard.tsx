@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mail, CheckSquare, FileText, Clock, AlertTriangle, RefreshCw, ArrowRight, Loader2, History, RotateCcw, CheckCircle, XCircle, BarChart3, MessageCircle } from "lucide-react";
+import { Mail, CheckSquare, FileText, Clock, AlertTriangle, RefreshCw, ArrowRight, Loader2, History, RotateCcw, CheckCircle, XCircle, BarChart3, MessageCircle, Archive, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -16,6 +16,7 @@ export default function Dashboard() {
   const waStats = trpc.whatsapp.stats.useQuery();
   const waAccounting = trpc.whatsapp.accounting.useQuery();
   const waPendingDrafts = trpc.whatsapp.pendingDrafts.useQuery();
+  const autoArchiveStats = trpc.task.autoArchiveStats.useQuery();
 
   const syncEmails = trpc.email.sync.useMutation({
     onSuccess: (data) => {
@@ -41,11 +42,25 @@ export default function Dashboard() {
     waStats.refetch();
     waAccounting.refetch();
     waPendingDrafts.refetch();
+    autoArchiveStats.refetch();
   };
 
   const [syncing, setSyncing] = useState(false);
   const [syncType, setSyncType] = useState<"regular" | "full">("regular");
   const [reclassifying, setReclassifying] = useState(false);
+  const [autoArchiving, setAutoArchiving] = useState(false);
+
+  const autoArchiveRun = trpc.task.autoArchiveRun.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Auto-archived ${data.archived} stale tasks`);
+      refetchAll();
+      setAutoArchiving(false);
+    },
+    onError: (err) => {
+      toast.error(err.message);
+      setAutoArchiving(false);
+    },
+  });
 
   const handleSync = async (fullResync: boolean = false) => {
     setSyncing(true);
@@ -307,6 +322,48 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* AUTO-ARCHIVE CARD */}
+      {(autoArchiveStats.data?.candidates ?? 0) > 0 && (
+        <Card className="border-2 border-orange-500/30 bg-orange-500/5">
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center gap-3 mb-3">
+              <Archive className="w-5 h-5 text-orange-400" />
+              <h3 className="font-bold text-lg">Auto-Archive</h3>
+              <span className="text-xs text-muted-foreground ml-auto">30-day inactivity rule</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <div>
+                <div className="text-3xl font-bold text-orange-400">{autoArchiveStats.data?.candidates ?? 0}</div>
+                <div className="text-xs text-muted-foreground mt-1">Tasks ready to dismiss</div>
+              </div>
+              <div>
+                <div className="text-xl font-bold text-muted-foreground">{autoArchiveStats.data?.alreadyArchived ?? 0}</div>
+                <div className="text-xs text-muted-foreground mt-1">Previously auto-archived</div>
+              </div>
+              <div className="ml-auto">
+                <Button
+                  onClick={() => {
+                    setAutoArchiving(true);
+                    autoArchiveRun.mutate();
+                  }}
+                  disabled={autoArchiving || syncing || reclassifying}
+                  className="bg-orange-500 hover:bg-orange-600 text-black font-semibold"
+                >
+                  {autoArchiving ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Archiving...</>
+                  ) : (
+                    <><Trash2 className="w-4 h-4 mr-2" />Dismiss Stale Tasks</>
+                  )}
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              These tasks are in the Archive quadrant and have had no activity for 30+ days. Dismissing them removes them from active views.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Station Status */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

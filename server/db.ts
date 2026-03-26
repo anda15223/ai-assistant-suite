@@ -492,3 +492,79 @@ export async function snoozeTask(taskId: number, userId: number, until: Date) {
   if (!db) return;
   await db.update(tasks).set({ snoozedUntil: until }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
 }
+
+// ===== AUTO-ARCHIVE QUERIES =====
+
+/**
+ * Get tasks in the 'archive' quadrant that have been inactive for more than `daysInactive` days.
+ * Inactive = lastActivityAt is older than the threshold.
+ */
+export async function getStaleArchiveTasks(userId: number, daysInactive: number = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() - daysInactive);
+  return db.select().from(tasks)
+    .where(and(
+      eq(tasks.userId, userId),
+      eq(tasks.quadrant, "archive"),
+      sql`${tasks.status} IN ('pending', 'in_progress')`,
+      sql`${tasks.lastActivityAt} < ${threshold}`,
+      sql`${tasks.autoArchivedAt} IS NULL`
+    ))
+    .orderBy(desc(tasks.lastActivityAt));
+}
+
+/**
+ * Auto-archive a batch of tasks: set status to 'dismissed' and record the archive timestamp.
+ */
+export async function autoArchiveTasks(taskIds: number[], userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  if (taskIds.length === 0) return 0;
+  const now = new Date();
+  await db.update(tasks).set({
+    status: "dismissed",
+    autoArchivedAt: now,
+  }).where(and(
+    eq(tasks.userId, userId),
+    sql`${tasks.id} IN (${sql.join(taskIds.map(id => sql`${id}`), sql`, `)})`
+  ));
+  return taskIds.length;
+}
+
+/**
+ * Touch a task's lastActivityAt to reset the inactivity timer.
+ */
+export async function touchTaskActivity(taskId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(tasks).set({ lastActivityAt: new Date() }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+/**
+ * Get auto-archive stats: how many tasks are candidates, how many were already auto-archived.
+ */
+export async function getAutoArchiveStats(userId: number, daysInactive: number = 30) {
+  const db = await getDb();
+  if (!db) return { candidates: 0, alreadyArchived: 0 };
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() - daysInactive);
+  const [candidates] = await db.select({ count: sql<number>`count(*)` }).from(tasks)
+    .where(and(
+      eq(tasks.userId, userId),
+      eq(tasks.quadrant, "archive"),
+      sql`${tasks.status} IN ('pending', 'in_progress')`,
+      sql`${tasks.lastActivityAt} < ${threshold}`,
+      sql`${tasks.autoArchivedAt} IS NULL`
+    ));
+  const [alreadyArchived] = await db.select({ count: sql<number>`count(*)` }).from(tasks)
+    .where(and(
+      eq(tasks.userId, userId),
+      sql`${tasks.autoArchivedAt} IS NOT NULL`
+    ));
+  return {
+    candidates: candidates?.count || 0,
+    alreadyArchived: alreadyArchived?.count || 0,
+  };
+}
