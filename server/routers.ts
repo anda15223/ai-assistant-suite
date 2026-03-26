@@ -6,6 +6,7 @@ import { z } from "zod";
 import * as db from "./db";
 import { fetchEmails, testConnection, sendEmail } from "./emailService";
 import { classifyEmail, generateDraftReply } from "./aiService";
+import { sendWhatsAppMessage } from "./whatsappService";
 
 export const appRouter = router({
   system: systemRouter,
@@ -337,6 +338,87 @@ export const appRouter = router({
     pending: protectedProcedure.query(async ({ ctx }) => {
       return db.getDraftsByUser(ctx.user.id);
     }),
+  }),
+
+  whatsapp: router({
+    messages: protectedProcedure
+      .input(z.object({ limit: z.number().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        return db.getWhatsAppMessagesByUser(ctx.user.id, input?.limit || 100);
+      }),
+    getMessage: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const msg = await db.getWhatsAppMessageById(input.id, ctx.user.id);
+        if (!msg) throw new Error("Message not found");
+        const drafts = await db.getWhatsAppDraftsByMessage(msg.id, ctx.user.id);
+        return { ...msg, drafts };
+      }),
+    stats: protectedProcedure.query(async ({ ctx }) => {
+      return db.getWhatsAppStats(ctx.user.id);
+    }),
+    accounting: protectedProcedure.query(async ({ ctx }) => {
+      return db.getWhatsAppAccounting(ctx.user.id);
+    }),
+    pendingDrafts: protectedProcedure.query(async ({ ctx }) => {
+      return db.getWhatsAppPendingDrafts(ctx.user.id);
+    }),
+    updateDraft: protectedProcedure
+      .input(z.object({ draftId: z.number(), replyText: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        await db.updateWhatsAppDraftText(input.draftId, ctx.user.id, input.replyText);
+        return { success: true };
+      }),
+    approveDraft: protectedProcedure
+      .input(z.object({ draftId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await db.updateWhatsAppDraftStatus(input.draftId, ctx.user.id, "approved");
+        return { success: true };
+      }),
+    rejectDraft: protectedProcedure
+      .input(z.object({ draftId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await db.updateWhatsAppDraftStatus(input.draftId, ctx.user.id, "rejected");
+        return { success: true };
+      }),
+    sendDraft: protectedProcedure
+      .input(z.object({ draftId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const draft = await db.getWhatsAppDraftById(input.draftId, ctx.user.id);
+        if (!draft) throw new Error("Draft not found");
+        await sendWhatsAppMessage(draft.toPhone, draft.replyText, draft.originalWaMessageId || undefined);
+        await db.updateWhatsAppDraftStatus(input.draftId, ctx.user.id, "sent");
+        return { success: true };
+      }),
+  }),
+
+  employee: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return db.getEmployeesByUser(ctx.user.id);
+    }),
+    create: protectedProcedure
+      .input(z.object({
+        phone: z.string().min(1),
+        name: z.string().min(1),
+        role: z.string().optional(),
+        department: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const id = await db.upsertEmployee({
+          userId: ctx.user.id,
+          phone: input.phone,
+          name: input.name,
+          role: input.role,
+          department: input.department,
+        });
+        return { id };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await db.deleteEmployee(input.id, ctx.user.id);
+        return { success: true };
+      }),
   }),
 
   task: router({

@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mail, CheckSquare, FileText, Clock, AlertTriangle, RefreshCw, ArrowRight, Loader2, History, RotateCcw, CheckCircle, XCircle, BarChart3 } from "lucide-react";
+import { Mail, CheckSquare, FileText, Clock, AlertTriangle, RefreshCw, ArrowRight, Loader2, History, RotateCcw, CheckCircle, XCircle, BarChart3, MessageCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -13,6 +13,9 @@ export default function Dashboard() {
   const pendingDrafts = trpc.draft.pending.useQuery();
   const account = trpc.emailAccount.get.useQuery();
   const accounting = trpc.email.accounting.useQuery();
+  const waStats = trpc.whatsapp.stats.useQuery();
+  const waAccounting = trpc.whatsapp.accounting.useQuery();
+  const waPendingDrafts = trpc.whatsapp.pendingDrafts.useQuery();
 
   const syncEmails = trpc.email.sync.useMutation({
     onSuccess: (data) => {
@@ -35,6 +38,9 @@ export default function Dashboard() {
     taskStats.refetch();
     pendingDrafts.refetch();
     accounting.refetch();
+    waStats.refetch();
+    waAccounting.refetch();
+    waPendingDrafts.refetch();
   };
 
   const [syncing, setSyncing] = useState(false);
@@ -62,6 +68,7 @@ export default function Dashboard() {
 
   const hasAccount = !!account.data;
   const acct = accounting.data;
+  const waAcc = waAccounting.data;
 
   return (
     <div className="space-y-6">
@@ -70,7 +77,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Command Center</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Your AI-powered email and task management dashboard
+            Your AI-powered email, WhatsApp, and task management dashboard
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -124,12 +131,12 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* ACCOUNTING SUMMARY — the 1:1 rule */}
+      {/* EMAIL ACCOUNTING SUMMARY */}
       {acct && acct.totalEmails > 0 && (
         <Card className={`border-2 ${acct.matched ? "border-green-500/40 bg-green-500/5" : "border-red-500/40 bg-red-500/5"}`}>
           <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3 mb-4">
-              <BarChart3 className={`w-5 h-5 ${acct.matched ? "text-green-500" : "text-red-500"}`} />
+              <Mail className={`w-5 h-5 ${acct.matched ? "text-green-500" : "text-red-500"}`} />
               <h3 className="font-bold text-lg">Email-to-Task Accounting</h3>
               {acct.matched ? (
                 <span className="flex items-center gap-1 text-green-500 text-sm font-medium ml-auto">
@@ -195,6 +202,57 @@ export default function Dashboard() {
         </Card>
       )}
 
+      {/* WHATSAPP ACCOUNTING SUMMARY */}
+      {waAcc && waAcc.totalMessages > 0 && (
+        <Card className={`border-2 ${waAcc.matched ? "border-green-500/40 bg-green-500/5" : "border-red-500/40 bg-red-500/5"}`}>
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center gap-3 mb-4">
+              <MessageCircle className={`w-5 h-5 ${waAcc.matched ? "text-green-500" : "text-red-500"}`} />
+              <h3 className="font-bold text-lg">WhatsApp Message-to-Task Accounting</h3>
+              {waAcc.matched ? (
+                <span className="flex items-center gap-1 text-green-500 text-sm font-medium ml-auto">
+                  <CheckCircle className="w-4 h-4" /> Balanced
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-red-500 text-sm font-medium ml-auto">
+                  <XCircle className="w-4 h-4" /> Mismatch
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold">{waAcc.totalMessages}</div>
+                <div className="text-xs text-muted-foreground mt-1">Total Messages</div>
+              </div>
+              <div className="text-center text-muted-foreground text-2xl font-bold">=</div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-400">{waStats.data?.problems ?? 0}</div>
+                <div className="text-xs text-muted-foreground mt-1">Problems</div>
+              </div>
+              <div className="text-center text-muted-foreground text-2xl font-bold">+</div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-400">{waStats.data?.questions ?? 0}</div>
+                <div className="text-xs text-muted-foreground mt-1">Questions</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-3">
+              <div className="text-center">
+                <div className="text-xl font-bold text-teal-400">{waStats.data?.updates ?? 0}</div>
+                <div className="text-xs text-muted-foreground mt-1">Updates</div>
+              </div>
+              <div className="text-center text-muted-foreground text-xl font-bold">+</div>
+              <div className="text-center">
+                <div className="text-xl font-bold text-amber-400">{waStats.data?.requests ?? 0}</div>
+                <div className="text-xs text-muted-foreground mt-1">Requests</div>
+              </div>
+            </div>
+            <div className="mt-3 text-center text-xs text-muted-foreground">
+              Total Tasks from WhatsApp: <strong className="text-foreground">{waAcc.totalTasks}</strong>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/emails")}>
@@ -210,14 +268,16 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/emails")}>
+        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/whatsapp")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Invoices</CardTitle>
-            <FileText className="w-4 h-4 text-amber-500" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">WhatsApp Messages</CardTitle>
+            <MessageCircle className="w-4 h-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{emailStats.data?.invoices ?? "—"}</div>
-            <p className="text-xs text-muted-foreground mt-1">Detected by AI</p>
+            <div className="text-2xl font-bold">{waStats.data?.total ?? "—"}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {waStats.data?.problems ?? 0} problems, {waStats.data?.questions ?? 0} questions
+            </p>
           </CardContent>
         </Card>
 
@@ -236,12 +296,14 @@ export default function Dashboard() {
 
         <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/emails")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Drafts</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
             <Clock className="w-4 h-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pendingDrafts.data?.length ?? "—"}</div>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting your approval</p>
+            <div className="text-2xl font-bold">{(pendingDrafts.data?.length ?? 0) + (waPendingDrafts.data?.length ?? 0)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {pendingDrafts.data?.length ?? 0} email, {waPendingDrafts.data?.length ?? 0} WhatsApp
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -251,7 +313,7 @@ export default function Dashboard() {
         <Card className="border-teal-500/20">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-amber-400" />
               <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Station Alpha</span>
             </div>
             <h3 className="font-semibold mb-1">Festival Architect</h3>
@@ -272,14 +334,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-teal-500/20">
+        <Card className="border-green-500/20">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Station Gamma</span>
             </div>
             <h3 className="font-semibold mb-1">Workforce Concierge</h3>
-            <p className="text-xs text-muted-foreground">Coming soon — WhatsApp employee communication.</p>
+            <p className="text-xs text-muted-foreground">Active — WhatsApp employee communication and task extraction. Connect your Meta Business API to start receiving messages.</p>
           </CardContent>
         </Card>
       </div>

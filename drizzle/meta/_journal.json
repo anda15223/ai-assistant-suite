@@ -15,6 +15,13 @@
       "when": 1774546812921,
       "tag": "0001_quick_skrulls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1774559584331,
+      "tag": "0002_cold_kid_colt",
+      "breakpoints": true
     }
   ]
 }

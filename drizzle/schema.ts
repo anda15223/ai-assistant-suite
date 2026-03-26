@@ -99,3 +99,61 @@ export const draftReplies = mysqlTable("draft_replies", {
 
 export type DraftReply = typeof draftReplies.$inferSelect;
 export type InsertDraftReply = typeof draftReplies.$inferInsert;
+
+// ============================================================
+// WhatsApp Integration Tables
+// ============================================================
+
+// WhatsApp messages received from employees
+export const whatsappMessages = mysqlTable("whatsapp_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  waMessageId: varchar("waMessageId", { length: 512 }).notNull().unique(),
+  senderPhone: varchar("senderPhone", { length: 20 }).notNull(),
+  senderName: varchar("senderName", { length: 255 }),
+  messageType: varchar("messageType", { length: 50 }).notNull().default("text"),
+  messageText: text("messageText"),
+  classification: mysqlEnum("waClassification", ["problem", "question", "update", "request"]),
+  aiSummary: text("waAiSummary"),
+  aiAnalysis: json("waAiAnalysis"),
+  isProcessed: boolean("waIsProcessed").default(false).notNull(),
+  receivedAt: timestamp("waReceivedAt").notNull(),
+  createdAt: timestamp("waCreatedAt").defaultNow().notNull(),
+});
+
+export type WhatsAppMessage = typeof whatsappMessages.$inferSelect;
+export type InsertWhatsAppMessage = typeof whatsappMessages.$inferInsert;
+
+// WhatsApp draft replies awaiting owner approval
+export const whatsappDraftReplies = mysqlTable("whatsapp_draft_replies", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  whatsappMessageId: int("whatsappMessageId").notNull(),
+  replyText: text("replyText").notNull(),
+  toPhone: varchar("toPhone", { length: 20 }).notNull(),
+  originalWaMessageId: varchar("originalWaMessageId", { length: 512 }),
+  status: mysqlEnum("waReplyStatus", ["pending", "approved", "rejected", "sent"]).default("pending").notNull(),
+  approvedAt: timestamp("waReplyApprovedAt"),
+  sentAt: timestamp("waReplySentAt"),
+  createdAt: timestamp("waReplyCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("waReplyUpdatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type WhatsAppDraftReply = typeof whatsappDraftReplies.$inferSelect;
+export type InsertWhatsAppDraftReply = typeof whatsappDraftReplies.$inferInsert;
+
+// Employee contacts (map phone numbers to names/roles)
+export const employees = mysqlTable("employees", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  name: varchar("empName", { length: 255 }).notNull(),
+  role: varchar("empRole", { length: 100 }),
+  department: varchar("department", { length: 100 }),
+  isActive: boolean("empIsActive").default(true).notNull(),
+  createdAt: timestamp("empCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("empUpdatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Employee = typeof employees.$inferSelect;
+export type InsertEmployee = typeof employees.$inferInsert;

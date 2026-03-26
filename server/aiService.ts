@@ -158,3 +158,97 @@ ${originalBody.substring(0, 3000)}`,
 
   return (response.choices?.[0]?.message?.content as string) || "Thank you for your email. I will review and get back to you shortly.";
 }
+
+
+export interface WhatsAppClassification {
+  classification: "problem" | "question" | "update" | "request";
+  summary: string;
+  confidence: number;
+  taskData: {
+    title: string;
+    description: string;
+    priority: "low" | "medium" | "high" | "urgent";
+    dueDate: string | null;
+    category: string;
+  };
+  suggestedAction: string;
+}
+
+/**
+ * Classify a WhatsApp message from an employee.
+ * Four categories: problem, question, update, request.
+ * Every message produces exactly one task (1:1 rule).
+ */
+export async function classifyWhatsAppMessage(
+  messageText: string,
+  senderName: string,
+  senderRole?: string
+): Promise<WhatsAppClassification> {
+  const response = await invokeLLM({
+    messages: [
+      {
+        role: "system",
+        content: `You are an AI assistant analyzing WhatsApp messages from employees.
+Classify each message into EXACTLY one of these categories:
+- "problem": Employee is reporting a problem that needs solving (equipment failure, customer complaint, process issue)
+- "question": Employee is asking a question that needs answering (policy, procedure, schedule, approval)
+- "update": Employee is providing a status update (progress report, completion notice, FYI)
+- "request": Employee is requesting something (time off, resources, tools, permission, budget)
+
+RULES:
+1. Every message MUST be classified into one of the four categories above.
+2. Every message MUST produce a task in taskData with a clear, actionable title.
+3. Priority: "urgent" for time-sensitive problems, "high" for problems and urgent requests, "medium" for questions and standard requests, "low" for updates.
+4. Category should be one of: "operations", "HR", "maintenance", "IT", "finance", "logistics", "customer-service", "management", "other".
+5. Due dates: use ISO format (YYYY-MM-DD) or null if no deadline is mentioned.
+${senderRole ? `\nThe sender's role is: ${senderRole}` : ""}
+
+Always respond in valid JSON matching the schema.`,
+      },
+      {
+        role: "user",
+        content: `WhatsApp message from ${senderName}:\n\n"${messageText.substring(0, 3000)}"`,
+      },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "whatsapp_classification",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            classification: {
+              type: "string",
+              enum: ["problem", "question", "update", "request"],
+            },
+            summary: { type: "string", description: "Brief 1-2 sentence summary" },
+            confidence: { type: "number", description: "Confidence 0-1" },
+            taskData: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                description: { type: "string" },
+                priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
+                dueDate: { type: ["string", "null"] },
+                category: { type: "string" },
+              },
+              required: ["title", "description", "priority", "dueDate", "category"],
+              additionalProperties: false,
+            },
+            suggestedAction: { type: "string", description: "What the owner should do" },
+          },
+          required: ["classification", "summary", "confidence", "taskData", "suggestedAction"],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  const content = response.choices?.[0]?.message?.content as string | undefined;
+  if (!content) {
+    throw new Error("No response from AI");
+  }
+
+  return JSON.parse(content) as WhatsAppClassification;
+}

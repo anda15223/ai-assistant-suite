@@ -299,3 +299,127 @@ export async function getDraftById(draftId: number, userId: number) {
   const result = await db.select().from(draftReplies).where(and(eq(draftReplies.id, draftId), eq(draftReplies.userId, userId))).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
+
+// ===== WHATSAPP MESSAGE QUERIES =====
+
+import { whatsappMessages, whatsappDraftReplies, employees } from "../drizzle/schema";
+import type { InsertWhatsAppMessage, InsertWhatsAppDraftReply, InsertEmployee } from "../drizzle/schema";
+
+export async function getWhatsAppMessagesByUser(userId: number, limit: number = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(whatsappMessages).where(eq(whatsappMessages.userId, userId)).orderBy(desc(whatsappMessages.receivedAt)).limit(limit);
+}
+
+export async function getWhatsAppMessageById(messageId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(whatsappMessages).where(and(eq(whatsappMessages.id, messageId), eq(whatsappMessages.userId, userId))).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getWhatsAppStats(userId: number) {
+  const db = await getDb();
+  if (!db) return { total: 0, problems: 0, questions: 0, updates: 0, requests: 0 };
+  const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(eq(whatsappMessages.userId, userId));
+  const [problemResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "problem")));
+  const [questionResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "question")));
+  const [updateResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "update")));
+  const [requestResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "request")));
+  return {
+    total: totalResult?.count || 0,
+    problems: problemResult?.count || 0,
+    questions: questionResult?.count || 0,
+    updates: updateResult?.count || 0,
+    requests: requestResult?.count || 0,
+  };
+}
+
+export async function getWhatsAppAccounting(userId: number) {
+  const db = await getDb();
+  if (!db) return { totalMessages: 0, totalTasks: 0, matched: true };
+  const [msgCount] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(eq(whatsappMessages.userId, userId));
+  const [taskCount] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.source, "whatsapp")));
+  const totalMessages = msgCount?.count || 0;
+  const totalTasks = taskCount?.count || 0;
+  return {
+    totalMessages,
+    totalTasks,
+    matched: totalMessages === totalTasks,
+  };
+}
+
+// ===== WHATSAPP DRAFT REPLY QUERIES =====
+
+export async function getWhatsAppDraftsByMessage(messageId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(whatsappDraftReplies).where(and(eq(whatsappDraftReplies.whatsappMessageId, messageId), eq(whatsappDraftReplies.userId, userId))).orderBy(desc(whatsappDraftReplies.createdAt));
+}
+
+export async function getWhatsAppPendingDrafts(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(whatsappDraftReplies).where(and(eq(whatsappDraftReplies.userId, userId), eq(whatsappDraftReplies.status, "pending"))).orderBy(desc(whatsappDraftReplies.createdAt));
+}
+
+export async function updateWhatsAppDraftStatus(draftId: number, userId: number, status: "approved" | "rejected" | "sent") {
+  const db = await getDb();
+  if (!db) return;
+  const updateData: any = { status };
+  if (status === "approved") updateData.approvedAt = new Date();
+  if (status === "sent") updateData.sentAt = new Date();
+  await db.update(whatsappDraftReplies).set(updateData).where(and(eq(whatsappDraftReplies.id, draftId), eq(whatsappDraftReplies.userId, userId)));
+}
+
+export async function updateWhatsAppDraftText(draftId: number, userId: number, replyText: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(whatsappDraftReplies).set({ replyText }).where(and(eq(whatsappDraftReplies.id, draftId), eq(whatsappDraftReplies.userId, userId)));
+}
+
+export async function getWhatsAppDraftById(draftId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(whatsappDraftReplies).where(and(eq(whatsappDraftReplies.id, draftId), eq(whatsappDraftReplies.userId, userId))).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// ===== EMPLOYEE QUERIES =====
+
+export async function getEmployeesByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(employees).where(and(eq(employees.userId, userId), eq(employees.isActive, true))).orderBy(desc(employees.createdAt));
+}
+
+export async function getEmployeeByPhone(phone: string, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(employees).where(and(eq(employees.phone, phone), eq(employees.userId, userId))).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertEmployee(data: InsertEmployee) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(employees).where(and(eq(employees.phone, data.phone), eq(employees.userId, data.userId))).limit(1);
+  if (existing.length > 0) {
+    await db.update(employees).set({
+      name: data.name,
+      role: data.role,
+      department: data.department,
+      isActive: true,
+    }).where(eq(employees.id, existing[0].id));
+    return existing[0].id;
+  } else {
+    const result = await db.insert(employees).values(data);
+    return result[0].insertId;
+  }
+}
+
+export async function deleteEmployee(employeeId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(employees).set({ isActive: false }).where(and(eq(employees.id, employeeId), eq(employees.userId, userId)));
+}

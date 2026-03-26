@@ -53,3 +53,23 @@
 - [x] Clear old tasks and regenerate from scratch with new classification
 - [x] Add accounting summary to dashboard: total emails, invoices count, tasks count, verification match
 - [x] Ensure future syncs always maintain the 1:1 match — removed if(taskData) guard
+
+## Skill Improvements
+- [x] Add urgency-based task prioritization to AI Email Assistant skill
+- [x] Create urgency scoring model reference file
+- [x] Update SKILL.md with prioritization workflow
+- [x] Update schema template with urgency fields
+
+## WhatsApp Integration
+- [x] Add WhatsApp tables to database schema (whatsappMessages, whatsappDraftReplies, employees)
+- [x] Build WhatsApp webhook endpoints (GET verification + POST receiver)
+- [x] Build WhatsApp message processing service with AI classification
+- [x] Build WhatsApp reply sending via Cloud API
+- [x] Add WhatsApp tRPC routers (messages, drafts, employees, accounting)
+- [x] Build WhatsApp Inbox page
+- [x] Build WhatsApp Detail page with draft reply approval
+- [x] Build Employees directory page
+- [x] Update Dashboard with WhatsApp accounting card
+- [x] Update sidebar navigation with WhatsApp pages
+- [ ] Request WhatsApp API secrets from user (deferred — user will add later)
+- [x] Write vitest tests for WhatsApp integration (23/23 passing)

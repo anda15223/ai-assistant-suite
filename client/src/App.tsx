@@ -10,6 +10,9 @@ import EmailInbox from "./pages/EmailInbox";
 import EmailDetail from "./pages/EmailDetail";
 import TaskBoard from "./pages/TaskBoard";
 import Settings from "./pages/Settings";
+import WhatsAppInbox from "./pages/WhatsAppInbox";
+import WhatsAppDetail from "./pages/WhatsAppDetail";
+import Employees from "./pages/Employees";
 import DashboardLayout from "./components/DashboardLayout";
 
 function Router() {
@@ -32,6 +35,23 @@ function Router() {
             <EmailDetail id={params.id} />
           </DashboardLayout>
         )}
+      </Route>
+      <Route path={"/whatsapp"}>
+        <DashboardLayout>
+          <WhatsAppInbox />
+        </DashboardLayout>
+      </Route>
+      <Route path={"/whatsapp/:id"}>
+        {(params) => (
+          <DashboardLayout>
+            <WhatsAppDetail />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/employees"}>
+        <DashboardLayout>
+          <Employees />
+        </DashboardLayout>
       </Route>
       <Route path={"/tasks"}>
         <DashboardLayout>
