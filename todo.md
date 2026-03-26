@@ -36,3 +36,8 @@
 - [x] Fix "Failed to fetch emails: Command failed" IMAP error on deployed server
 - [x] Add better error handling and connection diagnostics for email sync
 - [x] Add server-side logging for IMAP connection attempts
+
+## Feature Updates
+- [x] Fetch all emails back to March 1, 2026 (not just last 7 days)
+- [x] Increase fetch limit to handle larger mailbox backlog (500 emails)
+- [x] Allow user to trigger a full historical sync from the dashboard

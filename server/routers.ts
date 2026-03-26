@@ -94,10 +94,15 @@ export const appRouter = router({
     sync: protectedProcedure.mutation(async ({ ctx }) => {
       const account = await db.getEmailAccount(ctx.user.id);
       if (!account) throw new Error("No email account configured. Go to Settings to add your email.");
+      // Use March 1, 2026 as the earliest date to catch up on all missed emails
+      const CATCHUP_DATE = new Date("2026-03-01T00:00:00Z");
+      // If we've synced before, only get emails since last sync; otherwise go back to CATCHUP_DATE
+      const sinceDate = account.lastSyncAt || CATCHUP_DATE;
       console.log(`[Sync] Starting email sync for user ${ctx.user.id}, account: ${account.emailAddress}`);
+      console.log(`[Sync] Fetching emails since: ${sinceDate.toISOString()}`);
       let fetched;
       try {
-        fetched = await fetchEmails(account, 30, account.lastSyncAt || undefined);
+        fetched = await fetchEmails(account, 500, sinceDate);
       } catch (fetchErr) {
         console.error("[Sync] Email fetch failed:", fetchErr);
         throw new Error(`Email sync failed: ${(fetchErr as Error).message}. Please check your email credentials in Settings.`);

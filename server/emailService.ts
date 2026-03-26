@@ -34,19 +34,61 @@ function createImapClient(account: {
       rejectUnauthorized: true,
       minVersion: "TLSv1.2",
     },
-    // Increase timeouts for slow servers
     greetingTimeout: 30000,
-    socketTimeout: 60000,
+    socketTimeout: 120000, // 2 min for large fetches
   } as any);
 }
 
+function parseEmailSource(source: string): { bodyText: string; bodyHtml: string } {
+  let bodyText = "";
+  let bodyHtml = "";
+
+  const textMatch = source.match(
+    /Content-Type:\s*text\/plain[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
+  );
+  if (textMatch) bodyText = textMatch[1]?.trim() || "";
+
+  const htmlMatch = source.match(
+    /Content-Type:\s*text\/html[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
+  );
+  if (htmlMatch) bodyHtml = htmlMatch[1]?.trim() || "";
+
+  if (!bodyText && !bodyHtml) {
+    const simpleBody = source.split("\r\n\r\n").slice(1).join("\r\n\r\n");
+    bodyText = simpleBody?.substring(0, 10000) || "";
+  }
+
+  return { bodyText: bodyText.substring(0, 10000), bodyHtml: bodyHtml.substring(0, 50000) };
+}
+
+function messageToFetchedEmail(message: any): FetchedEmail | null {
+  const envelope = message.envelope;
+  if (!envelope) return null;
+
+  const source = message.source?.toString() || "";
+  const { bodyText, bodyHtml } = parseEmailSource(source);
+
+  return {
+    uid: message.uid,
+    messageId: envelope?.messageId || `generated-${message.uid}-${Date.now()}`,
+    subject: envelope?.subject || "(No Subject)",
+    fromAddress: envelope?.from?.[0]?.address || "",
+    fromName: envelope?.from?.[0]?.name || envelope?.from?.[0]?.address || "",
+    toAddress: envelope?.to?.map((t: any) => t.address).join(", ") || "",
+    body: bodyText,
+    bodyHtml: bodyHtml,
+    receivedAt: envelope?.date ? new Date(envelope.date) : new Date(),
+  };
+}
+
 /**
- * Fetch recent emails from an IMAP account.
- * Uses a robust approach: open mailbox, check message count, fetch by sequence number.
+ * Fetch emails from an IMAP account.
+ * Fetches ALL messages from the mailbox and filters by sinceDate client-side.
+ * Uses sequence-number-based fetching in batches for robustness.
  */
 export async function fetchEmails(
   account: EmailAccount,
-  limit: number = 20,
+  limit: number = 500,
   sinceDate?: Date
 ): Promise<FetchedEmail[]> {
   const client = createImapClient(account);
@@ -66,141 +108,84 @@ export async function fetchEmails(
       return results;
     }
 
-    // Strategy: fetch the most recent N messages by sequence number
-    // This avoids the "Command failed" error from SEARCH with dates on some servers
     const totalMessages = mailbox.exists;
-    const startSeq = Math.max(1, totalMessages - limit + 1);
-    const range = `${startSeq}:${totalMessages}`;
+    // Fetch ALL messages (or up to limit) starting from the newest
+    const messagesToFetch = Math.min(limit, totalMessages);
+    const startSeq = Math.max(1, totalMessages - messagesToFetch + 1);
 
-    console.log(`[EmailService] Fetching messages ${range} (${Math.min(limit, totalMessages)} messages)`);
+    console.log(`[EmailService] Will fetch messages seq ${startSeq}:${totalMessages} (up to ${messagesToFetch} messages)`);
+    if (sinceDate) {
+      console.log(`[EmailService] Filtering for emails since: ${sinceDate.toISOString()}`);
+    }
 
-    try {
-      // Use fetch with sequence numbers (not UIDs) for maximum compatibility
-      for await (const message of client.fetch(range, {
-        uid: true,
-        envelope: true,
-        source: true,
-      }, { uid: false })) {
-        try {
-          const envelope = message.envelope;
-          if (!envelope) {
-            console.log("[EmailService] Skipping message with no envelope, seq:", message.seq);
-            continue;
-          }
+    // Fetch in batches of 50 to avoid timeouts on large mailboxes
+    const BATCH_SIZE = 50;
+    let reachedOldEnough = false;
 
-          // Skip messages older than sinceDate if provided
-          if (sinceDate && envelope.date && new Date(envelope.date) < sinceDate) {
-            continue;
-          }
+    for (let batchEnd = totalMessages; batchEnd >= startSeq && !reachedOldEnough; batchEnd -= BATCH_SIZE) {
+      const batchStart = Math.max(startSeq, batchEnd - BATCH_SIZE + 1);
+      const range = `${batchStart}:${batchEnd}`;
 
-          const source = message.source?.toString() || "";
+      console.log(`[EmailService] Fetching batch ${range}...`);
 
-          // Extract plain text and HTML from the raw source
-          let bodyText = "";
-          let bodyHtml = "";
+      try {
+        for await (const message of client.fetch(range, {
+          uid: true,
+          envelope: true,
+          source: true,
+        }, { uid: false })) {
+          try {
+            const email = messageToFetchedEmail(message);
+            if (!email) continue;
 
-          // Try multipart extraction first
-          const textMatch = source.match(
-            /Content-Type:\s*text\/plain[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
-          );
-          if (textMatch) {
-            bodyText = textMatch[1]?.trim() || "";
-          }
-
-          const htmlMatch = source.match(
-            /Content-Type:\s*text\/html[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
-          );
-          if (htmlMatch) {
-            bodyHtml = htmlMatch[1]?.trim() || "";
-          }
-
-          // If no multipart, the whole body might be text
-          if (!bodyText && !bodyHtml) {
-            const simpleBody = source.split("\r\n\r\n").slice(1).join("\r\n\r\n");
-            bodyText = simpleBody?.substring(0, 10000) || "";
-          }
-
-          results.push({
-            uid: message.uid,
-            messageId: envelope?.messageId || `generated-${message.uid}-${Date.now()}`,
-            subject: envelope?.subject || "(No Subject)",
-            fromAddress: envelope?.from?.[0]?.address || "",
-            fromName: envelope?.from?.[0]?.name || envelope?.from?.[0]?.address || "",
-            toAddress: envelope?.to?.map((t: any) => t.address).join(", ") || "",
-            body: bodyText.substring(0, 10000),
-            bodyHtml: bodyHtml.substring(0, 50000),
-            receivedAt: envelope?.date ? new Date(envelope.date) : new Date(),
-          });
-        } catch (msgErr) {
-          console.error("[EmailService] Error processing individual message:", (msgErr as Error).message);
-          // Continue processing other messages
-        }
-      }
-    } catch (fetchErr) {
-      console.error("[EmailService] Fetch loop error:", (fetchErr as Error).message);
-      console.log("[EmailService] Trying fallback: fetch one-by-one...");
-
-      // Fallback: fetch messages one at a time
-      for (let seq = totalMessages; seq >= startSeq && results.length < limit; seq--) {
-        try {
-          for await (const message of client.fetch(`${seq}`, {
-            uid: true,
-            envelope: true,
-            source: true,
-          }, { uid: false })) {
-            const envelope = message.envelope;
-            if (!envelope) continue;
-
-            if (sinceDate && envelope.date && new Date(envelope.date) < sinceDate) {
+            // If we have a sinceDate and this email is older, skip it
+            if (sinceDate && email.receivedAt < sinceDate) {
+              // If we're processing newest-first and hit an old email,
+              // we might still have newer ones in this batch, so just skip
               continue;
             }
 
-            const source = message.source?.toString() || "";
-            let bodyText = "";
-            let bodyHtml = "";
-
-            const textMatch = source.match(
-              /Content-Type:\s*text\/plain[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
-            );
-            if (textMatch) bodyText = textMatch[1]?.trim() || "";
-
-            const htmlMatch = source.match(
-              /Content-Type:\s*text\/html[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
-            );
-            if (htmlMatch) bodyHtml = htmlMatch[1]?.trim() || "";
-
-            if (!bodyText && !bodyHtml) {
-              const simpleBody = source.split("\r\n\r\n").slice(1).join("\r\n\r\n");
-              bodyText = simpleBody?.substring(0, 10000) || "";
-            }
-
-            results.push({
-              uid: message.uid,
-              messageId: envelope?.messageId || `generated-${message.uid}-${Date.now()}`,
-              subject: envelope?.subject || "(No Subject)",
-              fromAddress: envelope?.from?.[0]?.address || "",
-              fromName: envelope?.from?.[0]?.name || envelope?.from?.[0]?.address || "",
-              toAddress: envelope?.to?.map((t: any) => t.address).join(", ") || "",
-              body: bodyText.substring(0, 10000),
-              bodyHtml: bodyHtml.substring(0, 50000),
-              receivedAt: envelope?.date ? new Date(envelope.date) : new Date(),
-            });
+            results.push(email);
+          } catch (msgErr) {
+            console.error("[EmailService] Error processing message:", (msgErr as Error).message);
           }
-        } catch (singleErr) {
-          console.error(`[EmailService] Failed to fetch message seq ${seq}:`, (singleErr as Error).message);
-          // Skip this message and continue
+        }
+      } catch (batchErr) {
+        console.error(`[EmailService] Batch ${range} failed:`, (batchErr as Error).message);
+        console.log("[EmailService] Trying one-by-one fallback for this batch...");
+
+        // Fallback: fetch one at a time for this batch
+        for (let seq = batchEnd; seq >= batchStart; seq--) {
+          try {
+            for await (const message of client.fetch(`${seq}`, {
+              uid: true,
+              envelope: true,
+              source: true,
+            }, { uid: false })) {
+              const email = messageToFetchedEmail(message);
+              if (!email) continue;
+              if (sinceDate && email.receivedAt < sinceDate) continue;
+              results.push(email);
+            }
+          } catch (singleErr) {
+            console.error(`[EmailService] Failed seq ${seq}:`, (singleErr as Error).message);
+          }
         }
       }
+
+      console.log(`[EmailService] Progress: ${results.length} emails collected so far`);
     }
 
-    console.log(`[EmailService] Successfully fetched ${results.length} emails`);
+    console.log(`[EmailService] Successfully fetched ${results.length} emails total`);
     await client.logout();
   } catch (err) {
     console.error("[EmailService] IMAP connection error:", err);
-    // Try to clean up
     try { await client.logout(); } catch (_) {}
     throw new Error(`Failed to fetch emails: ${(err as Error).message}`);
   }
+
+  // Sort by date descending (newest first)
+  results.sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime());
 
   return results;
 }

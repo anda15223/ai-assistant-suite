@@ -14,9 +14,10 @@ export default function Dashboard() {
   const account = trpc.emailAccount.get.useQuery();
   const syncEmails = trpc.email.sync.useMutation({
     onSuccess: (data) => {
-      toast.success(`Synced ${data.synced} new emails (${data.total} checked)`);
+      toast.success(`Synced ${data.synced} new emails (${data.total} checked). AI is classifying them now!`);
       emailStats.refetch();
       taskStats.refetch();
+      pendingDrafts.refetch();
     },
     onError: (err) => toast.error(err.message),
   });
@@ -52,7 +53,7 @@ export default function Dashboard() {
               className="bg-amber-500 hover:bg-amber-600 text-black"
             >
               {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-              {syncing ? "Syncing..." : "Sync Emails"}
+              {syncing ? "Syncing (this may take a minute)..." : "Sync Emails"}
             </Button>
           ) : (
             <Button onClick={() => navigate("/settings")} variant="outline">
