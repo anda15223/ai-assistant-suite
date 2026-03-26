@@ -112,6 +112,17 @@ export const appRouter = router({
         throw new Error(`Email sync failed: ${(fetchErr as Error).message}. Please check your email credentials in Settings.`);
       }
       console.log(`[Sync] Fetched ${fetched.length} emails, processing...`);
+      // Safe date parser — returns undefined for invalid dates instead of crashing
+      const safeParseDueDate = (dateStr: string | null | undefined): Date | undefined => {
+        if (!dateStr) return undefined;
+        try {
+          const d = new Date(dateStr);
+          if (isNaN(d.getTime())) return undefined;
+          return d;
+        } catch {
+          return undefined;
+        }
+      };
       let newCount = 0;
       for (const email of fetched) {
         if (email.messageId && await db.emailExistsByMessageId(email.messageId, ctx.user.id)) continue;
@@ -137,32 +148,41 @@ export const appRouter = router({
             aiAnalysis: classification,
             isProcessed: true,
           });
-          if (classification.classification === "task" && classification.taskData) {
+          // EVERY email creates a task — taskData is always present now
+          if (classification.taskData) {
             await db.insertTask({
               userId: ctx.user.id,
               emailId,
-              title: classification.taskData.title,
-              description: classification.taskData.description,
-              priority: classification.taskData.priority,
-              category: classification.taskData.category,
-              dueDate: classification.taskData.dueDate ? new Date(classification.taskData.dueDate) : undefined,
-              source: "email",
-            });
-          }
-          if (classification.classification === "invoice" && classification.invoiceData) {
-            await db.insertTask({
-              userId: ctx.user.id,
-              emailId,
-              title: `Invoice: ${classification.invoiceData.vendor} - ${classification.invoiceData.amount}`,
-              description: `${classification.invoiceData.action}\n\nInvoice #${classification.invoiceData.invoiceNumber}\nDue: ${classification.invoiceData.dueDate}`,
-              priority: "high",
-              category: "invoice",
-              dueDate: classification.invoiceData.dueDate ? new Date(classification.invoiceData.dueDate) : undefined,
+              title: classification.classification === "invoice" && classification.invoiceData
+                ? `Invoice: ${classification.invoiceData.vendor} - ${classification.invoiceData.amount}`
+                : classification.taskData.title,
+              description: classification.classification === "invoice" && classification.invoiceData
+                ? `${classification.invoiceData.action}\n\nInvoice #${classification.invoiceData.invoiceNumber}\nDue: ${classification.invoiceData.dueDate}\n\n${classification.taskData.description}`
+                : classification.taskData.description,
+              priority: classification.classification === "invoice" ? "high" : classification.taskData.priority,
+              category: classification.classification === "invoice" ? "invoice" : classification.taskData.category,
+              dueDate: classification.classification === "invoice" && classification.invoiceData
+                ? safeParseDueDate(classification.invoiceData.dueDate)
+                : safeParseDueDate(classification.taskData.dueDate),
               source: "email",
             });
           }
         } catch (aiErr) {
           console.error("[AI] Classification failed for email:", emailId, aiErr);
+          // Fallback: create a basic task even if AI fails
+          try {
+            await db.insertTask({
+              userId: ctx.user.id,
+              emailId,
+              title: `Review: ${email.subject || 'Untitled email'}`,
+              description: `Email from ${email.fromName || email.fromAddress}. AI classification failed — please review manually.`,
+              priority: "medium",
+              category: "correspondence",
+              source: "email",
+            });
+          } catch (fallbackErr) {
+            console.error("[AI] Fallback task creation also failed:", emailId, fallbackErr);
+          }
         }
       }
       await db.updateLastSync(account.id);

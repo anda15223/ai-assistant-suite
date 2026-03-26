@@ -42,3 +42,8 @@
 - [x] Increase fetch limit to handle larger mailbox backlog (500 emails)
 - [x] Allow user to trigger a full historical sync from the dashboard
 - [x] Bug: Only today's emails showing — fixed: reset lastSyncAt, added Full Resync button, sinceDate always uses March 1 as minimum
+- [x] Change AI classification: every email is either "invoice" or "task" — no "general" category
+- [x] Ensure all non-invoice emails automatically create a task (with fallback if AI fails)
+- [x] Update frontend to show only invoice/task categories
+- [x] Fix RangeError: Invalid time value — added safe date parsing for due dates
+- [x] Added "Invoices" filter tab to Task Board

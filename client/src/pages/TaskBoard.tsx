@@ -63,6 +63,7 @@ export default function TaskBoard() {
   const filteredTasks = useMemo(() => {
     if (!taskList.data) return [];
     if (statusFilter === "active") return taskList.data.filter(t => t.status === "pending" || t.status === "in_progress");
+    if (statusFilter === "invoices") return taskList.data.filter(t => t.category === "invoice" && (t.status === "pending" || t.status === "in_progress"));
     if (statusFilter === "completed") return taskList.data.filter(t => t.status === "completed");
     if (statusFilter === "dismissed") return taskList.data.filter(t => t.status === "dismissed");
     return taskList.data;
@@ -141,9 +142,10 @@ export default function TaskBoard() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 flex-wrap">
         {[
           { key: "active", label: "Active" },
+          { key: "invoices", label: "Invoices" },
           { key: "completed", label: "Completed" },
           { key: "dismissed", label: "Dismissed" },
           { key: "all", label: "All" },

@@ -2,7 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Loader2, Mail, FileText, CheckSquare, Clock, AlertCircle, Search } from "lucide-react";
+import { RefreshCw, Loader2, Mail, FileText, CheckSquare, Search } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
@@ -12,9 +12,6 @@ import { format } from "date-fns";
 const classificationConfig: Record<string, { label: string; color: string; icon: any }> = {
   invoice: { label: "Invoice", color: "bg-amber-500/10 text-amber-500 border-amber-500/20", icon: FileText },
   task: { label: "Task", color: "bg-teal-500/10 text-teal-500 border-teal-500/20", icon: CheckSquare },
-  reminder: { label: "Reminder", color: "bg-blue-500/10 text-blue-500 border-blue-500/20", icon: Clock },
-  general: { label: "General", color: "bg-gray-500/10 text-gray-400 border-gray-500/20", icon: Mail },
-  irrelevant: { label: "Irrelevant", color: "bg-gray-500/10 text-gray-500 border-gray-500/20", icon: AlertCircle },
 };
 
 export default function EmailInbox() {
@@ -34,7 +31,7 @@ export default function EmailInbox() {
   const [syncing, setSyncing] = useState(false);
   const handleSync = async () => {
     setSyncing(true);
-    try { await syncEmails.mutateAsync(); } finally { setSyncing(false); }
+    try { await syncEmails.mutateAsync({}); } finally { setSyncing(false); }
   };
 
   const filteredEmails = useMemo(() => {
@@ -59,8 +56,6 @@ export default function EmailInbox() {
     { key: "all", label: "All" },
     { key: "invoice", label: "Invoices" },
     { key: "task", label: "Tasks" },
-    { key: "reminder", label: "Reminders" },
-    { key: "general", label: "General" },
   ];
 
   return (
@@ -69,7 +64,7 @@ export default function EmailInbox() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Email Inbox</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            AI-classified emails with automatic task extraction
+            Every email is either an <strong className="text-amber-500">Invoice</strong> or a <strong className="text-teal-500">Task</strong>
           </p>
         </div>
         <Button onClick={handleSync} disabled={syncing} className="bg-amber-500 hover:bg-amber-600 text-black">
@@ -124,8 +119,9 @@ export default function EmailInbox() {
       ) : (
         <div className="space-y-2">
           {filteredEmails.map((email) => {
-            const config = classificationConfig[email.classification || "general"];
-            const IconComp = config?.icon || Mail;
+            const cls = email.classification === "invoice" ? "invoice" : "task";
+            const config = classificationConfig[cls];
+            const IconComp = config.icon;
             return (
               <Card
                 key={email.id}
@@ -134,19 +130,17 @@ export default function EmailInbox() {
               >
                 <CardContent className="py-3 px-4">
                   <div className="flex items-start gap-3">
-                    <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${config?.color?.split(" ").slice(0, 1).join(" ") || "bg-gray-500/10"}`}>
-                      <IconComp className={`w-4 h-4 ${config?.color?.split(" ").slice(1, 2).join(" ") || "text-gray-400"}`} />
+                    <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${cls === "invoice" ? "bg-amber-500/10" : "bg-teal-500/10"}`}>
+                      <IconComp className={`w-4 h-4 ${cls === "invoice" ? "text-amber-500" : "text-teal-500"}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className={`text-sm font-medium truncate ${!email.isRead ? "text-foreground" : "text-muted-foreground"}`}>
                           {email.fromName || email.fromAddress}
                         </span>
-                        {email.classification && email.classification !== "general" && (
-                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${config?.color || ""}`}>
-                            {config?.label}
-                          </Badge>
-                        )}
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${config.color}`}>
+                          {config.label}
+                        </Badge>
                         <span className="ml-auto text-xs text-muted-foreground shrink-0">
                           {email.receivedAt ? format(new Date(email.receivedAt), "MMM d, HH:mm") : ""}
                         </span>

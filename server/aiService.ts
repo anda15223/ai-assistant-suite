@@ -1,7 +1,7 @@
 import { invokeLLM } from "./_core/llm";
 
 export interface EmailClassification {
-  classification: "invoice" | "task" | "reminder" | "general" | "irrelevant";
+  classification: "invoice" | "task";
   summary: string;
   confidence: number;
   invoiceData?: {
@@ -11,7 +11,7 @@ export interface EmailClassification {
     invoiceNumber: string;
     action: string;
   };
-  taskData?: {
+  taskData: {
     title: string;
     description: string;
     priority: "low" | "medium" | "high" | "urgent";
@@ -22,7 +22,8 @@ export interface EmailClassification {
 }
 
 /**
- * Classify an email using AI and extract structured data.
+ * Classify an email using AI — every email is either an "invoice" or a "task".
+ * No general/irrelevant categories. Every email produces actionable output.
  */
 export async function classifyEmail(
   subject: string,
@@ -34,16 +35,20 @@ export async function classifyEmail(
     messages: [
       {
         role: "system",
-        content: `You are an intelligent email assistant. Analyze the email and classify it into one of these categories:
-- "invoice": Contains a bill, invoice, payment request, or financial document
-- "task": Contains an action item, request, or something that needs to be done
-- "reminder": Contains a reminder about a deadline, meeting, or event
-- "general": General correspondence, updates, or informational emails
-- "irrelevant": Spam, newsletters, marketing, or unimportant emails
+        content: `You are an intelligent email assistant. Analyze the email and classify it into EXACTLY one of these two categories:
 
-For invoices, extract: vendor name, amount, due date, invoice number, and recommended action (e.g., "Forward to accounting", "Pay by [date]").
-For tasks, extract: task title, description, priority (low/medium/high/urgent), due date if mentioned, and category.
-For all emails, provide a brief summary and a suggested action for the user.
+- "invoice": Contains a bill, invoice, payment request, or financial document that needs to be paid or forwarded to accounting.
+- "task": EVERYTHING else. Every non-invoice email is a task. This includes: action items, requests, reminders, meeting invites, general correspondence, updates, newsletters, notifications — ALL of them become tasks.
+
+RULES:
+1. There are ONLY two categories: "invoice" and "task". No other category exists.
+2. Every single email MUST produce a task in taskData — even invoices get a task (e.g., "Forward invoice to accounting" or "Pay invoice by [date]").
+3. For invoices: also fill invoiceData with vendor, amount, due date, invoice number, and recommended action.
+4. For tasks: determine the appropriate priority and a clear, actionable title.
+5. If the email is a newsletter or notification, the task is "Review [subject]" with low priority.
+6. If the email is a meeting invite, the task is "Respond to meeting invite: [subject]".
+7. Due dates: use ISO format (YYYY-MM-DD) or null if no date is mentioned. Do NOT invent dates.
+8. Category should be one of: "invoice", "correspondence", "meeting", "request", "notification", "follow-up", "approval", "report", "other".
 
 Always respond in valid JSON matching the schema.`,
       },
@@ -65,7 +70,7 @@ ${body.substring(0, 4000)}`,
           properties: {
             classification: {
               type: "string",
-              enum: ["invoice", "task", "reminder", "general", "irrelevant"],
+              enum: ["invoice", "task"],
             },
             summary: { type: "string", description: "Brief 1-2 sentence summary" },
             confidence: { type: "number", description: "Confidence 0-1" },
@@ -82,7 +87,7 @@ ${body.substring(0, 4000)}`,
               additionalProperties: false,
             },
             taskData: {
-              type: ["object", "null"],
+              type: "object",
               properties: {
                 title: { type: "string" },
                 description: { type: "string" },
@@ -134,7 +139,6 @@ The reply should be:
 
 ${classification === "invoice" ? "For invoices: acknowledge receipt and mention it will be forwarded to accounting for processing." : ""}
 ${classification === "task" ? "For tasks: acknowledge the request and confirm you will handle it." : ""}
-${classification === "reminder" ? "For reminders: acknowledge and confirm attendance/completion." : ""}
 
 ${userInstructions ? `Additional instructions from user: ${userInstructions}` : ""}
 
