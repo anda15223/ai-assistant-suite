@@ -1,10 +1,5 @@
-/*
- * DESIGN: Command Center — Mission Briefing Hero
- * Full-bleed hero with generated command center background.
- * Scanline overlay, large Outfit heading, amber CTA.
- */
 import { motion } from "framer-motion";
-import { ChevronDown, Zap, Shield, Brain } from "lucide-react";
+import { ChevronDown, Zap, Shield, Brain, LogIn, LayoutDashboard } from "lucide-react";
 
 const HERO_IMG =
   "https://d2xsxph8kpxj0f.cloudfront.net/310519663480602866/KuriegSE9E2r7xqu9W7qQS/hero-command-center-AsK4ZoyFSSSh5CqjkPY8yn.webp";
@@ -15,13 +10,18 @@ const stats = [
   { icon: Shield, label: "HITL Safeguards", value: "Active" },
 ];
 
-export default function HeroSection() {
+interface HeroSectionProps {
+  isAuthenticated?: boolean;
+  onDashboard?: () => void;
+  loginUrl?: string;
+}
+
+export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: HeroSectionProps) {
   return (
     <section
       id="hero"
       className="relative min-h-screen flex items-center overflow-hidden"
     >
-      {/* Background image */}
       <div className="absolute inset-0">
         <img
           src={HERO_IMG}
@@ -31,13 +31,10 @@ export default function HeroSection() {
         <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/80 to-background" />
       </div>
 
-      {/* Scanline overlay */}
       <div className="absolute inset-0 scanline-overlay pointer-events-none" />
 
-      {/* Content */}
       <div className="container relative z-10 pt-28 pb-20">
         <div className="max-w-3xl">
-          {/* Status badge */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -50,7 +47,6 @@ export default function HeroSection() {
             </span>
           </motion.div>
 
-          {/* Heading */}
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -62,7 +58,6 @@ export default function HeroSection() {
             Suite
           </motion.h1>
 
-          {/* Subtitle */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -74,30 +69,39 @@ export default function HeroSection() {
             All under your command.
           </motion.p>
 
-          {/* CTA */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9, duration: 0.8 }}
             className="flex flex-wrap gap-4"
           >
+            {isAuthenticated ? (
+              <button
+                onClick={onDashboard}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-amber text-navy font-heading font-semibold text-sm uppercase tracking-wider hover:bg-amber/90 transition-colors glow-amber"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Open Dashboard
+              </button>
+            ) : (
+              <a
+                href={loginUrl}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-amber text-navy font-heading font-semibold text-sm uppercase tracking-wider hover:bg-amber/90 transition-colors glow-amber"
+              >
+                <LogIn className="w-4 h-4" />
+                Sign In to Start
+              </a>
+            )}
             <a
               href="#stations"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-amber text-navy font-heading font-semibold text-sm uppercase tracking-wider hover:bg-amber/90 transition-colors glow-amber"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-md border border-border text-muted-foreground font-heading font-medium text-sm uppercase tracking-wider hover:border-teal hover:text-teal transition-colors"
             >
               Explore Stations
               <ChevronDown className="w-4 h-4" />
             </a>
-            <a
-              href="#architecture"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-md border border-border text-muted-foreground font-heading font-medium text-sm uppercase tracking-wider hover:border-teal hover:text-teal transition-colors"
-            >
-              View Architecture
-            </a>
           </motion.div>
         </div>
 
-        {/* Stats bar */}
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -123,7 +127,6 @@ export default function HeroSection() {
         </motion.div>
       </div>
 
-      {/* Scroll indicator */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

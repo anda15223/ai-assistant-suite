@@ -1,0 +1,177 @@
+import { trpc } from "@/lib/trpc";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Mail, CheckSquare, FileText, Clock, AlertTriangle, RefreshCw, ArrowRight, Loader2 } from "lucide-react";
+import { useLocation } from "wouter";
+import { toast } from "sonner";
+import { useState } from "react";
+
+export default function Dashboard() {
+  const [, navigate] = useLocation();
+  const emailStats = trpc.email.stats.useQuery();
+  const taskStats = trpc.task.stats.useQuery();
+  const pendingDrafts = trpc.draft.pending.useQuery();
+  const account = trpc.emailAccount.get.useQuery();
+  const syncEmails = trpc.email.sync.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Synced ${data.synced} new emails (${data.total} checked)`);
+      emailStats.refetch();
+      taskStats.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await syncEmails.mutateAsync();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const hasAccount = !!account.data;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Command Center</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Your AI-powered email and task management dashboard
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {hasAccount ? (
+            <Button
+              onClick={handleSync}
+              disabled={syncing}
+              className="bg-amber-500 hover:bg-amber-600 text-black"
+            >
+              {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+              {syncing ? "Syncing..." : "Sync Emails"}
+            </Button>
+          ) : (
+            <Button onClick={() => navigate("/settings")} variant="outline">
+              Configure Email Account
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Setup prompt if no account */}
+      {!hasAccount && !account.isLoading && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-foreground mb-1">Email Account Required</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Connect your one.com email account to start using the AI email assistant. Your emails will be analyzed, classified, and tasks will be automatically extracted.
+                </p>
+                <Button onClick={() => navigate("/settings")} size="sm" className="bg-amber-500 hover:bg-amber-600 text-black">
+                  Go to Settings <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/emails")}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Emails</CardTitle>
+            <Mail className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{emailStats.data?.total ?? "—"}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {emailStats.data?.unread ?? 0} unread
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/emails")}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Invoices</CardTitle>
+            <FileText className="w-4 h-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{emailStats.data?.invoices ?? "—"}</div>
+            <p className="text-xs text-muted-foreground mt-1">Detected by AI</p>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/tasks")}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Tasks</CardTitle>
+            <CheckSquare className="w-4 h-4 text-teal-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{taskStats.data?.pending ?? "—"}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {taskStats.data?.inProgress ?? 0} in progress
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/emails")}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Drafts</CardTitle>
+            <Clock className="w-4 h-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingDrafts.data?.length ?? "—"}</div>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting your approval</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Station Status */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-teal-500/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Station Alpha</span>
+            </div>
+            <h3 className="font-semibold mb-1">Festival Architect</h3>
+            <p className="text-xs text-muted-foreground">Coming soon — event planning and logistics automation.</p>
+          </CardContent>
+        </Card>
+
+        <Card className={hasAccount ? "border-green-500/20" : "border-amber-500/20"}>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-2 h-2 rounded-full ${hasAccount ? "bg-green-400 animate-pulse" : "bg-amber-400"}`} />
+              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Station Beta</span>
+            </div>
+            <h3 className="font-semibold mb-1">Inbox Intelligence</h3>
+            <p className="text-xs text-muted-foreground">
+              {hasAccount ? "Active — reading, classifying, and managing your emails." : "Waiting for email account configuration."}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-teal-500/20">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Station Gamma</span>
+            </div>
+            <h3 className="font-semibold mb-1">Workforce Concierge</h3>
+            <p className="text-xs text-muted-foreground">Coming soon — WhatsApp employee communication.</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

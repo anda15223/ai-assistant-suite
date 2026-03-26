@@ -5,11 +5,44 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import Dashboard from "./pages/Dashboard";
+import EmailInbox from "./pages/EmailInbox";
+import EmailDetail from "./pages/EmailDetail";
+import TaskBoard from "./pages/TaskBoard";
+import Settings from "./pages/Settings";
+import DashboardLayout from "./components/DashboardLayout";
 
 function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/dashboard"}>
+        <DashboardLayout>
+          <Dashboard />
+        </DashboardLayout>
+      </Route>
+      <Route path={"/emails"}>
+        <DashboardLayout>
+          <EmailInbox />
+        </DashboardLayout>
+      </Route>
+      <Route path={"/emails/:id"}>
+        {(params) => (
+          <DashboardLayout>
+            <EmailDetail id={params.id} />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/tasks"}>
+        <DashboardLayout>
+          <TaskBoard />
+        </DashboardLayout>
+      </Route>
+      <Route path={"/settings"}>
+        <DashboardLayout>
+          <Settings />
+        </DashboardLayout>
+      </Route>
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

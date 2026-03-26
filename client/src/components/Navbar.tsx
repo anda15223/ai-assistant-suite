@@ -1,12 +1,6 @@
-/*
- * DESIGN: Command Center — Aerospace Mission Control
- * Persistent top navigation with status indicator strip.
- * Font: Outfit for brand, JetBrains Mono for status labels.
- * Colors: Navy bg, amber accents, teal data highlights.
- */
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Menu, X, Cpu } from "lucide-react";
+import { Menu, X, Cpu, LogIn, LayoutDashboard } from "lucide-react";
 
 const navLinks = [
   { label: "Mission Brief", href: "#hero" },
@@ -15,7 +9,13 @@ const navLinks = [
   { label: "Roadmap", href: "#roadmap" },
 ];
 
-export default function Navbar() {
+interface NavbarProps {
+  isAuthenticated?: boolean;
+  onDashboard?: () => void;
+  loginUrl?: string;
+}
+
+export default function Navbar({ isAuthenticated, onDashboard, loginUrl }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -36,11 +36,9 @@ export default function Navbar() {
           : "bg-transparent"
       }`}
     >
-      {/* Status strip */}
       <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-amber/40 to-transparent" />
 
       <nav className="container flex items-center justify-between h-16">
-        {/* Logo */}
         <a href="#hero" className="flex items-center gap-3 group">
           <div className="relative w-9 h-9 rounded-lg bg-amber/10 border border-amber/20 flex items-center justify-center group-hover:bg-amber/20 transition-colors">
             <Cpu className="w-5 h-5 text-amber" />
@@ -56,7 +54,6 @@ export default function Navbar() {
           </div>
         </a>
 
-        {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-1">
           {navLinks.map((link) => (
             <a
@@ -70,15 +67,26 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Status indicator (desktop) */}
         <div className="hidden md:flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-navy-surface border border-border font-mono text-[10px] uppercase tracking-widest">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 status-blink" />
-            <span className="text-muted-foreground">All Systems Online</span>
-          </div>
+          {isAuthenticated ? (
+            <button
+              onClick={onDashboard}
+              className="flex items-center gap-2 px-4 py-2 rounded-md bg-amber text-navy font-heading font-semibold text-xs uppercase tracking-wider hover:bg-amber/90 transition-colors"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              Dashboard
+            </button>
+          ) : (
+            <a
+              href={loginUrl}
+              className="flex items-center gap-2 px-4 py-2 rounded-md bg-amber text-navy font-heading font-semibold text-xs uppercase tracking-wider hover:bg-amber/90 transition-colors"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              Sign In
+            </a>
+          )}
         </div>
 
-        {/* Mobile menu button */}
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="md:hidden p-2 text-muted-foreground hover:text-amber transition-colors"
@@ -87,7 +95,6 @@ export default function Navbar() {
         </button>
       </nav>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -105,6 +112,21 @@ export default function Navbar() {
                 {link.label}
               </a>
             ))}
+            {isAuthenticated ? (
+              <button
+                onClick={() => { setMobileOpen(false); onDashboard?.(); }}
+                className="px-4 py-3 font-mono text-xs uppercase tracking-wider text-amber hover:bg-amber/5 rounded-md transition-colors text-left"
+              >
+                Dashboard
+              </button>
+            ) : (
+              <a
+                href={loginUrl}
+                className="px-4 py-3 font-mono text-xs uppercase tracking-wider text-amber hover:bg-amber/5 rounded-md transition-colors"
+              >
+                Sign In
+              </a>
+            )}
           </div>
         </motion.div>
       )}

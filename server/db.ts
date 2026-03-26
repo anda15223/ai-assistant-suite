@@ -1,0 +1,269 @@
+import { eq, desc, and, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/mysql2";
+import { InsertUser, users, emailAccounts, emails, tasks, draftReplies } from "../drizzle/schema";
+import type { InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply } from "../drizzle/schema";
+import { ENV } from './_core/env';
+
+let _db: ReturnType<typeof drizzle> | null = null;
+
+// Lazily create the drizzle instance so local tooling can run without a DB.
+export async function getDb() {
+  if (!_db && process.env.DATABASE_URL) {
+    try {
+      _db = drizzle(process.env.DATABASE_URL);
+    } catch (error) {
+      console.warn("[Database] Failed to connect:", error);
+      _db = null;
+    }
+  }
+  return _db;
+}
+
+export async function upsertUser(user: InsertUser): Promise<void> {
+  if (!user.openId) {
+    throw new Error("User openId is required for upsert");
+  }
+
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot upsert user: database not available");
+    return;
+  }
+
+  try {
+    const values: InsertUser = {
+      openId: user.openId,
+    };
+    const updateSet: Record<string, unknown> = {};
+
+    const textFields = ["name", "email", "loginMethod"] as const;
+    type TextField = (typeof textFields)[number];
+
+    const assignNullable = (field: TextField) => {
+      const value = user[field];
+      if (value === undefined) return;
+      const normalized = value ?? null;
+      values[field] = normalized;
+      updateSet[field] = normalized;
+    };
+
+    textFields.forEach(assignNullable);
+
+    if (user.lastSignedIn !== undefined) {
+      values.lastSignedIn = user.lastSignedIn;
+      updateSet.lastSignedIn = user.lastSignedIn;
+    }
+    if (user.role !== undefined) {
+      values.role = user.role;
+      updateSet.role = user.role;
+    } else if (user.openId === ENV.ownerOpenId) {
+      values.role = 'admin';
+      updateSet.role = 'admin';
+    }
+
+    if (!values.lastSignedIn) {
+      values.lastSignedIn = new Date();
+    }
+
+    if (Object.keys(updateSet).length === 0) {
+      updateSet.lastSignedIn = new Date();
+    }
+
+    await db.insert(users).values(values).onDuplicateKeyUpdate({
+      set: updateSet,
+    });
+  } catch (error) {
+    console.error("[Database] Failed to upsert user:", error);
+    throw error;
+  }
+}
+
+export async function getUserByOpenId(openId: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get user: database not available");
+    return undefined;
+  }
+
+  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// ===== EMAIL ACCOUNT QUERIES =====
+
+export async function getEmailAccount(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(emailAccounts).where(and(eq(emailAccounts.userId, userId), eq(emailAccounts.isActive, true))).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertEmailAccount(data: InsertEmailAccount) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(emailAccounts).where(eq(emailAccounts.userId, data.userId)).limit(1);
+  if (existing.length > 0) {
+    await db.update(emailAccounts).set({
+      emailAddress: data.emailAddress,
+      imapHost: data.imapHost,
+      imapPort: data.imapPort,
+      smtpHost: data.smtpHost,
+      smtpPort: data.smtpPort,
+      password: data.password,
+      isActive: true,
+    }).where(eq(emailAccounts.id, existing[0].id));
+    return existing[0].id;
+  } else {
+    const result = await db.insert(emailAccounts).values(data);
+    return result[0].insertId;
+  }
+}
+
+export async function updateLastSync(accountId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(emailAccounts).set({ lastSyncAt: new Date() }).where(eq(emailAccounts.id, accountId));
+}
+
+// ===== EMAIL QUERIES =====
+
+export async function getEmailsByUser(userId: number, limit: number = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(emails).where(eq(emails.userId, userId)).orderBy(desc(emails.receivedAt)).limit(limit);
+}
+
+export async function getEmailById(emailId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(emails).where(and(eq(emails.id, emailId), eq(emails.userId, userId))).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function insertEmail(data: InsertEmail) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(emails).values(data);
+  return result[0].insertId;
+}
+
+export async function emailExistsByMessageId(messageId: string, userId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.select({ id: emails.id }).from(emails).where(and(eq(emails.messageId, messageId), eq(emails.userId, userId))).limit(1);
+  return result.length > 0;
+}
+
+export async function updateEmailClassification(emailId: number, data: {
+  classification: "invoice" | "task" | "reminder" | "general" | "irrelevant";
+  aiSummary: string;
+  aiAnalysis: any;
+  isProcessed: boolean;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(emails).set(data).where(eq(emails.id, emailId));
+}
+
+export async function markEmailRead(emailId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(emails).set({ isRead: true }).where(eq(emails.id, emailId));
+}
+
+export async function getEmailStats(userId: number) {
+  const db = await getDb();
+  if (!db) return { total: 0, unread: 0, invoices: 0, tasks: 0, reminders: 0 };
+  const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(eq(emails.userId, userId));
+  const [unreadResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.isRead, false)));
+  const [invoiceResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "invoice")));
+  const [taskResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "task")));
+  const [reminderResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "reminder")));
+  return {
+    total: totalResult?.count || 0,
+    unread: unreadResult?.count || 0,
+    invoices: invoiceResult?.count || 0,
+    tasks: taskResult?.count || 0,
+    reminders: reminderResult?.count || 0,
+  };
+}
+
+// ===== TASK QUERIES =====
+
+export async function getTasksByUser(userId: number, limit: number = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.createdAt)).limit(limit);
+}
+
+export async function insertTask(data: InsertTask) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(tasks).values(data);
+  return result[0].insertId;
+}
+
+export async function updateTaskStatus(taskId: number, userId: number, status: "pending" | "in_progress" | "completed" | "dismissed") {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(tasks).set({ status }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function getTaskStats(userId: number) {
+  const db = await getDb();
+  if (!db) return { total: 0, pending: 0, inProgress: 0, completed: 0 };
+  const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(eq(tasks.userId, userId));
+  const [pendingResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "pending")));
+  const [inProgressResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "in_progress")));
+  const [completedResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "completed")));
+  return {
+    total: totalResult?.count || 0,
+    pending: pendingResult?.count || 0,
+    inProgress: inProgressResult?.count || 0,
+    completed: completedResult?.count || 0,
+  };
+}
+
+// ===== DRAFT REPLY QUERIES =====
+
+export async function getDraftsByEmail(emailId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(draftReplies).where(and(eq(draftReplies.emailId, emailId), eq(draftReplies.userId, userId))).orderBy(desc(draftReplies.createdAt));
+}
+
+export async function getDraftsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(draftReplies).where(and(eq(draftReplies.userId, userId), eq(draftReplies.status, "pending"))).orderBy(desc(draftReplies.createdAt));
+}
+
+export async function insertDraft(data: InsertDraftReply) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(draftReplies).values(data);
+  return result[0].insertId;
+}
+
+export async function updateDraftStatus(draftId: number, userId: number, status: "approved" | "rejected" | "sent") {
+  const db = await getDb();
+  if (!db) return;
+  const updateData: any = { status };
+  if (status === "approved") updateData.approvedAt = new Date();
+  if (status === "sent") updateData.sentAt = new Date();
+  await db.update(draftReplies).set(updateData).where(and(eq(draftReplies.id, draftId), eq(draftReplies.userId, userId)));
+}
+
+export async function updateDraftBody(draftId: number, userId: number, body: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(draftReplies).set({ body }).where(and(eq(draftReplies.id, draftId), eq(draftReplies.userId, userId)));
+}
+
+export async function getDraftById(draftId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(draftReplies).where(and(eq(draftReplies.id, draftId), eq(draftReplies.userId, userId))).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
