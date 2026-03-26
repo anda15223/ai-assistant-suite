@@ -41,3 +41,4 @@
 - [x] Fetch all emails back to March 1, 2026 (not just last 7 days)
 - [x] Increase fetch limit to handle larger mailbox backlog (500 emails)
 - [x] Allow user to trigger a full historical sync from the dashboard
+- [x] Bug: Only today's emails showing — fixed: reset lastSyncAt, added Full Resync button, sinceDate always uses March 1 as minimum

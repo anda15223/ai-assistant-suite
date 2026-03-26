@@ -91,14 +91,18 @@ export const appRouter = router({
         const drafts = await db.getDraftsByEmail(email.id, ctx.user.id);
         return { ...email, drafts };
       }),
-    sync: protectedProcedure.mutation(async ({ ctx }) => {
+    sync: protectedProcedure
+      .input(z.object({ fullResync: z.boolean().optional() }).optional())
+      .mutation(async ({ ctx, input }) => {
       const account = await db.getEmailAccount(ctx.user.id);
       if (!account) throw new Error("No email account configured. Go to Settings to add your email.");
-      // Use March 1, 2026 as the earliest date to catch up on all missed emails
+      // March 1, 2026 as the absolute earliest date
       const CATCHUP_DATE = new Date("2026-03-01T00:00:00Z");
-      // If we've synced before, only get emails since last sync; otherwise go back to CATCHUP_DATE
-      const sinceDate = account.lastSyncAt || CATCHUP_DATE;
-      console.log(`[Sync] Starting email sync for user ${ctx.user.id}, account: ${account.emailAddress}`);
+      const isFullResync = input?.fullResync === true;
+      // For full resync: always go back to CATCHUP_DATE
+      // For regular sync: use lastSyncAt but never newer than CATCHUP_DATE as minimum
+      const sinceDate = isFullResync ? CATCHUP_DATE : (account.lastSyncAt && account.lastSyncAt > CATCHUP_DATE ? account.lastSyncAt : CATCHUP_DATE);
+      console.log(`[Sync] Starting ${isFullResync ? 'FULL ' : ''}email sync for user ${ctx.user.id}, account: ${account.emailAddress}`);
       console.log(`[Sync] Fetching emails since: ${sinceDate.toISOString()}`);
       let fetched;
       try {

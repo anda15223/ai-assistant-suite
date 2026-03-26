@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mail, CheckSquare, FileText, Clock, AlertTriangle, RefreshCw, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, CheckSquare, FileText, Clock, AlertTriangle, RefreshCw, ArrowRight, Loader2, History } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -14,7 +14,7 @@ export default function Dashboard() {
   const account = trpc.emailAccount.get.useQuery();
   const syncEmails = trpc.email.sync.useMutation({
     onSuccess: (data) => {
-      toast.success(`Synced ${data.synced} new emails (${data.total} checked). AI is classifying them now!`);
+      toast.success(`Synced ${data.synced} new emails (${data.total} checked). AI is classifying them!`);
       emailStats.refetch();
       taskStats.refetch();
       pendingDrafts.refetch();
@@ -23,11 +23,13 @@ export default function Dashboard() {
   });
 
   const [syncing, setSyncing] = useState(false);
+  const [syncType, setSyncType] = useState<"regular" | "full">("regular");
 
-  const handleSync = async () => {
+  const handleSync = async (fullResync: boolean = false) => {
     setSyncing(true);
+    setSyncType(fullResync ? "full" : "regular");
     try {
-      await syncEmails.mutateAsync();
+      await syncEmails.mutateAsync({ fullResync });
     } finally {
       setSyncing(false);
     }
@@ -45,16 +47,27 @@ export default function Dashboard() {
             Your AI-powered email and task management dashboard
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {hasAccount ? (
-            <Button
-              onClick={handleSync}
-              disabled={syncing}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
-            >
-              {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-              {syncing ? "Syncing (this may take a minute)..." : "Sync Emails"}
-            </Button>
+            <>
+              <Button
+                onClick={() => handleSync(false)}
+                disabled={syncing}
+                className="bg-amber-500 hover:bg-amber-600 text-black"
+              >
+                {syncing && syncType === "regular" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                {syncing && syncType === "regular" ? "Syncing..." : "Sync New"}
+              </Button>
+              <Button
+                onClick={() => handleSync(true)}
+                disabled={syncing}
+                variant="outline"
+                className="border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+              >
+                {syncing && syncType === "full" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <History className="w-4 h-4 mr-2" />}
+                {syncing && syncType === "full" ? "Full sync (may take 2-3 min)..." : "Full Resync (since Mar 1)"}
+              </Button>
+            </>
           ) : (
             <Button onClick={() => navigate("/settings")} variant="outline">
               Configure Email Account
@@ -81,6 +94,18 @@ export default function Dashboard() {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sync info banner */}
+      {hasAccount && (
+        <Card className="border-teal-500/20 bg-teal-500/5">
+          <CardContent className="pt-4 pb-4">
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-teal-400">Sync New</strong> fetches only emails since your last sync.{" "}
+              <strong className="text-amber-400">Full Resync</strong> goes all the way back to <strong>March 1, 2026</strong> and re-processes everything — use this to catch up on all missed emails and tasks.
+            </p>
           </CardContent>
         </Card>
       )}
