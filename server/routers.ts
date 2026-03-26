@@ -148,25 +148,26 @@ export const appRouter = router({
             aiAnalysis: classification,
             isProcessed: true,
           });
-          // EVERY email creates a task — taskData is always present now
-          if (classification.taskData) {
-            await db.insertTask({
-              userId: ctx.user.id,
-              emailId,
-              title: classification.classification === "invoice" && classification.invoiceData
-                ? `Invoice: ${classification.invoiceData.vendor} - ${classification.invoiceData.amount}`
-                : classification.taskData.title,
-              description: classification.classification === "invoice" && classification.invoiceData
-                ? `${classification.invoiceData.action}\n\nInvoice #${classification.invoiceData.invoiceNumber}\nDue: ${classification.invoiceData.dueDate}\n\n${classification.taskData.description}`
-                : classification.taskData.description,
-              priority: classification.classification === "invoice" ? "high" : classification.taskData.priority,
-              category: classification.classification === "invoice" ? "invoice" : classification.taskData.category,
-              dueDate: classification.classification === "invoice" && classification.invoiceData
-                ? safeParseDueDate(classification.invoiceData.dueDate)
-                : safeParseDueDate(classification.taskData.dueDate),
-              source: "email",
-            });
-          }
+          // STRICT 1:1 RULE: EVERY email MUST create exactly one task
+          const td = classification.taskData;
+          const inv = classification.invoiceData;
+          const isInvoice = classification.classification === "invoice";
+          await db.insertTask({
+            userId: ctx.user.id,
+            emailId,
+            title: isInvoice && inv
+              ? `Invoice: ${inv.vendor} - ${inv.amount}`
+              : td?.title || `Review: ${email.subject || 'Untitled email'}`,
+            description: isInvoice && inv
+              ? `${inv.action}\n\nInvoice #${inv.invoiceNumber}\nDue: ${inv.dueDate}\n\n${td?.description || ''}`
+              : td?.description || `Email from ${email.fromName || email.fromAddress}. Please review.`,
+            priority: isInvoice ? "high" : (td?.priority || "medium"),
+            category: isInvoice ? "invoice" : (td?.category || "correspondence"),
+            dueDate: isInvoice && inv
+              ? safeParseDueDate(inv.dueDate)
+              : safeParseDueDate(td?.dueDate),
+            source: "email",
+          });
         } catch (aiErr) {
           console.error("[AI] Classification failed for email:", emailId, aiErr);
           // Fallback: create a basic task even if AI fails
@@ -191,6 +192,92 @@ export const appRouter = router({
     }),
     stats: protectedProcedure.query(async ({ ctx }) => {
       return db.getEmailStats(ctx.user.id);
+    }),
+    reclassifyAll: protectedProcedure.mutation(async ({ ctx }) => {
+      console.log(`[Reclassify] Starting full reclassification for user ${ctx.user.id}`);
+      // Step 1: Delete all existing tasks
+      await db.deleteAllTasksByUser(ctx.user.id);
+      console.log(`[Reclassify] Deleted all old tasks`);
+      // Step 2: Get all emails
+      const allEmails = await db.getAllEmailsByUser(ctx.user.id);
+      console.log(`[Reclassify] Processing ${allEmails.length} emails...`);
+      // Safe date parser
+      const safeParseDueDate = (dateStr: string | null | undefined): Date | undefined => {
+        if (!dateStr) return undefined;
+        try {
+          const d = new Date(dateStr);
+          if (isNaN(d.getTime())) return undefined;
+          return d;
+        } catch {
+          return undefined;
+        }
+      };
+      let classified = 0;
+      let failed = 0;
+      // Step 3: Re-classify each email and create exactly one task per email
+      for (const email of allEmails) {
+        try {
+          const classification = await classifyEmail(
+            email.subject || "",
+            email.body || "",
+            email.fromAddress || "",
+            email.fromName || ""
+          );
+          await db.updateEmailClassification(email.id, {
+            classification: classification.classification,
+            aiSummary: classification.summary,
+            aiAnalysis: classification,
+            isProcessed: true,
+          });
+          // Create exactly ONE task per email
+          await db.insertTask({
+            userId: ctx.user.id,
+            emailId: email.id,
+            title: classification.classification === "invoice" && classification.invoiceData
+              ? `Invoice: ${classification.invoiceData.vendor} - ${classification.invoiceData.amount}`
+              : classification.taskData.title,
+            description: classification.classification === "invoice" && classification.invoiceData
+              ? `${classification.invoiceData.action}\n\nInvoice #${classification.invoiceData.invoiceNumber}\nDue: ${classification.invoiceData.dueDate}\n\n${classification.taskData.description}`
+              : classification.taskData.description,
+            priority: classification.classification === "invoice" ? "high" : classification.taskData.priority,
+            category: classification.classification === "invoice" ? "invoice" : classification.taskData.category,
+            dueDate: classification.classification === "invoice" && classification.invoiceData
+              ? safeParseDueDate(classification.invoiceData.dueDate)
+              : safeParseDueDate(classification.taskData.dueDate),
+            source: "email",
+          });
+          classified++;
+          if (classified % 10 === 0) console.log(`[Reclassify] Progress: ${classified}/${allEmails.length}`);
+        } catch (aiErr) {
+          console.error(`[Reclassify] Failed for email ${email.id}:`, aiErr);
+          // Fallback: still create a task so 1:1 match is maintained
+          try {
+            await db.updateEmailClassification(email.id, {
+              classification: "task",
+              aiSummary: "AI classification failed — review manually",
+              aiAnalysis: {},
+              isProcessed: true,
+            });
+            await db.insertTask({
+              userId: ctx.user.id,
+              emailId: email.id,
+              title: `Review: ${email.subject || 'Untitled email'}`,
+              description: `Email from ${email.fromName || email.fromAddress}. AI classification failed — please review manually.`,
+              priority: "medium",
+              category: "correspondence",
+              source: "email",
+            });
+          } catch (fallbackErr) {
+            console.error(`[Reclassify] Fallback also failed for email ${email.id}:`, fallbackErr);
+          }
+          failed++;
+        }
+      }
+      console.log(`[Reclassify] Complete: ${classified} classified, ${failed} failed, ${allEmails.length} total`);
+      return { total: allEmails.length, classified, failed };
+    }),
+    accounting: protectedProcedure.query(async ({ ctx }) => {
+      return db.getAccountingSummary(ctx.user.id);
     }),
   }),
 

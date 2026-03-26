@@ -156,7 +156,7 @@ export async function emailExistsByMessageId(messageId: string, userId: number) 
 }
 
 export async function updateEmailClassification(emailId: number, data: {
-  classification: "invoice" | "task" | "reminder" | "general" | "irrelevant";
+  classification: "invoice" | "task";
   aiSummary: string;
   aiAnalysis: any;
   isProcessed: boolean;
@@ -174,18 +174,50 @@ export async function markEmailRead(emailId: number) {
 
 export async function getEmailStats(userId: number) {
   const db = await getDb();
-  if (!db) return { total: 0, unread: 0, invoices: 0, tasks: 0, reminders: 0 };
+  if (!db) return { total: 0, unread: 0, invoices: 0, tasks: 0 };
   const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(eq(emails.userId, userId));
   const [unreadResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.isRead, false)));
   const [invoiceResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "invoice")));
   const [taskResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "task")));
-  const [reminderResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "reminder")));
   return {
     total: totalResult?.count || 0,
     unread: unreadResult?.count || 0,
     invoices: invoiceResult?.count || 0,
     tasks: taskResult?.count || 0,
-    reminders: reminderResult?.count || 0,
+  };
+}
+
+// Get all emails for a user (for reclassification)
+export async function getAllEmailsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(emails).where(eq(emails.userId, userId)).orderBy(desc(emails.receivedAt));
+}
+
+// Delete all tasks for a user (for clean reclassification)
+export async function deleteAllTasksByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(tasks).where(eq(tasks.userId, userId));
+}
+
+// Get accounting summary: total emails, total tasks, invoice tasks, regular tasks
+export async function getAccountingSummary(userId: number) {
+  const db = await getDb();
+  if (!db) return { totalEmails: 0, totalTasks: 0, invoiceTasks: 0, regularTasks: 0, matched: true };
+  const [emailCount] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(eq(emails.userId, userId));
+  const [taskCount] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(eq(tasks.userId, userId));
+  const [invoiceTaskCount] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "invoice")));
+  const totalEmails = emailCount?.count || 0;
+  const totalTasks = taskCount?.count || 0;
+  const invoiceTasks = invoiceTaskCount?.count || 0;
+  const regularTasks = totalTasks - invoiceTasks;
+  return {
+    totalEmails,
+    totalTasks,
+    invoiceTasks,
+    regularTasks,
+    matched: totalEmails === totalTasks,
   };
 }
 

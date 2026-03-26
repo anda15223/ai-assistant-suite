@@ -1,0 +1,30 @@
+{
+  "query": "SELECT classification, COUNT(*) as cnt FROM emails GROUP BY classification;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2VBfwL6sVAbaZAE.root --database KuriegSE9E2r7xqu9W7qQS --execute SELECT classification, COUNT(*) as cnt FROM emails GROUP BY classification;",
+  "rows": [
+    {
+      "classification": "irrelevant",
+      "cnt": "26"
+    },
+    {
+      "classification": "invoice",
+      "cnt": "114"
+    },
+    {
+      "classification": "general",
+      "cnt": "61"
+    },
+    {
+      "classification": "task",
+      "cnt": "35"
+    },
+    {
+      "classification": "reminder",
+      "cnt": "6"
+    }
+  ],
+  "messages": [],
+  "stdout": "classification\tcnt\nirrelevant\t26\ninvoice\t114\ngeneral\t61\ntask\t35\nreminder\t6\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

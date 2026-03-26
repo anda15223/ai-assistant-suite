@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mail, CheckSquare, FileText, Clock, AlertTriangle, RefreshCw, ArrowRight, Loader2, History } from "lucide-react";
+import { Mail, CheckSquare, FileText, Clock, AlertTriangle, RefreshCw, ArrowRight, Loader2, History, RotateCcw, CheckCircle, XCircle, BarChart3 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -12,18 +12,34 @@ export default function Dashboard() {
   const taskStats = trpc.task.stats.useQuery();
   const pendingDrafts = trpc.draft.pending.useQuery();
   const account = trpc.emailAccount.get.useQuery();
+  const accounting = trpc.email.accounting.useQuery();
+
   const syncEmails = trpc.email.sync.useMutation({
     onSuccess: (data) => {
       toast.success(`Synced ${data.synced} new emails (${data.total} checked). AI is classifying them!`);
-      emailStats.refetch();
-      taskStats.refetch();
-      pendingDrafts.refetch();
+      refetchAll();
     },
     onError: (err) => toast.error(err.message),
   });
 
+  const reclassify = trpc.email.reclassifyAll.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Reclassified ${data.classified} emails. ${data.failed} failed. Total: ${data.total}`);
+      refetchAll();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const refetchAll = () => {
+    emailStats.refetch();
+    taskStats.refetch();
+    pendingDrafts.refetch();
+    accounting.refetch();
+  };
+
   const [syncing, setSyncing] = useState(false);
   const [syncType, setSyncType] = useState<"regular" | "full">("regular");
+  const [reclassifying, setReclassifying] = useState(false);
 
   const handleSync = async (fullResync: boolean = false) => {
     setSyncing(true);
@@ -35,7 +51,17 @@ export default function Dashboard() {
     }
   };
 
+  const handleReclassify = async () => {
+    setReclassifying(true);
+    try {
+      await reclassify.mutateAsync();
+    } finally {
+      setReclassifying(false);
+    }
+  };
+
   const hasAccount = !!account.data;
+  const acct = accounting.data;
 
   return (
     <div className="space-y-6">
@@ -52,7 +78,7 @@ export default function Dashboard() {
             <>
               <Button
                 onClick={() => handleSync(false)}
-                disabled={syncing}
+                disabled={syncing || reclassifying}
                 className="bg-amber-500 hover:bg-amber-600 text-black"
               >
                 {syncing && syncType === "regular" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
@@ -60,12 +86,12 @@ export default function Dashboard() {
               </Button>
               <Button
                 onClick={() => handleSync(true)}
-                disabled={syncing}
+                disabled={syncing || reclassifying}
                 variant="outline"
                 className="border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
               >
                 {syncing && syncType === "full" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <History className="w-4 h-4 mr-2" />}
-                {syncing && syncType === "full" ? "Full sync (may take 2-3 min)..." : "Full Resync (since Mar 1)"}
+                {syncing && syncType === "full" ? "Full sync..." : "Full Resync (since Mar 1)"}
               </Button>
             </>
           ) : (
@@ -87,7 +113,7 @@ export default function Dashboard() {
               <div className="flex-1">
                 <h3 className="font-semibold text-foreground mb-1">Email Account Required</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Connect your one.com email account to start using the AI email assistant. Your emails will be analyzed, classified, and tasks will be automatically extracted.
+                  Connect your one.com email account to start using the AI email assistant.
                 </p>
                 <Button onClick={() => navigate("/settings")} size="sm" className="bg-amber-500 hover:bg-amber-600 text-black">
                   Go to Settings <ArrowRight className="w-3.5 h-3.5 ml-1" />
@@ -98,14 +124,73 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Sync info banner */}
-      {hasAccount && (
-        <Card className="border-teal-500/20 bg-teal-500/5">
-          <CardContent className="pt-4 pb-4">
-            <p className="text-sm text-muted-foreground">
-              <strong className="text-teal-400">Sync New</strong> fetches only emails since your last sync.{" "}
-              <strong className="text-amber-400">Full Resync</strong> goes all the way back to <strong>March 1, 2026</strong> and re-processes everything — use this to catch up on all missed emails and tasks.
-            </p>
+      {/* ACCOUNTING SUMMARY — the 1:1 rule */}
+      {acct && acct.totalEmails > 0 && (
+        <Card className={`border-2 ${acct.matched ? "border-green-500/40 bg-green-500/5" : "border-red-500/40 bg-red-500/5"}`}>
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center gap-3 mb-4">
+              <BarChart3 className={`w-5 h-5 ${acct.matched ? "text-green-500" : "text-red-500"}`} />
+              <h3 className="font-bold text-lg">Email-to-Task Accounting</h3>
+              {acct.matched ? (
+                <span className="flex items-center gap-1 text-green-500 text-sm font-medium ml-auto">
+                  <CheckCircle className="w-4 h-4" /> Balanced
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-red-500 text-sm font-medium ml-auto">
+                  <XCircle className="w-4 h-4" /> Mismatch
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold">{acct.totalEmails}</div>
+                <div className="text-xs text-muted-foreground mt-1">Total Emails</div>
+              </div>
+              <div className="text-center text-muted-foreground text-2xl font-bold">=</div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-amber-500">{acct.invoiceTasks}</div>
+                <div className="text-xs text-muted-foreground mt-1">Invoice Tasks</div>
+              </div>
+              <div className="text-center text-muted-foreground text-2xl font-bold">+</div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-teal-500">{acct.regularTasks}</div>
+                <div className="text-xs text-muted-foreground mt-1">Regular Tasks</div>
+              </div>
+            </div>
+            <div className="mt-3 text-center text-xs text-muted-foreground">
+              Total Tasks: <strong className="text-foreground">{acct.totalTasks}</strong>
+              {!acct.matched && (
+                <span className="text-red-400 ml-2">
+                  ({acct.totalEmails - acct.totalTasks > 0 ? `${acct.totalEmails - acct.totalTasks} emails missing tasks` : `${acct.totalTasks - acct.totalEmails} extra tasks`})
+                </span>
+              )}
+            </div>
+            {!acct.matched && hasAccount && (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  onClick={handleReclassify}
+                  disabled={reclassifying || syncing}
+                  className="bg-red-500 hover:bg-red-600 text-white"
+                >
+                  {reclassifying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+                  {reclassifying ? "Reclassifying all emails (may take 5-10 min)..." : "Fix: Reclassify All Emails"}
+                </Button>
+              </div>
+            )}
+            {acct.matched && hasAccount && (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  onClick={handleReclassify}
+                  disabled={reclassifying || syncing}
+                  variant="outline"
+                  size="sm"
+                  className="border-green-500/30 text-green-500 hover:bg-green-500/10"
+                >
+                  {reclassifying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+                  {reclassifying ? "Reclassifying..." : "Re-run Classification"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

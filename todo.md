@@ -47,3 +47,9 @@
 - [x] Update frontend to show only invoice/task categories
 - [x] Fix RangeError: Invalid time value — added safe date parsing for due dates
 - [x] Added "Invoices" filter tab to Task Board
+- [ ] Bug: Only March 26 emails visible — older emails not being fetched from IMAP server
+- [x] Enforce strict 1:1 rule: total emails = total tasks (invoices + regular tasks)
+- [x] Re-classify all old emails (general/irrelevant/reminder → invoice or task) — reclassifyAll endpoint added
+- [x] Clear old tasks and regenerate from scratch with new classification
+- [x] Add accounting summary to dashboard: total emails, invoices count, tasks count, verification match
+- [x] Ensure future syncs always maintain the 1:1 match — removed if(taskData) guard

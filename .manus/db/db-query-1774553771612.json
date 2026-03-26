@@ -1,0 +1,70 @@
+{
+  "query": "SELECT category, COUNT(*) as cnt FROM tasks GROUP BY category;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2VBfwL6sVAbaZAE.root --database KuriegSE9E2r7xqu9W7qQS --execute SELECT category, COUNT(*) as cnt FROM tasks GROUP BY category;",
+  "rows": [
+    {
+      "category": "Order Fulfillment",
+      "cnt": "1"
+    },
+    {
+      "category": "Scheduling",
+      "cnt": "1"
+    },
+    {
+      "category": "Legal/HR",
+      "cnt": "1"
+    },
+    {
+      "category": "Contract Management",
+      "cnt": "1"
+    },
+    {
+      "category": "follow-up",
+      "cnt": "1"
+    },
+    {
+      "category": "correspondence",
+      "cnt": "1"
+    },
+    {
+      "category": "request",
+      "cnt": "3"
+    },
+    {
+      "category": "Agreement Management",
+      "cnt": "1"
+    },
+    {
+      "category": "Financial",
+      "cnt": "4"
+    },
+    {
+      "category": "Financial Administration",
+      "cnt": "3"
+    },
+    {
+      "category": "Partnership",
+      "cnt": "1"
+    },
+    {
+      "category": "Financial/Accounting",
+      "cnt": "1"
+    },
+    {
+      "category": "invoice",
+      "cnt": "31"
+    },
+    {
+      "category": "notification",
+      "cnt": "13"
+    },
+    {
+      "category": "Project Management",
+      "cnt": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "category\tcnt\nOrder Fulfillment\t1\nScheduling\t1\nLegal/HR\t1\nContract Management\t1\nfollow-up\t1\ncorrespondence\t1\nrequest\t3\nAgreement Management\t1\nFinancial\t4\nFinancial Administration\t3\nPartnership\t1\nFinancial/Accounting\t1\ninvoice\t31\nnotification\t13\nProject Management\t1\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}
