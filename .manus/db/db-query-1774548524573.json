@@ -1,0 +1,21 @@
+{
+  "query": "SELECT id, userId, emailAddress, imapHost, imapPort, smtpHost, smtpPort, isActive, lastSyncAt FROM email_accounts;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2VBfwL6sVAbaZAE.root --database KuriegSE9E2r7xqu9W7qQS --execute SELECT id, userId, emailAddress, imapHost, imapPort, smtpHost, smtpPort, isActive, lastSyncAt FROM email_accounts;",
+  "rows": [
+    {
+      "id": "1",
+      "userId": "4",
+      "emailAddress": "aa@thefishproject.dk",
+      "imapHost": "imap.one.com",
+      "imapPort": "993",
+      "smtpHost": "send.one.com",
+      "smtpPort": "465",
+      "isActive": "1",
+      "lastSyncAt": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\temailAddress\timapHost\timapPort\tsmtpHost\tsmtpPort\tisActive\tlastSyncAt\n1\t4\taa@thefishproject.dk\timap.one.com\t993\tsend.one.com\t465\t1\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 109
+}

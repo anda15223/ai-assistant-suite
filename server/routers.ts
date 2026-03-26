@@ -94,7 +94,15 @@ export const appRouter = router({
     sync: protectedProcedure.mutation(async ({ ctx }) => {
       const account = await db.getEmailAccount(ctx.user.id);
       if (!account) throw new Error("No email account configured. Go to Settings to add your email.");
-      const fetched = await fetchEmails(account, 30, account.lastSyncAt || undefined);
+      console.log(`[Sync] Starting email sync for user ${ctx.user.id}, account: ${account.emailAddress}`);
+      let fetched;
+      try {
+        fetched = await fetchEmails(account, 30, account.lastSyncAt || undefined);
+      } catch (fetchErr) {
+        console.error("[Sync] Email fetch failed:", fetchErr);
+        throw new Error(`Email sync failed: ${(fetchErr as Error).message}. Please check your email credentials in Settings.`);
+      }
+      console.log(`[Sync] Fetched ${fetched.length} emails, processing...`);
       let newCount = 0;
       for (const email of fetched) {
         if (email.messageId && await db.emailExistsByMessageId(email.messageId, ctx.user.id)) continue;
@@ -149,6 +157,7 @@ export const appRouter = router({
         }
       }
       await db.updateLastSync(account.id);
+      console.log(`[Sync] Sync complete: ${newCount} new emails out of ${fetched.length} fetched`);
       return { synced: newCount, total: fetched.length };
     }),
     stats: protectedProcedure.query(async ({ ctx }) => {
