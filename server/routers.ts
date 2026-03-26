@@ -182,6 +182,14 @@ export const appRouter = router({
               isOverdue: urg.deadlineDate ? new Date(urg.deadlineDate) < new Date() : false,
             });
           }
+          // Save AI content category suggestion
+          if (classification.contentCategory && taskId) {
+            await db.updateTaskSuggestion(taskId, ctx.user.id, {
+              suggestedCategory: classification.contentCategory.suggestedCategory,
+              suggestionConfidence: Math.round(classification.contentCategory.confidence * 100),
+              suggestionReasoning: classification.contentCategory.reasoning,
+            });
+          }
         } catch (aiErr) {
           console.error("[AI] Classification failed for email:", emailId, aiErr);
           // Fallback: create a basic task even if AI fails
@@ -606,6 +614,28 @@ export const appRouter = router({
       .query(async ({ ctx, input }) => {
         const emailId = await db.getTaskEmailId(input.taskId, ctx.user.id);
         return { emailId };
+      }),
+
+    // ===== AI CATEGORY SUGGESTIONS =====
+    acceptSuggestion: protectedProcedure
+      .input(z.object({ taskId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await db.acceptTaskSuggestion(input.taskId, ctx.user.id);
+        console.log(`[Suggestion] Accepted for task ${input.taskId} by user ${ctx.user.id}`);
+        return { success: true };
+      }),
+
+    rejectSuggestion: protectedProcedure
+      .input(z.object({ taskId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await db.rejectTaskSuggestion(input.taskId, ctx.user.id);
+        console.log(`[Suggestion] Rejected for task ${input.taskId} by user ${ctx.user.id}`);
+        return { success: true };
+      }),
+
+    suggestionStats: protectedProcedure
+      .query(async ({ ctx }) => {
+        return db.getSuggestionStats(ctx.user.id);
       }),
   }),
 });

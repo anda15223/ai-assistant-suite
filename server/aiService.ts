@@ -32,6 +32,11 @@ export interface EmailClassification {
   };
   suggestedAction: string;
   urgency: UrgencyAssessment;
+  contentCategory: {
+    suggestedCategory: "task" | "invoice" | "read_lecture" | "read_learn" | "might_be_interesting";
+    confidence: number;
+    reasoning: string;
+  };
 }
 
 /**
@@ -62,6 +67,15 @@ CLASSIFICATION RULES:
 - If meeting invite: task is "Respond to meeting invite: [subject]".
 - Due dates: use ISO format (YYYY-MM-DD) or null if none mentioned.
 - Category: one of "invoice", "correspondence", "meeting", "request", "notification", "follow-up", "approval", "report", "other".
+
+CONTENT CATEGORY SUGGESTION:
+Beyond invoice/task classification, also predict the best content category for the user's reading workflow:
+- "invoice": Financial documents, bills, payment requests
+- "task": Actionable items requiring a response or work
+- "read_lecture": Educational content, tutorials, course materials, webinars, training — content to study carefully
+- "read_learn": Industry news, articles, blog posts, research papers — content to absorb knowledge from
+- "might_be_interesting": Newsletters, promotions, announcements, events — content that might be worth a glance
+Provide a confidence score (0-1) and brief reasoning for the suggestion.
 
 URGENCY SCORING (1-10, time-sensitivity):
 - 9-10: Overdue, legal deadline, "urgent/ASAP", same-day required
@@ -141,6 +155,16 @@ ${body.substring(0, 4000)}`,
               additionalProperties: false,
             },
             suggestedAction: { type: "string", description: "What the user should do" },
+            contentCategory: {
+              type: "object",
+              properties: {
+                suggestedCategory: { type: "string", enum: ["task", "invoice", "read_lecture", "read_learn", "might_be_interesting"], description: "Best content category for reading workflow" },
+                confidence: { type: "number", description: "Confidence 0-1" },
+                reasoning: { type: "string", description: "Brief explanation for the suggestion" },
+              },
+              required: ["suggestedCategory", "confidence", "reasoning"],
+              additionalProperties: false,
+            },
             urgency: {
               type: "object",
               properties: {
@@ -158,7 +182,7 @@ ${body.substring(0, 4000)}`,
               additionalProperties: false,
             },
           },
-          required: ["classification", "summary", "confidence", "invoiceData", "taskData", "suggestedAction", "urgency"],
+          required: ["classification", "summary", "confidence", "invoiceData", "taskData", "suggestedAction", "contentCategory", "urgency"],
           additionalProperties: false,
         },
       },

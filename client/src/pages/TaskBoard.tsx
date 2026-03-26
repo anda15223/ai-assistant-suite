@@ -12,6 +12,7 @@ import {
   CheckSquare, Plus, Loader2, Mail, MessageSquare, User, ArrowRight,
   Flame, Calendar, Users, Archive, AlertTriangle, ArrowUp, Zap,
   ExternalLink, Tag, BookOpen, GraduationCap, Lightbulb, FileText,
+  Sparkles, Check, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
@@ -126,6 +127,22 @@ export default function TaskBoard() {
     },
     onError: (err) => toast.error(err.message),
   });
+  const acceptSuggestion = trpc.task.acceptSuggestion.useMutation({
+    onSuccess: () => {
+      toast.success("AI suggestion accepted");
+      taskList.refetch();
+      taskStats.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const rejectSuggestion = trpc.task.rejectSuggestion.useMutation({
+    onSuccess: () => {
+      toast.info("AI suggestion dismissed");
+      taskList.refetch();
+      taskStats.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   const [statusFilter, setStatusFilter] = useState("active");
   const [sortBy, setSortBy] = useState<"priority" | "date" | "due">("priority");
@@ -142,6 +159,7 @@ export default function TaskBoard() {
     else if (statusFilter === "read_lecture") filtered = taskList.data.filter(t => t.category === "read_lecture");
     else if (statusFilter === "read_learn") filtered = taskList.data.filter(t => t.category === "read_learn");
     else if (statusFilter === "might_be_interesting") filtered = taskList.data.filter(t => t.category === "might_be_interesting");
+    else if (statusFilter === "suggestions") filtered = taskList.data.filter(t => t.suggestedCategory && !t.suggestionConfirmed);
     else if (statusFilter === "completed") filtered = taskList.data.filter(t => t.status === "completed");
     else if (statusFilter === "dismissed") filtered = taskList.data.filter(t => t.status === "dismissed");
     else filtered = [...taskList.data];
@@ -161,6 +179,12 @@ export default function TaskBoard() {
     }
     return filtered;
   }, [taskList.data, statusFilter, sortBy]);
+
+  // Count pending AI suggestions
+  const pendingSuggestionCount = useMemo(() => {
+    if (!taskList.data) return 0;
+    return taskList.data.filter(t => t.suggestedCategory && !t.suggestionConfirmed).length;
+  }, [taskList.data]);
 
   // Count tasks per category for filter tabs
   const categoryCounts = useMemo(() => {
@@ -263,6 +287,7 @@ export default function TaskBoard() {
             { key: "read_lecture", label: `Lectures${categoryCounts["read_lecture"] ? ` (${categoryCounts["read_lecture"]})` : ""}`, icon: BookOpen },
             { key: "read_learn", label: `Learn${categoryCounts["read_learn"] ? ` (${categoryCounts["read_learn"]})` : ""}`, icon: GraduationCap },
             { key: "might_be_interesting", label: `Interesting${categoryCounts["might_be_interesting"] ? ` (${categoryCounts["might_be_interesting"]})` : ""}`, icon: Lightbulb },
+            { key: "suggestions", label: `AI Suggestions${pendingSuggestionCount ? ` (${pendingSuggestionCount})` : ""}`, icon: Sparkles },
             { key: "completed", label: "Completed" },
             { key: "dismissed", label: "Dismissed" },
             { key: "all", label: "All" },
@@ -391,6 +416,26 @@ export default function TaskBoard() {
                             })}
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        {/* AI Suggestion badge */}
+                        {task.suggestedCategory && !task.suggestionConfirmed && (
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-violet-500/15 text-violet-400 border-violet-500/40 animate-pulse">
+                                <Sparkles className="inline h-2.5 w-2.5 mr-0.5" />
+                                AI: {categoryLabelMap[task.suggestedCategory] || task.suggestedCategory}
+                                {task.suggestionConfidence != null && (
+                                  <span className="ml-1 opacity-70">{task.suggestionConfidence}%</span>
+                                )}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <div className="text-xs">
+                                <div className="font-medium mb-1">AI Category Suggestion</div>
+                                <div>{task.suggestionReasoning || "Based on email content analysis"}</div>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                         {task.isOverdue && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-500/20 text-red-400 border-red-500/40">
                             <AlertTriangle className="inline h-2.5 w-2.5 mr-0.5" />
@@ -425,6 +470,39 @@ export default function TaskBoard() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-1 shrink-0">
+                      {/* AI Suggestion accept/reject */}
+                      {task.suggestedCategory && !task.suggestionConfirmed && (
+                        <div className="flex gap-0.5 mb-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                                onClick={() => acceptSuggestion.mutate({ taskId: task.id })}
+                                disabled={acceptSuggestion.isPending}
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Accept AI suggestion: {categoryLabelMap[task.suggestedCategory] || task.suggestedCategory}</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                onClick={() => rejectSuggestion.mutate({ taskId: task.id })}
+                                disabled={rejectSuggestion.isPending}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Dismiss AI suggestion</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      )}
                       {/* Open Email button */}
                       {hasEmail && (
                         <Tooltip>

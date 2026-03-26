@@ -36,6 +36,13 @@
       "when": 1774561828675,
       "tag": "0004_majestic_anthem",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1774563438224,
+      "tag": "0005_many_sister_grimm",
+      "breakpoints": true
     }
   ]
 }

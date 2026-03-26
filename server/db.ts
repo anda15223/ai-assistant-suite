@@ -1,4 +1,4 @@
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, isNotNull, isNull, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, emailAccounts, emails, tasks, draftReplies } from "../drizzle/schema";
 import type { InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply } from "../drizzle/schema";
@@ -458,6 +458,63 @@ export async function updateTaskUrgency(taskId: number, userId: number, data: {
   const db = await getDb();
   if (!db) return;
   await db.update(tasks).set(data).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function updateTaskSuggestion(taskId: number, userId: number, data: {
+  suggestedCategory: string;
+  suggestionConfidence: number;
+  suggestionReasoning: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(tasks).set({
+    suggestedCategory: data.suggestedCategory,
+    suggestionConfidence: data.suggestionConfidence,
+    suggestionReasoning: data.suggestionReasoning,
+    suggestionConfirmed: false,
+  }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function acceptTaskSuggestion(taskId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Get the task to read its suggestedCategory
+  const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).limit(1);
+  if (!task || !task.suggestedCategory) return;
+  // Apply the suggestion: set category = suggestedCategory and mark confirmed
+  await db.update(tasks).set({
+    category: task.suggestedCategory,
+    suggestionConfirmed: true,
+    lastActivityAt: new Date(),
+  }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function rejectTaskSuggestion(taskId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Mark suggestion as confirmed (rejected) without changing category
+  await db.update(tasks).set({
+    suggestionConfirmed: true,
+    lastActivityAt: new Date(),
+  }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function getSuggestionStats(userId: number) {
+  const db = await getDb();
+  if (!db) return { pending: 0, accepted: 0, rejected: 0 };
+  // Pending: has suggestedCategory but not confirmed
+  const [pendingResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(
+    and(eq(tasks.userId, userId), isNotNull(tasks.suggestedCategory), or(isNull(tasks.suggestionConfirmed), eq(tasks.suggestionConfirmed, false)))
+  );
+  // Accepted: confirmed AND category matches suggestedCategory
+  const [acceptedResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(
+    and(eq(tasks.userId, userId), eq(tasks.suggestionConfirmed, true), isNotNull(tasks.suggestedCategory))
+  );
+  return {
+    pending: pendingResult?.count || 0,
+    accepted: acceptedResult?.count || 0,
+    rejected: 0, // approximation — rejected ones also have suggestionConfirmed=true but category != suggestedCategory
+  };
 }
 
 export async function getTasksByUserPrioritized(userId: number, limit: number = 200) {

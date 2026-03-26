@@ -9,7 +9,7 @@ import {
   ArrowLeft, Bot, Send, Check, X, RefreshCw, Loader2, FileText,
   CheckSquare, Clock, Mail, User, Calendar, Tag, ArrowRight,
   BookOpen, GraduationCap, Lightbulb, Flame, Users, Archive,
-  Zap, AlertTriangle,
+  Zap, AlertTriangle, Sparkles,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -280,6 +280,24 @@ export default function EmailDetail({ id }: { id: string }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {/* AI Suggestion badge */}
+                    {task.suggestedCategory && !task.suggestionConfirmed && (
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-violet-500/15 text-violet-400 border-violet-500/40">
+                            <Sparkles className="inline h-2.5 w-2.5 mr-0.5" />
+                            AI: {categoryLabelMap[task.suggestedCategory] || task.suggestedCategory}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <div className="text-xs">
+                            <div className="font-medium">AI suggests: {categoryLabelMap[task.suggestedCategory] || task.suggestedCategory}</div>
+                            {task.suggestionReasoning && <div className="mt-1">{task.suggestionReasoning}</div>}
+                            {task.suggestionConfidence != null && <div className="mt-1 opacity-70">Confidence: {task.suggestionConfidence}%</div>}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                     <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${catColor}`}>
                       <CatIcon className="inline h-2.5 w-2.5 mr-0.5" />
                       {catLabel}

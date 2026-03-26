@@ -28,6 +28,9 @@ import {
   Lightbulb,
   FileText,
   CheckSquare,
+  Sparkles,
+  Check,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -106,12 +109,14 @@ function UrgencyBar({ score, label }: { score: number; label: string }) {
   );
 }
 
-function TaskCard({ task, onSnooze, onStatusChange, onCategoryChange, onOpenEmail }: {
+function TaskCard({ task, onSnooze, onStatusChange, onCategoryChange, onOpenEmail, onAcceptSuggestion, onRejectSuggestion }: {
   task: any;
   onSnooze: (taskId: number) => void;
   onStatusChange: (taskId: number, status: string) => void;
   onCategoryChange: (taskId: number, category: string) => void;
   onOpenEmail: (emailId: number) => void;
+  onAcceptSuggestion: (taskId: number) => void;
+  onRejectSuggestion: (taskId: number) => void;
 }) {
   const isOverdue = task.isOverdue;
   const isSnoozed = task.snoozedUntil && new Date(task.snoozedUntil) > new Date();
@@ -167,6 +172,32 @@ function TaskCard({ task, onSnooze, onStatusChange, onCategoryChange, onOpenEmai
         <UrgencyBar score={task.urgencyScore || 5} label="URG" />
         <UrgencyBar score={task.importanceScore || 5} label="IMP" />
       </div>
+
+      {/* AI Category Suggestion */}
+      {task.suggestedCategory && !task.suggestionConfirmed && (
+        <div className="flex items-center gap-1.5 mb-2 p-1.5 rounded bg-violet-500/10 border border-violet-500/20">
+          <Sparkles className="h-3 w-3 text-violet-400 shrink-0" />
+          <Tooltip>
+            <TooltipTrigger>
+              <span className="text-[10px] text-violet-400 truncate">
+                AI: {categoryLabelMap[task.suggestedCategory] || task.suggestedCategory}
+                {task.suggestionConfidence != null && <span className="opacity-70 ml-1">{task.suggestionConfidence}%</span>}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <div className="text-xs">{task.suggestionReasoning || "Based on email content analysis"}</div>
+            </TooltipContent>
+          </Tooltip>
+          <div className="flex gap-0.5 ml-auto shrink-0">
+            <Button variant="ghost" size="icon" className="h-5 w-5 text-green-400 hover:bg-green-500/10" onClick={() => onAcceptSuggestion(task.id)}>
+              <Check className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-5 w-5 text-red-400 hover:bg-red-500/10" onClick={() => onRejectSuggestion(task.id)}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {task.suggestedAction && (
         <p className="text-xs text-amber-400/80 mb-2 line-clamp-1">
@@ -241,13 +272,15 @@ function TaskCard({ task, onSnooze, onStatusChange, onCategoryChange, onOpenEmai
   );
 }
 
-function QuadrantPanel({ quadrant, tasks, onSnooze, onStatusChange, onCategoryChange, onOpenEmail }: {
+function QuadrantPanel({ quadrant, tasks, onSnooze, onStatusChange, onCategoryChange, onOpenEmail, onAcceptSuggestion, onRejectSuggestion }: {
   quadrant: keyof typeof quadrantConfig;
   tasks: any[];
   onSnooze: (taskId: number) => void;
   onStatusChange: (taskId: number, status: string) => void;
   onCategoryChange: (taskId: number, category: string) => void;
   onOpenEmail: (emailId: number) => void;
+  onAcceptSuggestion: (taskId: number) => void;
+  onRejectSuggestion: (taskId: number) => void;
 }) {
   const config = quadrantConfig[quadrant];
   const Icon = config.icon;
@@ -277,6 +310,8 @@ function QuadrantPanel({ quadrant, tasks, onSnooze, onStatusChange, onCategoryCh
               onStatusChange={onStatusChange}
               onCategoryChange={onCategoryChange}
               onOpenEmail={onOpenEmail}
+              onAcceptSuggestion={onAcceptSuggestion}
+              onRejectSuggestion={onRejectSuggestion}
             />
           ))
         )}
@@ -348,6 +383,24 @@ export default function PriorityView() {
     onError: (err) => toast.error(err.message),
   });
 
+  const acceptSuggestion = trpc.task.acceptSuggestion.useMutation({
+    onSuccess: () => {
+      toast.success("AI suggestion accepted");
+      refetchTasks();
+      refetchDist();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const rejectSuggestion = trpc.task.rejectSuggestion.useMutation({
+    onSuccess: () => {
+      toast.info("AI suggestion dismissed");
+      refetchTasks();
+      refetchDist();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   if (authLoading) return <DashboardLayoutSkeleton />;
   if (!user) return <DashboardLayoutSkeleton />;
 
@@ -367,6 +420,14 @@ export default function PriorityView() {
 
   const handleOpenEmail = (emailId: number) => {
     navigate(`/emails/${emailId}`);
+  };
+
+  const handleAcceptSuggestion = (taskId: number) => {
+    acceptSuggestion.mutate({ taskId });
+  };
+
+  const handleRejectSuggestion = (taskId: number) => {
+    rejectSuggestion.mutate({ taskId });
   };
 
   return (
@@ -437,6 +498,8 @@ export default function PriorityView() {
               onStatusChange={(id, status) => statusMutation.mutate({ taskId: id, status: status as any })}
               onCategoryChange={handleCategoryChange}
               onOpenEmail={handleOpenEmail}
+              onAcceptSuggestion={handleAcceptSuggestion}
+              onRejectSuggestion={handleRejectSuggestion}
             />
             <QuadrantPanel
               quadrant="schedule"
@@ -445,6 +508,8 @@ export default function PriorityView() {
               onStatusChange={(id, status) => statusMutation.mutate({ taskId: id, status: status as any })}
               onCategoryChange={handleCategoryChange}
               onOpenEmail={handleOpenEmail}
+              onAcceptSuggestion={handleAcceptSuggestion}
+              onRejectSuggestion={handleRejectSuggestion}
             />
             {/* Row 2: Urgent+Not Important | Not Urgent+Not Important */}
             <QuadrantPanel
@@ -454,6 +519,8 @@ export default function PriorityView() {
               onStatusChange={(id, status) => statusMutation.mutate({ taskId: id, status: status as any })}
               onCategoryChange={handleCategoryChange}
               onOpenEmail={handleOpenEmail}
+              onAcceptSuggestion={handleAcceptSuggestion}
+              onRejectSuggestion={handleRejectSuggestion}
             />
             <QuadrantPanel
               quadrant="archive"
@@ -462,6 +529,8 @@ export default function PriorityView() {
               onStatusChange={(id, status) => statusMutation.mutate({ taskId: id, status: status as any })}
               onCategoryChange={handleCategoryChange}
               onOpenEmail={handleOpenEmail}
+              onAcceptSuggestion={handleAcceptSuggestion}
+              onRejectSuggestion={handleRejectSuggestion}
             />
           </div>
         )}

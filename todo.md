@@ -116,3 +116,14 @@
 - [x] Route /emails/:id already existed in App.tsx — confirmed working
 - [x] "Open Email" button in Task Board and Priority Matrix already navigates to /emails/:emailId
 - [x] Write vitest tests for email detail logic (20 tests, 99 total passing across 8 files)
+
+## AI-Assisted Category Suggestions
+- [x] Update AI classification prompt to predict contentCategory: lecture, learn, interesting, or standard task/invoice
+- [x] Add suggestedCategory, suggestionConfidence, suggestionReasoning, suggestionConfirmed fields to tasks table
+- [x] Wire AI suggestion into email sync pipeline (store suggestedCategory on task creation)
+- [x] Add tRPC endpoints: acceptSuggestion, rejectSuggestion, suggestionStats
+- [x] Add db helpers: updateTaskSuggestion, acceptSuggestion, rejectSuggestion, getSuggestionStats
+- [x] Update Task Board UI with AI suggestion badge (violet, animated), accept/reject buttons, and "AI Suggestions" filter tab
+- [x] Update Priority Matrix TaskCard with AI suggestion inline panel (accept/reject)
+- [x] Update Email Detail page to show AI category suggestion badge on linked tasks
+- [x] Write vitest tests for category suggestion logic (22 tests, 121 total passing across 9 files)
