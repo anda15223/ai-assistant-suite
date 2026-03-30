@@ -40,7 +40,7 @@ function formatCurrency(currency: string | null | undefined): string {
   return upper || "DKK";
 }
 
-type TabType = "all" | "pending" | "reviewed" | "sent_to_economic" | "paid";
+type TabType = "all" | "pending" | "reviewed" | "sent_to_economic" | "paid" | "faktura" | "pbs";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending: { label: "Pending", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30", icon: <Clock className="w-3 h-3" /> },
@@ -48,6 +48,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   sent_to_economic: { label: "Sent to e-conomic", color: "bg-green-500/20 text-green-400 border-green-500/30", icon: <Send className="w-3 h-3" /> },
   paid: { label: "Paid", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", icon: <CheckCircle className="w-3 h-3" /> },
   rejected: { label: "Rejected", color: "bg-red-500/20 text-red-400 border-red-500/30", icon: <XCircle className="w-3 h-3" /> },
+};
+
+const INVOICE_TYPE_CONFIG: Record<string, { label: string; color: string; description: string }> = {
+  faktura: { label: "Faktura", color: "bg-orange-500/20 text-orange-400 border-orange-500/30", description: "Manual payment required" },
+  pbs: { label: "PBS", color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30", description: "Automatic payment (direct debit)" },
+  unknown: { label: "Unknown", color: "bg-gray-500/20 text-gray-400 border-gray-500/30", description: "Type not determined" },
 };
 
 export default function Invoices() {
@@ -164,7 +170,11 @@ export default function Invoices() {
 
   // Filter invoices
   const filtered = invoices.filter((inv: any) => {
-    if (activeTab !== "all" && inv.status !== activeTab) return false;
+    // Type filter tabs
+    if (activeTab === "faktura" && inv.invoiceType !== "faktura") return false;
+    if (activeTab === "pbs" && inv.invoiceType !== "pbs") return false;
+    // Status filter tabs
+    if (activeTab !== "all" && activeTab !== "faktura" && activeTab !== "pbs" && inv.status !== activeTab) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
@@ -179,8 +189,9 @@ export default function Invoices() {
 
   const tabs: { key: TabType; label: string; count: number }[] = [
     { key: "all", label: "All", count: stats?.total || 0 },
+    { key: "faktura", label: "\u{1F4C4} Faktura", count: stats?.faktura || 0 },
+    { key: "pbs", label: "\u{1F501} PBS", count: stats?.pbs || 0 },
     { key: "pending", label: "Pending", count: stats?.pending || 0 },
-    { key: "reviewed", label: "Reviewed", count: stats?.reviewed || 0 },
     { key: "sent_to_economic", label: "Sent", count: stats?.sentToEconomic || 0 },
     { key: "paid", label: "Paid", count: stats?.paid || 0 },
   ];
@@ -211,35 +222,49 @@ export default function Invoices() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <Card className="bg-card/50 border-border/50">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-amber-400">{stats?.total || 0}</div>
-            <div className="text-xs text-muted-foreground">Total Invoices</div>
+            <div className="text-xs text-muted-foreground">Total</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-orange-500/30">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-orange-400">{stats?.faktura || 0}</div>
+            <div className="text-xs text-orange-400/80">Faktura</div>
+            <div className="text-[10px] text-muted-foreground">Manual Pay</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-cyan-500/30">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-cyan-400">{stats?.pbs || 0}</div>
+            <div className="text-xs text-cyan-400/80">PBS</div>
+            <div className="text-[10px] text-muted-foreground">Auto Pay</div>
           </CardContent>
         </Card>
         <Card className="bg-card/50 border-border/50">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-yellow-400">{stats?.pending || 0}</div>
-            <div className="text-xs text-muted-foreground">Pending Review</div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50 border-border/50">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-400">{stats?.reviewed || 0}</div>
-            <div className="text-xs text-muted-foreground">Reviewed</div>
+            <div className="text-xs text-muted-foreground">Pending</div>
           </CardContent>
         </Card>
         <Card className="bg-card/50 border-border/50">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-green-400">{stats?.sentToEconomic || 0}</div>
-            <div className="text-xs text-muted-foreground">Sent to e-conomic</div>
+            <div className="text-xs text-muted-foreground">Sent</div>
           </CardContent>
         </Card>
         <Card className="bg-card/50 border-border/50">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-emerald-400">{stats?.paid || 0}</div>
             <div className="text-xs text-muted-foreground">Paid</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-gray-400">{stats?.unknown || 0}</div>
+            <div className="text-xs text-muted-foreground">Untyped</div>
           </CardContent>
         </Card>
       </div>
@@ -478,10 +503,27 @@ export default function Invoices() {
                       <Building2 className="w-4 h-4 text-amber-400 shrink-0" />
                       <div>
                         <p className="font-medium text-sm text-foreground truncate">{inv.supplier}</p>
-                        <Badge variant="outline" className={`text-[10px] mt-0.5 ${statusCfg.color}`}>
-                          {statusCfg.icon}
-                          <span className="ml-1">{statusCfg.label}</span>
-                        </Badge>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {/* Invoice Type Badge (PBS / Faktura) */}
+                          {(() => {
+                            const typeCfg = INVOICE_TYPE_CONFIG[inv.invoiceType] || INVOICE_TYPE_CONFIG.unknown;
+                            return (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="outline" className={`text-[10px] font-bold ${typeCfg.color}`}>
+                                    {typeCfg.label}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>{typeCfg.description}</TooltipContent>
+                              </Tooltip>
+                            );
+                          })()}
+                          {/* Status Badge */}
+                          <Badge variant="outline" className={`text-[10px] ${statusCfg.color}`}>
+                            {statusCfg.icon}
+                            <span className="ml-1">{statusCfg.label}</span>
+                          </Badge>
+                        </div>
                       </div>
                     </div>
 
@@ -608,7 +650,21 @@ export default function Invoices() {
                           <span className="text-muted-foreground text-xs">Due Date</span>
                           <p className="font-medium">{inv.dueDate || "N/A"}</p>
                         </div>
-                        <div className="col-span-2">
+                        <div>
+                          <span className="text-muted-foreground text-xs">Invoice Type</span>
+                          <div className="mt-1">
+                            {(() => {
+                              const typeCfg = INVOICE_TYPE_CONFIG[inv.invoiceType] || INVOICE_TYPE_CONFIG.unknown;
+                              return (
+                                <Badge variant="outline" className={`text-xs font-bold ${typeCfg.color}`}>
+                                  {typeCfg.label}
+                                  <span className="ml-1 font-normal text-muted-foreground">— {typeCfg.description}</span>
+                                </Badge>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                        <div>
                           <span className="text-muted-foreground text-xs">Products</span>
                           <p className="font-medium">{inv.products || "N/A"}</p>
                         </div>

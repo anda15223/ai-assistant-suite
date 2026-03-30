@@ -175,3 +175,14 @@
 - [x] Add PDF attachment links (Paperclip icon) on each invoice row in Actions column
 - [x] Add attachment section in expanded invoice details (filename, size, download link)
 - [x] Write vitest tests for attachment system (15 new tests, 157 total passing across 10 files)
+
+## PBS vs Faktura Distinction
+- [x] Update AI classification to distinguish PBS (automatic payment/direct debit) from Faktura (invoice requiring manual payment)
+- [x] Add invoiceType field to invoiceDetails schema (pbs | faktura | unknown)
+- [x] Update AI invoice extraction to detect and return invoiceType
+- [x] Update Invoice Dashboard UI with PBS/Faktura badges, filter tabs, and stats cards
+- [x] Update Task Board to show PBS vs Faktura on invoice tasks
+- [x] Update email classification prompt to flag PBS vs Faktura in task title/description
+- [x] Update EmailDetail page with PBS/Faktura badge on invoice data and linked tasks
+- [x] Update PriorityView page with PBS/Faktura badge on invoice task cards
+- [x] Write tests for PBS/Faktura distinction (9 new tests, 166 total passing)

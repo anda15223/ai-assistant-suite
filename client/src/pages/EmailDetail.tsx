@@ -263,6 +263,16 @@ export default function EmailDetail({ id }: { id: string }) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium text-foreground truncate">{task.title}</span>
+                        {/* PBS / Faktura badge for invoice tasks */}
+                        {task.category === "invoice" && task.title && (
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-bold ${
+                            task.title.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("BETALINGSSERVICE")
+                              ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                              : "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                          }`}>
+                            {task.title.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("BETALINGSSERVICE") ? "PBS" : "Faktura"}
+                          </Badge>
+                        )}
                         {priorityScore && (
                           <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-mono ${
                             priorityScore >= 8 ? "bg-red-500/20 text-red-400 border-red-500/40"
@@ -342,22 +352,46 @@ export default function EmailDetail({ id }: { id: string }) {
             )}
 
             {analysis?.invoiceData && (
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-md bg-amber-500/5 border border-amber-500/10">
-                <div>
-                  <span className="text-xs text-muted-foreground">Vendor</span>
-                  <p className="text-sm font-medium">{analysis.invoiceData.vendor}</p>
+              <div className="space-y-2">
+                {/* PBS / Faktura Type Badge */}
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const action = (analysis.invoiceData.action || "").toUpperCase();
+                    const isPbs = action.includes("PBS") || e.subject?.toUpperCase().includes("PBS") || e.subject?.toUpperCase().includes("BETALINGSSERVICE");
+                    return (
+                      <Badge variant="outline" className={`text-xs font-bold ${
+                        isPbs
+                          ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                          : "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                      }`}>
+                        {isPbs ? "PBS — Automatic Payment" : "Faktura — Manual Payment Required"}
+                      </Badge>
+                    );
+                  })()}
                 </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Amount</span>
-                  <p className="text-sm font-medium">{analysis.invoiceData.amount}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Due Date</span>
-                  <p className="text-sm font-medium">{analysis.invoiceData.dueDate}</p>
-                </div>
-                <div>
-                  <span className="text-xs text-muted-foreground">Invoice #</span>
-                  <p className="text-sm font-medium">{analysis.invoiceData.invoiceNumber}</p>
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-md bg-amber-500/5 border border-amber-500/10">
+                  <div>
+                    <span className="text-xs text-muted-foreground">Vendor</span>
+                    <p className="text-sm font-medium">{analysis.invoiceData.vendor}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Amount</span>
+                    <p className="text-sm font-medium">{analysis.invoiceData.amount}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Due Date</span>
+                    <p className="text-sm font-medium">{analysis.invoiceData.dueDate}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">Invoice #</span>
+                    <p className="text-sm font-medium">{analysis.invoiceData.invoiceNumber}</p>
+                  </div>
+                  {analysis.invoiceData.action && (
+                    <div className="col-span-2">
+                      <span className="text-xs text-muted-foreground">Action</span>
+                      <p className="text-sm font-medium">{analysis.invoiceData.action}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

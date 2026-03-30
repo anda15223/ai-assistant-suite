@@ -721,21 +721,27 @@ export async function updateInvoiceStatus(invoiceId: number, status: "pending" |
   await db.update(invoiceDetails).set(updates).where(eq(invoiceDetails.id, invoiceId));
 }
 
-// Get invoice stats
+// Get invoice stats (includes PBS vs Faktura counts)
 export async function getInvoiceStats(userId: number) {
   const db = await getDb();
-  if (!db) return { total: 0, pending: 0, reviewed: 0, sentToEconomic: 0, paid: 0 };
+  if (!db) return { total: 0, pending: 0, reviewed: 0, sentToEconomic: 0, paid: 0, pbs: 0, faktura: 0, unknown: 0 };
   const [total] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(eq(invoiceDetails.userId, userId));
   const [pending] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "pending")));
   const [reviewed] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "reviewed")));
   const [sentToEconomic] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "sent_to_economic")));
   const [paid] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "paid")));
+  const [pbs] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.invoiceType, "pbs")));
+  const [faktura] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.invoiceType, "faktura")));
+  const [unknown] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.invoiceType, "unknown")));
   return {
     total: total?.count || 0,
     pending: pending?.count || 0,
     reviewed: reviewed?.count || 0,
     sentToEconomic: sentToEconomic?.count || 0,
     paid: paid?.count || 0,
+    pbs: pbs?.count || 0,
+    faktura: faktura?.count || 0,
+    unknown: unknown?.count || 0,
   };
 }
 

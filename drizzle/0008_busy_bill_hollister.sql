@@ -1,0 +1,1 @@
+ALTER TABLE `invoice_details` ADD `invoiceType` enum('faktura','pbs','unknown') DEFAULT 'unknown' NOT NULL;

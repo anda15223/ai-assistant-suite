@@ -129,7 +129,18 @@ function TaskCard({ task, onSnooze, onStatusChange, onCategoryChange, onOpenEmai
       isOverdue ? "border-red-500/50 bg-red-500/5" : isSnoozed ? "border-purple-500/30 bg-purple-500/5 opacity-60" : "border-border bg-card"
     }`}>
       <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="text-sm font-medium text-foreground leading-tight line-clamp-2">{task.title}</h4>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <h4 className="text-sm font-medium text-foreground leading-tight line-clamp-2">{task.title}</h4>
+          {task.category === "invoice" && task.title && (
+            <Badge variant="outline" className={`text-[10px] px-1 py-0 font-bold ${
+              task.title.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("BETALINGSSERVICE")
+                ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                : "bg-orange-500/20 text-orange-400 border-orange-500/30"
+            }`}>
+              {task.title.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("BETALINGSSERVICE") ? "PBS" : "Faktura"}
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-1 shrink-0">
           {hasEmail && (
             <Tooltip>

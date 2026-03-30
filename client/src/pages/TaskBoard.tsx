@@ -373,6 +373,16 @@ export default function TaskBoard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-sm font-medium text-foreground">{task.title}</span>
+                        {/* PBS / Faktura badge for invoice tasks */}
+                        {task.category === "invoice" && task.title && (
+                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-bold ${
+                            task.title.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("BETALINGSSERVICE")
+                              ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                              : "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                          }`}>
+                            {task.title.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("PBS") || task.description?.toUpperCase().includes("BETALINGSSERVICE") ? "PBS" : "Faktura"}
+                          </Badge>
+                        )}
                         {hasUrgency && (
                           <UrgencyBadge urgency={task.urgencyScore || 5} importance={task.importanceScore || 5} />
                         )}

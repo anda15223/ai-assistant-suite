@@ -207,6 +207,7 @@ export const invoiceDetails = mysqlTable("invoice_details", {
   dueDate: varchar("dueDate", { length: 50 }),
   products: text("products"),
   lineItems: json("lineItems"),
+  invoiceType: mysqlEnum("invoiceType", ["faktura", "pbs", "unknown"]).default("unknown").notNull(),
   status: mysqlEnum("invoiceStatus", ["pending", "reviewed", "sent_to_economic", "paid", "rejected"]).default("pending").notNull(),
   sentToEconomicAt: timestamp("sentToEconomicAt"),
   eEconomicResponse: json("eEconomicResponse"),

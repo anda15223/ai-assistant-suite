@@ -748,6 +748,7 @@ export const appRouter = router({
           dueDate: extraction.dueDate,
           products: extraction.products,
           lineItems: extraction.lineItems,
+          invoiceType: extraction.invoiceType || "unknown",
           rawExtraction: extraction,
         });
 
@@ -796,6 +797,7 @@ export const appRouter = router({
             dueDate: extraction.dueDate,
             products: extraction.products,
             lineItems: extraction.lineItems,
+            invoiceType: extraction.invoiceType || "unknown",
             rawExtraction: extraction,
           });
           processed++;

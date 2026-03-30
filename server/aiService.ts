@@ -68,6 +68,14 @@ CLASSIFICATION RULES:
 - Due dates: use ISO format (YYYY-MM-DD) or null if none mentioned.
 - Category: one of "invoice", "correspondence", "meeting", "request", "notification", "follow-up", "approval", "report", "other".
 
+INVOICE TYPE DETECTION (for invoices only):
+When classification is "invoice", you MUST also determine the invoice sub-type in invoiceData.action:
+- If PBS/Betalingsservice/automatic payment/direct debit/subscription: set action to "PBS - Automatic payment, no action needed"
+- If Faktura/traditional invoice/manual payment required: set action to "FAKTURA - Manual payment required before due date"
+- Always prefix the action with "PBS" or "FAKTURA" so the system can distinguish them.
+Keywords for PBS: "PBS", "Betalingsservice", "Automatisk betaling", "Trukket", "Hævet", "Abonnement", "Subscription", "Direct debit", "Recurring", "Betalingsaftale".
+Keywords for Faktura: "Faktura", "Invoice", "Regning", "Forfaldsdato", "Bedes betalt", bank account details, payment instructions.
+
 CONTENT CATEGORY SUGGESTION:
 Beyond invoice/task classification, also predict the best content category for the user's reading workflow:
 - "invoice": Financial documents, bills, payment requests
@@ -507,6 +515,7 @@ export interface InvoiceExtraction {
   dueDate: string;
   products: string;
   lineItems: Array<{ description: string; quantity: string; unitPrice: string; total: string }>;
+  invoiceType: "faktura" | "pbs" | "unknown";
 }
 
 /**
@@ -570,6 +579,14 @@ export async function extractInvoiceDetails(
 
 IMPORTANT: Many invoice emails contain the actual invoice data INSIDE PDF ATTACHMENTS, not in the email body. If a PDF is provided, extract data from the PDF content. The email body may just say "Here is your invoice" or similar.
 
+INVOICE TYPE DETECTION — CRITICAL:
+You MUST classify every invoice into one of these types:
+- "faktura": A traditional invoice that requires MANUAL payment. The recipient must actively pay it (bank transfer, card payment, etc.). Keywords: "Faktura", "Invoice", "Regning", "Betalingsfrist", "Forfaldsdato", "Bedes betalt", "Venligst betal", "Overførsel til konto", "Reg.nr", "Kontonr", bank account details, payment instructions.
+- "pbs": An automatic payment / direct debit / subscription charge. The money is automatically withdrawn from the customer's account. Keywords: "PBS", "Betalingsservice", "Automatisk betaling", "Trukket", "Hævet", "Abonnement", "Subscription", "Auto-pay", "Direct debit", "Recurring", "Månedlig betaling", "Betalingsaftale", "Leverandørservice", "BS-aftale".
+- "unknown": Only if you truly cannot determine the type.
+
+Key difference: PBS = money is taken automatically (no action needed from recipient). Faktura = recipient must manually pay before the due date.
+
 EXTRACTION RULES:
 - supplier: The company or person sending the invoice. Use the company name, not email address.
 - invoiceNumber: The invoice/faktura number. If not found, use "N/A".
@@ -579,6 +596,7 @@ EXTRACTION RULES:
 - dueDate: Payment deadline. ISO format (YYYY-MM-DD) or "N/A".
 - products: A brief comma-separated list of what was purchased/billed.
 - lineItems: Array of individual items with description, quantity, unitPrice, total. Return numbers only (no currency symbols). Empty array if not itemized.
+- invoiceType: "faktura", "pbs", or "unknown" — see detection rules above.
 
 Handle Danish, Swedish, Norwegian, Romanian, English invoices. Common terms:
 - Faktura/Fakturanr = Invoice/Invoice number
@@ -589,6 +607,7 @@ Handle Danish, Swedish, Norwegian, Romanian, English invoices. Common terms:
 - Følgeseddel = Delivery note
 - Kreditnota = Credit note
 - Factura = Invoice (Romanian)
+- PBS/Betalingsservice = Automatic payment / Direct debit
 
 Always respond in valid JSON.`,
       },
@@ -626,8 +645,9 @@ Always respond in valid JSON.`,
                 additionalProperties: false,
               },
             },
+            invoiceType: { type: "string", enum: ["faktura", "pbs", "unknown"], description: "faktura = manual payment required, pbs = automatic payment/direct debit, unknown = cannot determine" },
           },
-          required: ["supplier", "invoiceNumber", "amount", "currency", "paymentDate", "dueDate", "products", "lineItems"],
+          required: ["supplier", "invoiceNumber", "amount", "currency", "paymentDate", "dueDate", "products", "lineItems", "invoiceType"],
           additionalProperties: false,
         },
       },
