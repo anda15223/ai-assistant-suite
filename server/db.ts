@@ -1,4 +1,4 @@
-import { eq, desc, and, sql, isNotNull, isNull, or } from "drizzle-orm";
+import { eq, desc, and, sql, isNotNull, isNull, or, notInArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, emailAccounts, emails, tasks, draftReplies } from "../drizzle/schema";
 import type { InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply } from "../drizzle/schema";
@@ -219,6 +219,22 @@ export async function getAccountingSummary(userId: number) {
     regularTasks,
     matched: totalEmails === totalTasks,
   };
+}
+
+export async function getEmailsWithoutTasks(userId: number, limit: number = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  // Find emails that don't have a corresponding task
+  const emailsWithTasks = db.select({ emailId: tasks.emailId }).from(tasks).where(and(eq(tasks.userId, userId), isNotNull(tasks.emailId)));
+  return db.select().from(emails).where(and(eq(emails.userId, userId), notInArray(emails.id, emailsWithTasks))).orderBy(desc(emails.receivedAt)).limit(limit);
+}
+
+export async function countEmailsWithoutTasks(userId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const emailsWithTasks = db.select({ emailId: tasks.emailId }).from(tasks).where(and(eq(tasks.userId, userId), isNotNull(tasks.emailId)));
+  const [result] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), notInArray(emails.id, emailsWithTasks)));
+  return result?.count || 0;
 }
 
 // ===== TASK QUERIES =====

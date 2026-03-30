@@ -215,15 +215,14 @@ export const appRouter = router({
     stats: protectedProcedure.query(async ({ ctx }) => {
       return db.getEmailStats(ctx.user.id);
     }),
-    reclassifyAll: protectedProcedure.mutation(async ({ ctx }) => {
-      console.log(`[Reclassify] Starting full reclassification for user ${ctx.user.id}`);
-      // Step 1: Delete all existing tasks
-      await db.deleteAllTasksByUser(ctx.user.id);
-      console.log(`[Reclassify] Deleted all old tasks`);
-      // Step 2: Get all emails
-      const allEmails = await db.getAllEmailsByUser(ctx.user.id);
-      console.log(`[Reclassify] Processing ${allEmails.length} emails...`);
-      // Safe date parser
+    // Returns how many emails still need tasks
+    missingTaskCount: protectedProcedure.query(async ({ ctx }) => {
+      const count = await db.countEmailsWithoutTasks(ctx.user.id);
+      return { missing: count };
+    }),
+    // Process a small batch of emails that don't have tasks yet (5 at a time)
+    classifyBatch: protectedProcedure.mutation(async ({ ctx }) => {
+      const BATCH_SIZE = 5;
       const safeParseDueDate = (dateStr: string | null | undefined): Date | undefined => {
         if (!dateStr) return undefined;
         try {
@@ -234,10 +233,14 @@ export const appRouter = router({
           return undefined;
         }
       };
+      const missingEmails = await db.getEmailsWithoutTasks(ctx.user.id, BATCH_SIZE);
+      if (missingEmails.length === 0) {
+        return { processed: 0, classified: 0, failed: 0, remaining: 0 };
+      }
       let classified = 0;
       let failed = 0;
-      // Step 3: Re-classify each email and create exactly one task per email
-      for (const email of allEmails) {
+      // Process sequentially with a small delay between each to avoid quota
+      for (const email of missingEmails) {
         try {
           const classification = await classifyEmail(
             email.subject || "",
@@ -251,7 +254,6 @@ export const appRouter = router({
             aiAnalysis: classification,
             isProcessed: true,
           });
-          // Create exactly ONE task per email
           await db.insertTask({
             userId: ctx.user.id,
             emailId: email.id,
@@ -269,34 +271,43 @@ export const appRouter = router({
             source: "email",
           });
           classified++;
-          if (classified % 10 === 0) console.log(`[Reclassify] Progress: ${classified}/${allEmails.length}`);
-        } catch (aiErr) {
-          console.error(`[Reclassify] Failed for email ${email.id}:`, aiErr);
+          console.log(`[ClassifyBatch] Classified email ${email.id} (${classified}/${missingEmails.length})`);
+          // Small delay between API calls to avoid quota issues
+          if (classified < missingEmails.length) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } catch (aiErr: any) {
+          const isQuotaError = aiErr?.message?.includes('usage exhausted') || aiErr?.message?.includes('429') || aiErr?.message?.includes('rate limit');
+          if (isQuotaError) {
+            console.warn(`[ClassifyBatch] API quota hit at email ${email.id}, stopping batch early`);
+            // Create fallback task for this email
+            try {
+              await db.updateEmailClassification(email.id, { classification: "task", aiSummary: "AI classification failed — review manually", aiAnalysis: {}, isProcessed: true });
+              await db.insertTask({ userId: ctx.user.id, emailId: email.id, title: `Review: ${email.subject || 'Untitled email'}`, description: `Email from ${email.fromName || email.fromAddress}. AI quota reached — please review manually.`, priority: "medium", category: "correspondence", source: "email" });
+            } catch (_) { /* ignore fallback errors */ }
+            failed++;
+            // Stop processing this batch — let the frontend retry later
+            break;
+          }
+          console.error(`[ClassifyBatch] Failed for email ${email.id}:`, aiErr);
           // Fallback: still create a task so 1:1 match is maintained
           try {
-            await db.updateEmailClassification(email.id, {
-              classification: "task",
-              aiSummary: "AI classification failed — review manually",
-              aiAnalysis: {},
-              isProcessed: true,
-            });
-            await db.insertTask({
-              userId: ctx.user.id,
-              emailId: email.id,
-              title: `Review: ${email.subject || 'Untitled email'}`,
-              description: `Email from ${email.fromName || email.fromAddress}. AI classification failed — please review manually.`,
-              priority: "medium",
-              category: "correspondence",
-              source: "email",
-            });
+            await db.updateEmailClassification(email.id, { classification: "task", aiSummary: "AI classification failed — review manually", aiAnalysis: {}, isProcessed: true });
+            await db.insertTask({ userId: ctx.user.id, emailId: email.id, title: `Review: ${email.subject || 'Untitled email'}`, description: `Email from ${email.fromName || email.fromAddress}. AI classification failed — please review manually.`, priority: "medium", category: "correspondence", source: "email" });
           } catch (fallbackErr) {
-            console.error(`[Reclassify] Fallback also failed for email ${email.id}:`, fallbackErr);
+            console.error(`[ClassifyBatch] Fallback also failed for email ${email.id}:`, fallbackErr);
           }
           failed++;
         }
       }
-      console.log(`[Reclassify] Complete: ${classified} classified, ${failed} failed, ${allEmails.length} total`);
-      return { total: allEmails.length, classified, failed };
+      const remaining = await db.countEmailsWithoutTasks(ctx.user.id);
+      console.log(`[ClassifyBatch] Batch done: ${classified} classified, ${failed} failed, ${remaining} remaining`);
+      return { processed: missingEmails.length, classified, failed, remaining };
+    }),
+    // Legacy reclassifyAll — now just calls classifyBatch for emails without tasks (no delete)
+    reclassifyAll: protectedProcedure.mutation(async ({ ctx }) => {
+      const missing = await db.countEmailsWithoutTasks(ctx.user.id);
+      return { total: missing, classified: 0, failed: 0, message: "Use the new batch processing button instead. It processes 5 emails at a time to avoid timeouts." };
     }),
     accounting: protectedProcedure.query(async ({ ctx }) => {
       return db.getAccountingSummary(ctx.user.id);

@@ -26,13 +26,31 @@ export default function Dashboard() {
     onError: (err) => toast.error(err.message),
   });
 
-  const reclassify = trpc.email.reclassifyAll.useMutation({
+  const classifyBatch = trpc.email.classifyBatch.useMutation({
     onSuccess: (data) => {
-      toast.success(`Reclassified ${data.classified} emails. ${data.failed} failed. Total: ${data.total}`);
+      if (data.remaining > 0) {
+        setBatchProgress(prev => ({ ...prev, processed: prev.processed + data.classified, failed: prev.failed + data.failed, remaining: data.remaining }));
+        toast.info(`Batch done: ${data.classified} classified. ${data.remaining} remaining...`);
+        // Auto-continue with next batch after a short delay
+        setTimeout(() => {
+          classifyBatch.mutate();
+        }, 1500);
+      } else {
+        setBatchProgress({ processing: false, processed: 0, failed: 0, remaining: 0 });
+        setReclassifying(false);
+        toast.success(`All emails classified! ${data.classified} in this batch.`);
+        refetchAll();
+      }
+    },
+    onError: (err) => {
+      setBatchProgress(prev => ({ ...prev, processing: false }));
+      setReclassifying(false);
+      toast.error(`Batch failed: ${err.message}. You can retry — it will continue from where it stopped.`);
       refetchAll();
     },
-    onError: (err) => toast.error(err.message),
   });
+
+  const missingCount = trpc.email.missingTaskCount.useQuery();
 
   const refetchAll = () => {
     emailStats.refetch();
@@ -48,6 +66,7 @@ export default function Dashboard() {
   const [syncing, setSyncing] = useState(false);
   const [syncType, setSyncType] = useState<"regular" | "full">("regular");
   const [reclassifying, setReclassifying] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ processing: false, processed: 0, failed: 0, remaining: 0 });
   const [autoArchiving, setAutoArchiving] = useState(false);
 
   const autoArchiveRun = trpc.task.autoArchiveRun.useMutation({
@@ -72,13 +91,22 @@ export default function Dashboard() {
     }
   };
 
-  const handleReclassify = async () => {
-    setReclassifying(true);
-    try {
-      await reclassify.mutateAsync();
-    } finally {
-      setReclassifying(false);
+  const handleClassifyMissing = () => {
+    const missing = missingCount.data?.missing ?? 0;
+    if (missing === 0) {
+      toast.info("All emails already have tasks!");
+      return;
     }
+    setReclassifying(true);
+    setBatchProgress({ processing: true, processed: 0, failed: 0, remaining: missing });
+    classifyBatch.mutate();
+  };
+
+  const handleStopBatch = () => {
+    setReclassifying(false);
+    setBatchProgress(prev => ({ ...prev, processing: false }));
+    toast.info("Stopped batch processing. You can resume anytime — it picks up where it left off.");
+    refetchAll();
   };
 
   const hasAccount = !!account.data;
@@ -188,29 +216,50 @@ export default function Dashboard() {
               )}
             </div>
             {!acct.matched && hasAccount && (
-              <div className="mt-4 flex justify-center">
-                <Button
-                  onClick={handleReclassify}
-                  disabled={reclassifying || syncing}
-                  className="bg-red-500 hover:bg-red-600 text-white"
-                >
-                  {reclassifying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
-                  {reclassifying ? "Reclassifying all emails (may take 5-10 min)..." : "Fix: Reclassify All Emails"}
-                </Button>
+              <div className="mt-4 space-y-3">
+                {reclassifying && batchProgress.processing ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-amber-400 flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Processing emails in batches of 5...
+                      </span>
+                      <span className="text-muted-foreground">
+                        {batchProgress.processed} done / {batchProgress.remaining} remaining
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div
+                        className="bg-amber-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, ((batchProgress.processed) / (batchProgress.processed + batchProgress.remaining)) * 100)}%` }}
+                      />
+                    </div>
+                    {batchProgress.failed > 0 && (
+                      <p className="text-xs text-red-400">{batchProgress.failed} failed (fallback tasks created)</p>
+                    )}
+                    <div className="flex justify-center">
+                      <Button onClick={handleStopBatch} variant="outline" size="sm" className="border-red-500/30 text-red-400 hover:bg-red-500/10">
+                        Stop Processing
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={handleClassifyMissing}
+                      disabled={reclassifying || syncing}
+                      className="bg-red-500 hover:bg-red-600 text-white"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Fix: Classify {missingCount.data?.missing ?? (acct.totalEmails - acct.totalTasks)} Missing Emails (5 at a time)
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
             {acct.matched && hasAccount && (
-              <div className="mt-4 flex justify-center">
-                <Button
-                  onClick={handleReclassify}
-                  disabled={reclassifying || syncing}
-                  variant="outline"
-                  size="sm"
-                  className="border-green-500/30 text-green-500 hover:bg-green-500/10"
-                >
-                  {reclassifying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
-                  {reclassifying ? "Reclassifying..." : "Re-run Classification"}
-                </Button>
+              <div className="mt-3 flex justify-center">
+                <span className="text-xs text-green-500/70">All emails have tasks — accounting is balanced</span>
               </div>
             )}
           </CardContent>

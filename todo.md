@@ -127,3 +127,14 @@
 - [x] Update Priority Matrix TaskCard with AI suggestion inline panel (accept/reject)
 - [x] Update Email Detail page to show AI category suggestion badge on linked tasks
 - [x] Write vitest tests for category suggestion logic (22 tests, 121 total passing across 9 files)
+
+## Critical Bugs (User Reported)
+- [x] BUG: Clicking "Open Email" from task cards — TESTED WORKING (navigates to /emails/:id)
+- [x] BUG: Manual category classification dropdown — TESTED WORKING (dropdown opens, reassignment saves)
+- [x] BUG: 497 of 510 emails missing tasks — Reclassify All times out (504) and hits LLM API quota
+- [x] Rewrite reclassify to process in small batches of 5 with 500ms delay between calls
+- [x] Add progress tracking with progress bar, processed/remaining count
+- [x] Handle API quota errors gracefully — stops batch early, creates fallback task, user can resume later
+- [x] Update Dashboard UI with batch progress bar, stop button, and auto-continue between batches
+- [x] New endpoints: classifyBatch (5 at a time), missingTaskCount (query remaining)
+- [x] New db helpers: getEmailsWithoutTasks, countEmailsWithoutTasks
