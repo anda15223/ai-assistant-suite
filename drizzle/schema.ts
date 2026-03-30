@@ -62,6 +62,22 @@ export const emails = mysqlTable("emails", {
 export type Email = typeof emails.$inferSelect;
 export type InsertEmail = typeof emails.$inferInsert;
 
+// Email attachments (PDFs, images stored in S3)
+export const emailAttachments = mysqlTable("email_attachments", {
+  id: int("id").autoincrement().primaryKey(),
+  emailId: int("emailId").notNull(),
+  userId: int("userId").notNull(),
+  filename: varchar("filename", { length: 500 }).notNull(),
+  mimeType: varchar("mimeType", { length: 100 }).notNull(),
+  size: int("size").default(0),
+  s3Key: varchar("s3Key", { length: 1000 }).notNull(),
+  s3Url: varchar("s3Url", { length: 2000 }).notNull(),
+  createdAt: timestamp("attachCreatedAt").defaultNow().notNull(),
+});
+
+export type EmailAttachment = typeof emailAttachments.$inferSelect;
+export type InsertEmailAttachment = typeof emailAttachments.$inferInsert;
+
 // Tasks extracted from emails or WhatsApp
 export const tasks = mysqlTable("tasks", {
   id: int("id").autoincrement().primaryKey(),

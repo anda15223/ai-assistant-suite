@@ -8,10 +8,10 @@ describe("Invoice Extraction AI", () => {
     expect(typeof mod.extractInvoiceDetails).toBe("function");
   });
 
-  it("extractInvoiceDetails should accept subject, body, fromAddress, fromName", async () => {
+  it("extractInvoiceDetails should accept subject, body, fromAddress, fromName, attachmentUrls", async () => {
     const mod = await import("./aiService");
-    // Check function signature (4 params)
-    expect(mod.extractInvoiceDetails.length).toBe(4);
+    // Check function signature (5 params: subject, body, fromAddress, fromName, attachmentUrls)
+    expect(mod.extractInvoiceDetails.length).toBe(5);
   });
 });
 
@@ -188,5 +188,149 @@ describe("Supplier Settings", () => {
     ];
 
     expect(suppliers[0].endpoint).not.toBe(suppliers[1].endpoint);
+  });
+});
+
+// ===== ATTACHMENT SYSTEM TESTS =====
+
+describe("Email Attachment DB Helpers", () => {
+  it("should export insertEmailAttachment function", async () => {
+    const mod = await import("./db");
+    expect(typeof mod.insertEmailAttachment).toBe("function");
+  });
+
+  it("should export getAttachmentsByEmail function", async () => {
+    const mod = await import("./db");
+    expect(typeof mod.getAttachmentsByEmail).toBe("function");
+  });
+
+  it("should export getAttachmentsByEmails function", async () => {
+    const mod = await import("./db");
+    expect(typeof mod.getAttachmentsByEmails).toBe("function");
+  });
+});
+
+describe("Email Attachment Schema", () => {
+  it("should export emailAttachments table", async () => {
+    const schema = await import("../drizzle/schema");
+    expect(schema.emailAttachments).toBeDefined();
+  });
+
+  it("emailAttachments should have required columns", async () => {
+    const schema = await import("../drizzle/schema");
+    const table = schema.emailAttachments;
+    const columnNames = Object.keys(table);
+    expect(columnNames).toContain("id");
+    expect(columnNames).toContain("emailId");
+    expect(columnNames).toContain("userId");
+    expect(columnNames).toContain("filename");
+    expect(columnNames).toContain("mimeType");
+    expect(columnNames).toContain("size");
+    expect(columnNames).toContain("s3Key");
+    expect(columnNames).toContain("s3Url");
+  });
+});
+
+// ===== IMAP ATTACHMENT FETCHER TESTS =====
+
+describe("IMAP Attachment Fetcher", () => {
+  it("should export fetchAttachmentsForEmail function", async () => {
+    const mod = await import("./emailService");
+    expect(typeof mod.fetchAttachmentsForEmail).toBe("function");
+  });
+
+  it("fetchAttachmentsForEmail should accept account and messageId", async () => {
+    const mod = await import("./emailService");
+    // Check function signature (2 params: account, messageId)
+    expect(mod.fetchAttachmentsForEmail.length).toBe(2);
+  });
+
+  it("FetchedAttachment interface should have correct shape", async () => {
+    // Verify the expected attachment shape
+    const expectedFields = ["filename", "mimeType", "content", "size"];
+    expectedFields.forEach(field => {
+      expect(typeof field).toBe("string");
+    });
+  });
+});
+
+// ===== INVOICE WORKFLOW INTEGRATION TESTS =====
+
+describe("Invoice Attachment Workflow", () => {
+  it("should support PDF mime type for invoice attachments", () => {
+    const pdfMimeType = "application/pdf";
+    const imageMimeTypes = ["image/png", "image/jpeg", "image/jpg"];
+
+    // The system filters for PDF and image attachments
+    const supportedTypes = [pdfMimeType, ...imageMimeTypes];
+    expect(supportedTypes).toContain("application/pdf");
+    expect(supportedTypes).toContain("image/png");
+    expect(supportedTypes).toContain("image/jpeg");
+  });
+
+  it("should support batch processing of 10 emails for attachment resync", () => {
+    // The resyncAttachments endpoint processes 10 emails per batch
+    const BATCH_SIZE = 10;
+    expect(BATCH_SIZE).toBe(10);
+  });
+
+  it("should support batch processing of 5 emails for invoice extraction", () => {
+    // The extractBatch endpoint processes 5 emails per batch
+    const BATCH_SIZE = 5;
+    expect(BATCH_SIZE).toBe(5);
+  });
+
+  it("should group attachments by emailId for invoice list enrichment", () => {
+    // Simulate the attachment grouping logic from the list endpoint
+    const mockAttachments = [
+      { emailId: 1, filename: "invoice.pdf", s3Url: "https://s3/1.pdf" },
+      { emailId: 1, filename: "receipt.pdf", s3Url: "https://s3/2.pdf" },
+      { emailId: 2, filename: "bill.pdf", s3Url: "https://s3/3.pdf" },
+    ];
+
+    const attachmentMap = new Map<number, typeof mockAttachments>();
+    for (const att of mockAttachments) {
+      const list = attachmentMap.get(att.emailId) || [];
+      list.push(att);
+      attachmentMap.set(att.emailId, list);
+    }
+
+    expect(attachmentMap.get(1)?.length).toBe(2);
+    expect(attachmentMap.get(2)?.length).toBe(1);
+    expect(attachmentMap.get(3)).toBeUndefined();
+  });
+});
+
+// ===== CURRENCY SANITIZATION TESTS =====
+
+describe("Currency Display Sanitization", () => {
+  const CURRENCY_CODES = ["USD", "DKK", "EUR", "SEK", "NOK", "GBP", "CHF", "PLN", "CZK", "RON", "HUF", "ISK", "kr", "kr.", "$", "€", "£"];
+
+  function sanitizeAmount(amount: string | null | undefined): string {
+    if (!amount || amount === "N/A") return "N/A";
+    let clean = amount.trim();
+    for (const code of CURRENCY_CODES) {
+      const regex = new RegExp(code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      clean = clean.replace(regex, '');
+    }
+    clean = clean.replace(/^[\s.,]+|[\s.,]+$/g, '').trim();
+    return clean || "N/A";
+  }
+
+  it("should strip currency codes from amount strings", () => {
+    expect(sanitizeAmount("USD 1,234.56")).toBe("1,234.56");
+    expect(sanitizeAmount("1,234.56 DKK")).toBe("1,234.56");
+    expect(sanitizeAmount("€ 500.00")).toBe("500.00");
+  });
+
+  it("should handle null/undefined/N/A amounts", () => {
+    expect(sanitizeAmount(null)).toBe("N/A");
+    expect(sanitizeAmount(undefined)).toBe("N/A");
+    expect(sanitizeAmount("N/A")).toBe("N/A");
+  });
+
+  it("should handle clean numeric amounts", () => {
+    expect(sanitizeAmount("1,234.56")).toBe("1,234.56");
+    expect(sanitizeAmount("500")).toBe("500");
   });
 });

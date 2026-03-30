@@ -517,25 +517,70 @@ export async function extractInvoiceDetails(
   subject: string,
   body: string,
   fromAddress: string,
-  fromName: string
+  fromName: string,
+  attachmentUrls?: { url: string; mimeType: string; filename: string }[]
 ): Promise<InvoiceExtraction> {
+  // Build user message content — text + optional PDF/image attachments
+  const userContent: any[] = [];
+
+  // Add PDF attachments first so the AI reads them
+  if (attachmentUrls && attachmentUrls.length > 0) {
+    for (const att of attachmentUrls) {
+      if (att.mimeType === "application/pdf") {
+        userContent.push({
+          type: "file_url",
+          file_url: {
+            url: att.url,
+            mime_type: "application/pdf" as const,
+          },
+        });
+      } else if (att.mimeType.startsWith("image/")) {
+        userContent.push({
+          type: "image_url",
+          image_url: {
+            url: att.url,
+            detail: "high" as const,
+          },
+        });
+      }
+    }
+  }
+
+  // Strip HTML tags to get plain text from bodyHtml if body is too short
+  let textContent = body;
+  if (textContent.length < 100) {
+    // body is probably just a greeting — not useful
+    textContent = body;
+  }
+
+  const attachmentNote = (attachmentUrls && attachmentUrls.length > 0)
+    ? `\n\n[IMPORTANT: This email has ${attachmentUrls.length} attached file(s): ${attachmentUrls.map(a => a.filename).join(", ")}. The invoice data is likely in the attached PDF. Please extract data from the attachment(s) above.]`
+    : "";
+
+  userContent.push({
+    type: "text",
+    text: `From: ${fromName} <${fromAddress}>\nSubject: ${subject}\n\n${textContent.substring(0, 6000)}${attachmentNote}`,
+  });
+
   const response = await invokeLLM({
     messages: [
       {
         role: "system",
-        content: `You are an invoice data extraction specialist. Extract structured data from the email.
+        content: `You are an invoice data extraction specialist. Extract structured data from the email and any attached PDF/image files.
+
+IMPORTANT: Many invoice emails contain the actual invoice data INSIDE PDF ATTACHMENTS, not in the email body. If a PDF is provided, extract data from the PDF content. The email body may just say "Here is your invoice" or similar.
 
 EXTRACTION RULES:
 - supplier: The company or person sending the invoice. Use the company name, not email address.
 - invoiceNumber: The invoice/faktura number. If not found, use "N/A".
-- amount: The total amount including VAT/tax. Include the number only (e.g., "1,234.56").
-- currency: The currency code (DKK, EUR, USD, SEK, NOK, etc.). Default to "DKK" if unclear.
+- amount: The total amount including VAT/tax. Return ONLY the number (e.g., "1234.56"). Do NOT include currency symbols or codes in the amount field.
+- currency: The currency code (DKK, EUR, USD, SEK, NOK, RON, etc.). Default to "DKK" if unclear. Return ONLY the 3-letter code.
 - paymentDate: When payment was made or is expected. ISO format (YYYY-MM-DD) or "N/A".
 - dueDate: Payment deadline. ISO format (YYYY-MM-DD) or "N/A".
 - products: A brief comma-separated list of what was purchased/billed.
-- lineItems: Array of individual items with description, quantity, unitPrice, total. Empty array if not itemized.
+- lineItems: Array of individual items with description, quantity, unitPrice, total. Return numbers only (no currency symbols). Empty array if not itemized.
 
-Handle Danish, Swedish, Norwegian, English invoices. Common terms:
+Handle Danish, Swedish, Norwegian, Romanian, English invoices. Common terms:
 - Faktura/Fakturanr = Invoice/Invoice number
 - Beløb/Betalingsbeløb = Amount
 - Forfaldsdato = Due date
@@ -543,15 +588,13 @@ Handle Danish, Swedish, Norwegian, English invoices. Common terms:
 - Bilag = Attachment/Receipt
 - Følgeseddel = Delivery note
 - Kreditnota = Credit note
+- Factura = Invoice (Romanian)
 
 Always respond in valid JSON.`,
       },
       {
         role: "user",
-        content: `From: ${fromName} <${fromAddress}>
-Subject: ${subject}
-
-${body.substring(0, 6000)}`,
+        content: userContent,
       },
     ],
     response_format: {
@@ -564,8 +607,8 @@ ${body.substring(0, 6000)}`,
           properties: {
             supplier: { type: "string", description: "Company/person name" },
             invoiceNumber: { type: "string", description: "Invoice number or N/A" },
-            amount: { type: "string", description: "Total amount as number string" },
-            currency: { type: "string", description: "Currency code" },
+            amount: { type: "string", description: "Total amount as number string only, no currency" },
+            currency: { type: "string", description: "3-letter currency code only" },
             paymentDate: { type: "string", description: "Payment date ISO or N/A" },
             dueDate: { type: "string", description: "Due date ISO or N/A" },
             products: { type: "string", description: "Comma-separated product list" },

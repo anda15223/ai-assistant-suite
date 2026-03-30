@@ -50,6 +50,13 @@
       "when": 1774895532339,
       "tag": "0006_petite_the_professor",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1774899780917,
+      "tag": "0007_slimy_penance",
+      "breakpoints": true
     }
   ]
 }

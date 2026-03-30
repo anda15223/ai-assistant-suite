@@ -4,7 +4,8 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
-import { fetchEmails, testConnection, sendEmail } from "./emailService";
+import { fetchEmails, testConnection, sendEmail, fetchAttachmentsForEmail } from "./emailService";
+import { storagePut } from "./storage";
 import { classifyEmail, generateDraftReply, scoreTaskUrgency, computeEscalation, extractInvoiceDetails } from "./aiService";
 import { sendWhatsAppMessage } from "./whatsappService";
 
@@ -142,6 +143,28 @@ export const appRouter = router({
           receivedAt: email.receivedAt,
         });
         newCount++;
+        // Upload attachments to S3
+        if (email.attachments && email.attachments.length > 0) {
+          for (const att of email.attachments) {
+            try {
+              const suffix = Math.random().toString(36).substring(2, 8);
+              const s3Key = `attachments/${ctx.user.id}/${emailId}/${suffix}-${att.filename}`;
+              const { url } = await storagePut(s3Key, att.content, att.mimeType);
+              await db.insertEmailAttachment({
+                emailId,
+                userId: ctx.user.id,
+                filename: att.filename,
+                mimeType: att.mimeType,
+                size: att.size,
+                s3Key,
+                s3Url: url,
+              });
+              console.log(`[Sync] Uploaded attachment: ${att.filename} (${att.size} bytes) for email ${emailId}`);
+            } catch (attErr) {
+              console.error(`[Sync] Failed to upload attachment ${att.filename}:`, (attErr as Error).message);
+            }
+          }
+        }
         try {
           const classification = await classifyEmail(email.subject, email.body, email.fromAddress, email.fromName);
           await db.updateEmailClassification(emailId, {
@@ -657,9 +680,23 @@ export const appRouter = router({
       return db.getInvoiceEmails(ctx.user.id);
     }),
 
-    // List all extracted invoice details
+    // List all extracted invoice details (with attachments for PDF links)
     list: protectedProcedure.query(async ({ ctx }) => {
-      return db.getInvoiceDetailsByUser(ctx.user.id);
+      const invoices = await db.getInvoiceDetailsByUser(ctx.user.id);
+      // Batch-fetch attachments for all invoice emailIds
+      const emailIds = Array.from(new Set(invoices.map(i => i.emailId).filter(Boolean)));
+      const allAttachments = emailIds.length > 0 ? await db.getAttachmentsByEmails(emailIds) : [];
+      // Group attachments by emailId
+      const attachmentMap = new Map<number, typeof allAttachments>();
+      for (const att of allAttachments) {
+        const list = attachmentMap.get(att.emailId) || [];
+        list.push(att);
+        attachmentMap.set(att.emailId, list);
+      }
+      return invoices.map(inv => ({
+        ...inv,
+        attachments: attachmentMap.get(inv.emailId) || [],
+      }));
     }),
 
     // Get stats
@@ -679,12 +716,19 @@ export const appRouter = router({
         const email = await db.getEmailById(input.emailId, ctx.user.id);
         if (!email) throw new Error("Email not found");
 
-        // Extract using AI
+        // Fetch attachments for this email
+        const attachments = await db.getAttachmentsByEmail(input.emailId);
+        const attachmentUrls = attachments
+          .filter(a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/"))
+          .map(a => ({ url: a.s3Url, mimeType: a.mimeType, filename: a.filename }));
+
+        // Extract using AI (with PDF attachments if available)
         const extraction = await extractInvoiceDetails(
           email.subject || "(No subject)",
           email.body || email.bodyHtml || "(No body)",
           email.fromAddress || "unknown",
-          email.fromName || "Unknown"
+          email.fromName || "Unknown",
+          attachmentUrls.length > 0 ? attachmentUrls : undefined
         );
 
         // Find linked task
@@ -723,11 +767,18 @@ export const appRouter = router({
           const existing = await db.getInvoiceDetailByEmailId(email.id);
           if (existing) { skipped++; continue; }
 
+          // Fetch attachments for this email
+          const attachments = await db.getAttachmentsByEmail(email.id);
+          const attachmentUrls = attachments
+            .filter(a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/"))
+            .map(a => ({ url: a.s3Url, mimeType: a.mimeType, filename: a.filename }));
+
           const extraction = await extractInvoiceDetails(
             email.subject || "(No subject)",
             email.body || email.bodyHtml || "(No body)",
             email.fromAddress || "unknown",
-            email.fromName || "Unknown"
+            email.fromName || "Unknown",
+            attachmentUrls.length > 0 ? attachmentUrls : undefined
           );
 
           const linkedTasks = await db.getTasksByEmailId(email.id, ctx.user.id);
@@ -768,6 +819,86 @@ export const appRouter = router({
       }
       return { total: invoiceEmails.length, needExtraction };
     }),
+
+    // Resync attachments: re-fetch invoice emails from IMAP to download PDF attachments
+    resyncAttachments: protectedProcedure.mutation(async ({ ctx }) => {
+      const account = await db.getEmailAccount(ctx.user.id);
+      if (!account) throw new Error("No email account configured.");
+
+      // Get invoice emails that don't have attachments yet
+      const invoiceEmails = await db.getInvoiceEmails(ctx.user.id);
+      let uploaded = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      // Process up to 10 emails per batch to avoid timeout
+      for (const email of invoiceEmails.slice(0, 10)) {
+        try {
+          // Check if attachments already exist
+          const existing = await db.getAttachmentsByEmail(email.id);
+          if (existing.length > 0) { skipped++; continue; }
+
+          if (!email.messageId) { skipped++; continue; }
+
+          // Re-fetch from IMAP to get attachments
+          const attachments = await fetchAttachmentsForEmail(account, email.messageId);
+          if (attachments.length === 0) { skipped++; continue; }
+
+          for (const att of attachments) {
+            const suffix = Math.random().toString(36).substring(2, 8);
+            const s3Key = `attachments/${ctx.user.id}/${email.id}/${suffix}-${att.filename}`;
+            const { url } = await storagePut(s3Key, att.content, att.mimeType);
+            await db.insertEmailAttachment({
+              emailId: email.id,
+              userId: ctx.user.id,
+              filename: att.filename,
+              mimeType: att.mimeType,
+              size: att.size,
+              s3Key,
+              s3Url: url,
+            });
+            console.log(`[Attachments] Uploaded: ${att.filename} (${att.size} bytes) for email ${email.id}`);
+          }
+          uploaded++;
+        } catch (err: any) {
+          console.error(`[Attachments] Failed for email ${email.id}:`, err.message);
+          failed++;
+        }
+      }
+
+      return { uploaded, skipped, failed, total: invoiceEmails.length };
+    }),
+
+    // Delete an extraction so it can be re-processed (e.g., after attachments are available)
+    deleteExtraction: protectedProcedure
+      .input(z.object({ invoiceId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const database = await db.getDb();
+        if (!database) throw new Error("Database not available");
+        const { invoiceDetails: invTable } = await import("../drizzle/schema");
+        const { eq, and } = await import("drizzle-orm");
+        await database.delete(invTable).where(
+          and(eq(invTable.id, input.invoiceId), eq(invTable.userId, ctx.user.id))
+        );
+        return { success: true };
+      }),
+
+    // Delete ALL extractions so they can be re-processed with PDF content
+    deleteAllExtractions: protectedProcedure.mutation(async ({ ctx }) => {
+      const database = await db.getDb();
+      if (!database) throw new Error("Database not available");
+      const { invoiceDetails: invTable } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+      const result = await database.delete(invTable).where(eq(invTable.userId, ctx.user.id));
+      return { deleted: (result as any)[0]?.affectedRows || 0 };
+    }),
+
+    // Get attachments for an email
+    attachments: protectedProcedure
+      .input(z.object({ emailId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        return db.getAttachmentsByEmail(input.emailId);
+      }),
 
     // Update invoice status
     updateStatus: protectedProcedure

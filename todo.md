@@ -151,3 +151,27 @@
 - [x] Batch extraction with auto-continue (5 at a time, like email classification)
 - [x] Register /invoices route in App.tsx and add "Invoices" to sidebar navigation
 - [x] Write vitest tests for invoice extraction and dashboard logic (21 tests, 142 total passing across 10 files)
+
+## Currency & PDF View Fixes
+- [x] BUG: Invoice Dashboard shows USD and DKK simultaneously — fixed with sanitizeAmount() and formatCurrency() helpers
+- [x] Add "View Source" button on each invoice row to open the source email for verification
+
+## Bug: Invoice Data Not Extracted Properly
+- [x] Invoice emails show N/A for amount, due date, products — root cause: invoice data is in PDF attachments, not email body
+- [x] Built IMAP attachment parser (parseEmailSource extracts PDFs from MIME)
+- [x] Built S3 upload for attachments during email sync
+- [x] Updated AI extraction to use file_url content type for native PDF reading
+- [x] Verify extracted data shows correct values after fix
+
+## Attachment Download & Re-extraction System
+- [x] Create email_attachments table (emailId, userId, filename, mimeType, size, s3Key, s3Url)
+- [x] Build fetchAttachmentsForEmail IMAP function (re-fetches by Message-ID)
+- [x] Build resyncAttachments tRPC endpoint (downloads PDFs for 10 emails per batch)
+- [x] Build deleteAllExtractions tRPC endpoint (clears old extractions for re-processing)
+- [x] Build deleteExtraction tRPC endpoint (delete single extraction)
+- [x] Build attachments tRPC query endpoint (get attachments by emailId)
+- [x] Enhance invoice.list endpoint to include attachments for each invoice row
+- [x] Add 3-step workflow banner to Invoice Dashboard (Download PDFs → Reset Extractions → Extract with PDF)
+- [x] Add PDF attachment links (Paperclip icon) on each invoice row in Actions column
+- [x] Add attachment section in expanded invoice details (filename, size, download link)
+- [x] Write vitest tests for attachment system (15 new tests, 157 total passing across 10 files)

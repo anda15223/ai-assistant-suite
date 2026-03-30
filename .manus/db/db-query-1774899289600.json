@@ -1,0 +1,80 @@
+{
+  "query": "SELECT id, subject, LENGTH(body) as body_len, LENGTH(bodyHtml) as html_len, classification FROM emails WHERE classification = 'invoice' LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2VBfwL6sVAbaZAE.root --database KuriegSE9E2r7xqu9W7qQS --execute SELECT id, subject, LENGTH(body) as body_len, LENGTH(bodyHtml) as html_len, classification FROM emails WHERE classification = 'invoice' LIMIT 10;",
+  "rows": [
+    {
+      "id": "1",
+      "subject": "Asmita Lawati. Helsingor",
+      "body_len": "10000",
+      "html_len": "0",
+      "classification": "invoice"
+    },
+    {
+      "id": "2",
+      "subject": "FAKTURA 69053",
+      "body_len": "488",
+      "html_len": "1539",
+      "classification": "invoice"
+    },
+    {
+      "id": "4",
+      "subject": "Aman Pandit. Reffen 140kr /h",
+      "body_len": "10000",
+      "html_len": "0",
+      "classification": "invoice"
+    },
+    {
+      "id": "5",
+      "subject": "Nimans Gimire - 140 kr reffen",
+      "body_len": "0",
+      "html_len": "484",
+      "classification": "invoice"
+    },
+    {
+      "id": "6",
+      "subject": "Faktura 01105944738 fra inco København Cash & Carry A/S ",
+      "body_len": "48",
+      "html_len": "0",
+      "classification": "invoice"
+    },
+    {
+      "id": "7",
+      "subject": "Fakturanr. 28 - 26.03.26",
+      "body_len": "0",
+      "html_len": "417",
+      "classification": "invoice"
+    },
+    {
+      "id": "8",
+      "subject": "Fakturanr. 29 - 26.03.26",
+      "body_len": "0",
+      "html_len": "417",
+      "classification": "invoice"
+    },
+    {
+      "id": "9",
+      "subject": "Fakturanr. 30 - 26.03.26",
+      "body_len": "0",
+      "html_len": "417",
+      "classification": "invoice"
+    },
+    {
+      "id": "10",
+      "subject": "Fakturanr. 31 - 26.03.26",
+      "body_len": "0",
+      "html_len": "417",
+      "classification": "invoice"
+    },
+    {
+      "id": "16",
+      "subject": "H.W. Larsen A/S - Kreditnota 302230",
+      "body_len": "733",
+      "html_len": "40744",
+      "classification": "invoice"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tsubject\tbody_len\thtml_len\tclassification\n1\tAsmita Lawati. Helsingor\t10000\t0\tinvoice\n2\tFAKTURA 69053\t488\t1539\tinvoice\n4\tAman Pandit. Reffen 140kr /h\t10000\t0\tinvoice\n5\tNimans Gimire - 140 kr reffen\t0\t484\tinvoice\n6\tFaktura 01105944738 fra inco København Cash & Carry A/S \t48\t0\tinvoice\n7\tFakturanr. 28 - 26.03.26\t0\t417\tinvoice\n8\tFakturanr. 29 - 26.03.26\t0\t417\tinvoice\n9\tFakturanr. 30 - 26.03.26\t0\t417\tinvoice\n10\tFakturanr. 31 - 26.03.26\t0\t417\tinvoice\n16\tH.W. Larsen A/S - Kreditnota 302230\t733\t40744\tinvoice\n",
+  "stderr": "",
+  "execution_time_ms": 191
+}

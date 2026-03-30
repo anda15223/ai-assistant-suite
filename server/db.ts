@@ -1,7 +1,7 @@
 import { eq, desc, and, sql, isNotNull, isNull, or, notInArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, emailAccounts, emails, tasks, draftReplies, invoiceDetails, supplierSettings } from "../drizzle/schema";
-import type { InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply, InsertInvoiceDetail, InsertSupplierSetting } from "../drizzle/schema";
+import { InsertUser, users, emailAccounts, emails, tasks, draftReplies, invoiceDetails, supplierSettings, emailAttachments } from "../drizzle/schema";
+import type { InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply, InsertInvoiceDetail, InsertSupplierSetting, InsertEmailAttachment } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -773,4 +773,24 @@ export async function upsertSupplierSetting(data: InsertSupplierSetting) {
   }
   const [result] = await db.insert(supplierSettings).values(data).$returningId();
   return result;
+}
+
+// ── Email Attachments ──
+export async function insertEmailAttachment(data: InsertEmailAttachment) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const [result] = await database.insert(emailAttachments).values(data);
+  return (result as any).insertId as number;
+}
+
+export async function getAttachmentsByEmail(emailId: number) {
+  const database = await getDb();
+  if (!database) return [];
+  return database.select().from(emailAttachments).where(eq(emailAttachments.emailId, emailId));
+}
+
+export async function getAttachmentsByEmails(emailIds: number[]) {
+  const database = await getDb();
+  if (!database || emailIds.length === 0) return [];
+  return database.select().from(emailAttachments).where(sql`${emailAttachments.emailId} IN (${sql.join(emailIds.map(id => sql`${id}`), sql`, `)})`);
 }

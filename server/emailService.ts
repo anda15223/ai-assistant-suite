@@ -2,6 +2,13 @@ import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
 import type { EmailAccount } from "../drizzle/schema";
 
+export interface FetchedAttachment {
+  filename: string;
+  mimeType: string;
+  content: Buffer;
+  size: number;
+}
+
 export interface FetchedEmail {
   uid: number;
   messageId: string;
@@ -12,6 +19,7 @@ export interface FetchedEmail {
   body: string;
   bodyHtml: string;
   receivedAt: Date;
+  attachments: FetchedAttachment[];
 }
 
 function createImapClient(account: {
@@ -39,26 +47,125 @@ function createImapClient(account: {
   } as any);
 }
 
-function parseEmailSource(source: string): { bodyText: string; bodyHtml: string } {
+interface ParsedEmailParts {
+  bodyText: string;
+  bodyHtml: string;
+  attachments: FetchedAttachment[];
+}
+
+function decodeBase64(encoded: string): Buffer {
+  // Remove line breaks and whitespace from base64 content
+  const cleaned = encoded.replace(/[\r\n\s]/g, "");
+  return Buffer.from(cleaned, "base64");
+}
+
+function decodeQuotedPrintable(encoded: string): string {
+  return encoded
+    .replace(/=\r?\n/g, "") // soft line breaks
+    .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+function parseEmailSource(source: string): ParsedEmailParts {
   let bodyText = "";
   let bodyHtml = "";
+  const attachments: FetchedAttachment[] = [];
 
-  const textMatch = source.match(
-    /Content-Type:\s*text\/plain[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
-  );
-  if (textMatch) bodyText = textMatch[1]?.trim() || "";
+  // Find boundary from Content-Type header
+  const boundaryMatch = source.match(/boundary="?([^"\r\n;]+)"?/i);
+  
+  if (boundaryMatch) {
+    const boundary = boundaryMatch[1];
+    const parts = source.split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"));
+    
+    for (const part of parts) {
+      if (part.trim() === "--" || part.trim() === "") continue;
+      
+      const headerEnd = part.indexOf("\r\n\r\n");
+      if (headerEnd === -1) continue;
+      
+      const headers = part.substring(0, headerEnd);
+      const content = part.substring(headerEnd + 4);
+      
+      const contentType = headers.match(/Content-Type:\s*([^;\r\n]+)/i)?.[1]?.trim()?.toLowerCase() || "";
+      const transferEncoding = headers.match(/Content-Transfer-Encoding:\s*([^\r\n]+)/i)?.[1]?.trim()?.toLowerCase() || "";
+      const disposition = headers.match(/Content-Disposition:\s*([^;\r\n]+)/i)?.[1]?.trim()?.toLowerCase() || "";
+      const filenameMatch = headers.match(/(?:file)?name="?([^"\r\n;]+)"?/i);
+      const filename = filenameMatch?.[1]?.trim() || "";
+      
+      // Check for nested multipart (e.g., multipart/alternative inside multipart/mixed)
+      if (contentType.startsWith("multipart/")) {
+        const nestedParts = parseEmailSource(headers + "\r\n\r\n" + content);
+        if (!bodyText && nestedParts.bodyText) bodyText = nestedParts.bodyText;
+        if (!bodyHtml && nestedParts.bodyHtml) bodyHtml = nestedParts.bodyHtml;
+        attachments.push(...nestedParts.attachments);
+        continue;
+      }
+      
+      // Text parts
+      if (contentType === "text/plain" && disposition !== "attachment") {
+        let decoded = content;
+        if (transferEncoding === "base64") {
+          decoded = decodeBase64(content).toString("utf-8");
+        } else if (transferEncoding === "quoted-printable") {
+          decoded = decodeQuotedPrintable(content);
+        }
+        if (!bodyText) bodyText = decoded.trim();
+      } else if (contentType === "text/html" && disposition !== "attachment") {
+        let decoded = content;
+        if (transferEncoding === "base64") {
+          decoded = decodeBase64(content).toString("utf-8");
+        } else if (transferEncoding === "quoted-printable") {
+          decoded = decodeQuotedPrintable(content);
+        }
+        if (!bodyHtml) bodyHtml = decoded.trim();
+      }
+      // Attachment parts (PDF, images, etc.)
+      else if (
+        disposition === "attachment" ||
+        contentType === "application/pdf" ||
+        contentType.startsWith("image/") ||
+        (filename && (filename.endsWith(".pdf") || filename.endsWith(".png") || filename.endsWith(".jpg") || filename.endsWith(".jpeg")))
+      ) {
+        if (transferEncoding === "base64" && filename) {
+          try {
+            const buffer = decodeBase64(content);
+            if (buffer.length > 0 && buffer.length < 15 * 1024 * 1024) { // Max 15MB
+              attachments.push({
+                filename,
+                mimeType: contentType || "application/octet-stream",
+                content: buffer,
+                size: buffer.length,
+              });
+            }
+          } catch (err) {
+            console.error(`[EmailService] Failed to decode attachment ${filename}:`, (err as Error).message);
+          }
+        }
+      }
+    }
+  } else {
+    // No boundary — simple email
+    const textMatch = source.match(
+      /Content-Type:\s*text\/plain[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
+    );
+    if (textMatch) bodyText = textMatch[1]?.trim() || "";
 
-  const htmlMatch = source.match(
-    /Content-Type:\s*text\/html[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
-  );
-  if (htmlMatch) bodyHtml = htmlMatch[1]?.trim() || "";
+    const htmlMatch = source.match(
+      /Content-Type:\s*text\/html[^]*?\r\n\r\n([\s\S]*?)(?=\r\n--|\r\n\.\r\n|$)/i
+    );
+    if (htmlMatch) bodyHtml = htmlMatch[1]?.trim() || "";
 
-  if (!bodyText && !bodyHtml) {
-    const simpleBody = source.split("\r\n\r\n").slice(1).join("\r\n\r\n");
-    bodyText = simpleBody?.substring(0, 10000) || "";
+    if (!bodyText && !bodyHtml) {
+      const simpleBody = source.split("\r\n\r\n").slice(1).join("\r\n\r\n");
+      bodyText = simpleBody?.substring(0, 10000) || "";
+    }
   }
 
-  return { bodyText: bodyText.substring(0, 10000), bodyHtml: bodyHtml.substring(0, 50000) };
+  return {
+    bodyText: bodyText.substring(0, 10000),
+    bodyHtml: bodyHtml.substring(0, 50000),
+    attachments,
+  };
 }
 
 function messageToFetchedEmail(message: any): FetchedEmail | null {
@@ -66,7 +173,7 @@ function messageToFetchedEmail(message: any): FetchedEmail | null {
   if (!envelope) return null;
 
   const source = message.source?.toString() || "";
-  const { bodyText, bodyHtml } = parseEmailSource(source);
+  const { bodyText, bodyHtml, attachments } = parseEmailSource(source);
 
   return {
     uid: message.uid,
@@ -78,6 +185,7 @@ function messageToFetchedEmail(message: any): FetchedEmail | null {
     body: bodyText,
     bodyHtml: bodyHtml,
     receivedAt: envelope?.date ? new Date(envelope.date) : new Date(),
+    attachments,
   };
 }
 
@@ -248,4 +356,51 @@ export async function sendEmail(
     console.error("[EmailService] SMTP error:", err);
     throw new Error(`Failed to send email: ${(err as Error).message}`);
   }
+}
+
+/**
+ * Re-fetch a specific email from IMAP by searching for its messageId
+ * to download attachments that weren't saved during initial sync.
+ */
+export async function fetchAttachmentsForEmail(
+  account: EmailAccount,
+  messageId: string
+): Promise<FetchedAttachment[]> {
+  const client = createImapClient(account);
+  const attachments: FetchedAttachment[] = [];
+
+  try {
+    await client.connect();
+    const mailbox = await client.mailboxOpen("INBOX");
+    if (!mailbox.exists) {
+      await client.logout();
+      return attachments;
+    }
+
+    // Search by Message-ID header
+    const uids = await client.search({ header: { "Message-ID": messageId } });
+    if (!uids || uids.length === 0) {
+      console.log(`[EmailService] No message found with Message-ID: ${messageId}`);
+      await client.logout();
+      return attachments;
+    }
+
+    // Fetch the first matching message with full source
+    for await (const message of client.fetch(uids[0].toString(), {
+      uid: true,
+      source: true,
+    })) {
+      const source = message.source?.toString() || "";
+      const parsed = parseEmailSource(source);
+      attachments.push(...parsed.attachments);
+    }
+
+    console.log(`[EmailService] Found ${attachments.length} attachments for messageId: ${messageId}`);
+    await client.logout();
+  } catch (err) {
+    console.error("[EmailService] Error fetching attachments:", err);
+    try { await client.logout(); } catch (_) {}
+  }
+
+  return attachments;
 }

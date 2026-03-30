@@ -10,9 +10,35 @@ import {
   FileText, Search, Send, CheckCircle, Clock, AlertTriangle,
   RefreshCw, Eye, ChevronDown, ChevronUp, Settings, Loader2,
   DollarSign, Building2, Package, Calendar, Hash, ExternalLink,
-  XCircle, BarChart3
+  XCircle, BarChart3, Download, Trash2, Paperclip
 } from "lucide-react";
 import { useLocation } from "wouter";
+
+// Strip currency codes/symbols from amount strings to avoid duplication
+const CURRENCY_CODES = ["USD", "DKK", "EUR", "SEK", "NOK", "GBP", "CHF", "PLN", "CZK", "RON", "HUF", "ISK", "kr", "kr.", "$", "€", "£"];
+function sanitizeAmount(amount: string | null | undefined): string {
+  if (!amount || amount === "N/A") return "N/A";
+  let clean = amount.trim();
+  // Remove known currency codes/symbols (case-insensitive)
+  for (const code of CURRENCY_CODES) {
+    const regex = new RegExp(code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    clean = clean.replace(regex, '');
+  }
+  // Remove stray dots/commas at start/end, trim whitespace
+  clean = clean.replace(/^[\s.,]+|[\s.,]+$/g, '').trim();
+  return clean || "N/A";
+}
+
+function formatCurrency(currency: string | null | undefined): string {
+  if (!currency) return "DKK";
+  // Normalize common variants
+  const upper = currency.trim().toUpperCase();
+  if (upper === "KR" || upper === "KR." || upper === "DKR" || upper === "DANSKE KRONER") return "DKK";
+  if (upper === "$" || upper === "DOLLAR") return "USD";
+  if (upper === "€" || upper === "EURO") return "EUR";
+  if (upper === "£" || upper === "POUND") return "GBP";
+  return upper || "DKK";
+}
 
 type TabType = "all" | "pending" | "reviewed" | "sent_to_economic" | "paid";
 
@@ -31,6 +57,8 @@ export default function Invoices() {
   const [search, setSearch] = useState("");
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isResyncingAttachments, setIsResyncingAttachments] = useState(false);
+  const [isDeletingExtractions, setIsDeletingExtractions] = useState(false);
   const [showSupplierSettings, setShowSupplierSettings] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ supplierName: "", eEconomicEndpoint: "", eEconomicApiKey: "", eEconomicAgreement: "" });
 
@@ -45,6 +73,41 @@ export default function Invoices() {
   const updateStatus = trpc.invoice.updateStatus.useMutation();
   const sendToEconomic = trpc.invoice.sendToEconomic.useMutation();
   const upsertSupplier = trpc.invoice.upsertSupplier.useMutation();
+  const resyncAttachments = trpc.invoice.resyncAttachments.useMutation();
+  const deleteAllExtractions = trpc.invoice.deleteAllExtractions.useMutation();
+
+  // Resync attachments from IMAP (downloads PDFs to S3)
+  const handleResyncAttachments = async () => {
+    setIsResyncingAttachments(true);
+    try {
+      const result = await resyncAttachments.mutateAsync();
+      toast.success(`Downloaded PDFs: ${result.uploaded} new, ${result.skipped} skipped, ${result.failed} failed (${result.total} total invoice emails)`);
+      // Auto-continue if there are more to process
+      if (result.uploaded > 0 && result.uploaded + result.skipped + result.failed < result.total) {
+        setTimeout(() => handleResyncAttachments(), 1000);
+      } else {
+        setIsResyncingAttachments(false);
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+      setIsResyncingAttachments(false);
+    }
+  };
+
+  // Delete all extractions so they can be re-processed with PDF content
+  const handleDeleteAllExtractions = async () => {
+    if (!confirm("This will delete all extracted invoice data so it can be re-processed with PDF attachments. Continue?")) return;
+    setIsDeletingExtractions(true);
+    try {
+      const result = await deleteAllExtractions.mutateAsync();
+      toast.success(`Deleted ${result.deleted} extractions. You can now re-extract with PDF content.`);
+      refetchInvoices();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsDeletingExtractions(false);
+    }
+  };
 
   // Batch extraction with auto-continue
   const handleExtractBatch = useCallback(async () => {
@@ -181,41 +244,95 @@ export default function Invoices() {
         </Card>
       </div>
 
-      {/* Extraction Banner */}
-      {pendingCount && pendingCount.needExtraction > 0 && (
-        <Card className="border-amber-500/50 bg-amber-500/5">
-          <CardContent className="p-4 flex items-center justify-between">
+      {/* Step-by-Step Workflow Banner */}
+      <Card className="border-amber-500/50 bg-amber-500/5">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <p className="text-sm font-bold text-foreground">Invoice Processing Workflow</p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Most invoices arrive as PDF attachments. Follow these steps to extract accurate data:
+          </p>
+
+          {/* Step 1: Download Attachments */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/50">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
+              <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold">1</div>
               <div>
-                <p className="text-sm font-medium text-foreground">
-                  {pendingCount.needExtraction} invoice emails need data extraction
-                </p>
+                <p className="text-sm font-medium">Download PDF Attachments</p>
+                <p className="text-xs text-muted-foreground">Re-fetch invoice emails from IMAP to download PDF files (10 at a time)</p>
+              </div>
+            </div>
+            <Button
+              onClick={handleResyncAttachments}
+              disabled={isResyncingAttachments}
+              variant="outline"
+              size="sm"
+              className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+            >
+              {isResyncingAttachments ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Downloading...</>
+              ) : (
+                <><Download className="w-4 h-4 mr-1" /> Download PDFs</>
+              )}
+            </Button>
+          </div>
+
+          {/* Step 2: Reset Bad Extractions */}
+          {stats && stats.total > 0 && (
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-xs font-bold">2</div>
+                <div>
+                  <p className="text-sm font-medium">Reset Existing Extractions</p>
+                  <p className="text-xs text-muted-foreground">Delete {stats.total} old extractions (made without PDF) so they can be re-processed</p>
+                </div>
+              </div>
+              <Button
+                onClick={handleDeleteAllExtractions}
+                disabled={isDeletingExtractions}
+                variant="outline"
+                size="sm"
+                className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+              >
+                {isDeletingExtractions ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Deleting...</>
+                ) : (
+                  <><Trash2 className="w-4 h-4 mr-1" /> Reset Extractions</>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Step 3: Extract with PDF */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/50">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">3</div>
+              <div>
+                <p className="text-sm font-medium">Extract Invoice Data (with PDF)</p>
                 <p className="text-xs text-muted-foreground">
-                  AI will read each email and extract supplier, amount, date, and products
+                  {pendingCount && pendingCount.needExtraction > 0
+                    ? `${pendingCount.needExtraction} invoices need extraction — AI will read the PDF attachments`
+                    : "All invoices have been extracted"}
                 </p>
               </div>
             </div>
             <Button
               onClick={handleExtractBatch}
-              disabled={isExtracting}
+              disabled={isExtracting || (pendingCount?.needExtraction === 0)}
               className="bg-amber-500 hover:bg-amber-600 text-black"
+              size="sm"
             >
               {isExtracting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  Extracting...
-                </>
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Extracting...</>
               ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-1" />
-                  Extract Invoice Data
-                </>
+                <><RefreshCw className="w-4 h-4 mr-1" /> Extract Invoice Data</>
               )}
             </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Supplier Settings Panel */}
       {showSupplierSettings && (
@@ -380,8 +497,8 @@ export default function Invoices() {
                     <div className="col-span-2">
                       <div className="flex items-center gap-1">
                         <DollarSign className="w-4 h-4 text-green-400" />
-                        <span className="font-semibold text-foreground">{inv.amount || "N/A"}</span>
-                        <span className="text-xs text-muted-foreground">{inv.currency || "DKK"}</span>
+                        <span className="font-semibold text-foreground">{sanitizeAmount(inv.amount)}</span>
+                        <span className="text-xs text-muted-foreground">{formatCurrency(inv.currency)}</span>
                       </div>
                     </div>
 
@@ -403,14 +520,34 @@ export default function Invoices() {
 
                     {/* Actions */}
                     <div className="col-span-2 flex items-center gap-1 justify-end">
+                      {/* PDF Attachment Link */}
+                      {inv.attachments && inv.attachments.length > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={inv.attachments.find((a: any) => a.mimeType === 'application/pdf')?.s3Url || inv.attachments[0]?.s3Url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
+                                <Paperclip className="w-3 h-3" />
+                                PDF
+                              </Button>
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent>View original PDF attachment ({inv.attachments.length} file{inv.attachments.length > 1 ? 's' : ''})</TooltipContent>
+                        </Tooltip>
+                      )}
+
                       {inv.emailId && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/emails/${inv.emailId}`)}>
-                              <ExternalLink className="w-4 h-4" />
+                            <Button variant="outline" size="sm" className="h-8 text-xs gap-1 border-blue-500/30 text-blue-400 hover:bg-blue-500/10" onClick={() => navigate(`/emails/${inv.emailId}`)}>
+                              <Eye className="w-3 h-3" />
+                              Email
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>View Email</TooltipContent>
+                          <TooltipContent>Open original email to verify invoice details</TooltipContent>
                         </Tooltip>
                       )}
 
@@ -461,7 +598,7 @@ export default function Invoices() {
                         </div>
                         <div>
                           <span className="text-muted-foreground text-xs">Amount</span>
-                          <p className="font-medium">{inv.amount} {inv.currency}</p>
+                          <p className="font-medium">{sanitizeAmount(inv.amount)} {formatCurrency(inv.currency)}</p>
                         </div>
                         <div>
                           <span className="text-muted-foreground text-xs">Payment Date</span>
@@ -496,12 +633,34 @@ export default function Invoices() {
                                   <tr key={idx} className="border-b border-border/30 last:border-0">
                                     <td className="p-2">{item.description}</td>
                                     <td className="p-2 text-right">{item.quantity}</td>
-                                    <td className="p-2 text-right">{item.unitPrice}</td>
-                                    <td className="p-2 text-right font-medium">{item.total}</td>
+                                    <td className="p-2 text-right">{sanitizeAmount(item.unitPrice)}</td>
+                                    <td className="p-2 text-right font-medium">{sanitizeAmount(item.total)}</td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Attachments */}
+                      {inv.attachments && inv.attachments.length > 0 && (
+                        <div>
+                          <span className="text-muted-foreground text-xs">Attachments</span>
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {(inv.attachments as any[]).map((att: any, idx: number) => (
+                              <a
+                                key={idx}
+                                href={att.s3Url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 border border-purple-500/30 rounded-lg text-purple-400 hover:bg-purple-500/20 transition-colors text-sm"
+                              >
+                                <Paperclip className="w-3 h-3" />
+                                {att.filename}
+                                <span className="text-xs text-muted-foreground">({Math.round((att.size || 0) / 1024)} KB)</span>
+                              </a>
+                            ))}
                           </div>
                         </div>
                       )}
