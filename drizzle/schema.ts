@@ -172,3 +172,49 @@ export const employees = mysqlTable("employees", {
 
 export type Employee = typeof employees.$inferSelect;
 export type InsertEmployee = typeof employees.$inferInsert;
+
+// ============================================================
+// Invoice Dashboard Tables
+// ============================================================
+
+// Extracted invoice details from emails
+export const invoiceDetails = mysqlTable("invoice_details", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  emailId: int("emailId").notNull(),
+  taskId: int("taskId"),
+  supplier: varchar("supplier", { length: 500 }).notNull(),
+  invoiceNumber: varchar("invoiceNumber", { length: 255 }),
+  amount: varchar("amount", { length: 100 }),
+  currency: varchar("currency", { length: 10 }).default("DKK"),
+  paymentDate: varchar("paymentDate", { length: 50 }),
+  dueDate: varchar("dueDate", { length: 50 }),
+  products: text("products"),
+  lineItems: json("lineItems"),
+  status: mysqlEnum("invoiceStatus", ["pending", "reviewed", "sent_to_economic", "paid", "rejected"]).default("pending").notNull(),
+  sentToEconomicAt: timestamp("sentToEconomicAt"),
+  eEconomicResponse: json("eEconomicResponse"),
+  rawExtraction: json("rawExtraction"),
+  createdAt: timestamp("invCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("invUpdatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type InvoiceDetail = typeof invoiceDetails.$inferSelect;
+export type InsertInvoiceDetail = typeof invoiceDetails.$inferInsert;
+
+// Supplier e-conomic endpoint settings
+export const supplierSettings = mysqlTable("supplier_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  supplierName: varchar("supplierName", { length: 500 }).notNull(),
+  supplierEmail: varchar("supplierEmail", { length: 320 }),
+  eEconomicEndpoint: varchar("eEconomicEndpoint", { length: 1000 }),
+  eEconomicApiKey: varchar("eEconomicApiKey", { length: 500 }),
+  eEconomicAgreement: varchar("eEconomicAgreement", { length: 500 }),
+  isConfigured: boolean("isConfigured").default(false).notNull(),
+  createdAt: timestamp("ssCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("ssUpdatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SupplierSetting = typeof supplierSettings.$inferSelect;
+export type InsertSupplierSetting = typeof supplierSettings.$inferInsert;

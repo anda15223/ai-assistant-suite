@@ -495,3 +495,106 @@ Respond in valid JSON.`,
 
   return JSON.parse(content) as WhatsAppClassification;
 }
+
+// ===== INVOICE EXTRACTION =====
+
+export interface InvoiceExtraction {
+  supplier: string;
+  invoiceNumber: string;
+  amount: string;
+  currency: string;
+  paymentDate: string;
+  dueDate: string;
+  products: string;
+  lineItems: Array<{ description: string; quantity: string; unitPrice: string; total: string }>;
+}
+
+/**
+ * Extract structured invoice data from an email body.
+ * Reads the email content and pulls out supplier, amounts, dates, products.
+ */
+export async function extractInvoiceDetails(
+  subject: string,
+  body: string,
+  fromAddress: string,
+  fromName: string
+): Promise<InvoiceExtraction> {
+  const response = await invokeLLM({
+    messages: [
+      {
+        role: "system",
+        content: `You are an invoice data extraction specialist. Extract structured data from the email.
+
+EXTRACTION RULES:
+- supplier: The company or person sending the invoice. Use the company name, not email address.
+- invoiceNumber: The invoice/faktura number. If not found, use "N/A".
+- amount: The total amount including VAT/tax. Include the number only (e.g., "1,234.56").
+- currency: The currency code (DKK, EUR, USD, SEK, NOK, etc.). Default to "DKK" if unclear.
+- paymentDate: When payment was made or is expected. ISO format (YYYY-MM-DD) or "N/A".
+- dueDate: Payment deadline. ISO format (YYYY-MM-DD) or "N/A".
+- products: A brief comma-separated list of what was purchased/billed.
+- lineItems: Array of individual items with description, quantity, unitPrice, total. Empty array if not itemized.
+
+Handle Danish, Swedish, Norwegian, English invoices. Common terms:
+- Faktura/Fakturanr = Invoice/Invoice number
+- Beløb/Betalingsbeløb = Amount
+- Forfaldsdato = Due date
+- Moms/MVA = VAT
+- Bilag = Attachment/Receipt
+- Følgeseddel = Delivery note
+- Kreditnota = Credit note
+
+Always respond in valid JSON.`,
+      },
+      {
+        role: "user",
+        content: `From: ${fromName} <${fromAddress}>
+Subject: ${subject}
+
+${body.substring(0, 6000)}`,
+      },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "invoice_extraction",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            supplier: { type: "string", description: "Company/person name" },
+            invoiceNumber: { type: "string", description: "Invoice number or N/A" },
+            amount: { type: "string", description: "Total amount as number string" },
+            currency: { type: "string", description: "Currency code" },
+            paymentDate: { type: "string", description: "Payment date ISO or N/A" },
+            dueDate: { type: "string", description: "Due date ISO or N/A" },
+            products: { type: "string", description: "Comma-separated product list" },
+            lineItems: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  quantity: { type: "string" },
+                  unitPrice: { type: "string" },
+                  total: { type: "string" },
+                },
+                required: ["description", "quantity", "unitPrice", "total"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["supplier", "invoiceNumber", "amount", "currency", "paymentDate", "dueDate", "products", "lineItems"],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+
+  const content = response.choices?.[0]?.message?.content as string | undefined;
+  if (!content) {
+    throw new Error("No response from AI for invoice extraction");
+  }
+
+  return JSON.parse(content) as InvoiceExtraction;
+}

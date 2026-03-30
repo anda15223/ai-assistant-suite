@@ -5,7 +5,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { fetchEmails, testConnection, sendEmail } from "./emailService";
-import { classifyEmail, generateDraftReply, scoreTaskUrgency, computeEscalation } from "./aiService";
+import { classifyEmail, generateDraftReply, scoreTaskUrgency, computeEscalation, extractInvoiceDetails } from "./aiService";
 import { sendWhatsAppMessage } from "./whatsappService";
 
 export const appRouter = router({
@@ -647,6 +647,188 @@ export const appRouter = router({
     suggestionStats: protectedProcedure
       .query(async ({ ctx }) => {
         return db.getSuggestionStats(ctx.user.id);
+      }),
+  }),
+
+  // ===== INVOICE DASHBOARD =====
+  invoice: router({
+    // List all invoice emails (classified as invoice or matching keywords)
+    listEmails: protectedProcedure.query(async ({ ctx }) => {
+      return db.getInvoiceEmails(ctx.user.id);
+    }),
+
+    // List all extracted invoice details
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return db.getInvoiceDetailsByUser(ctx.user.id);
+    }),
+
+    // Get stats
+    stats: protectedProcedure.query(async ({ ctx }) => {
+      return db.getInvoiceStats(ctx.user.id);
+    }),
+
+    // Extract invoice details from a specific email using AI
+    extract: protectedProcedure
+      .input(z.object({ emailId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        // Check if already extracted
+        const existing = await db.getInvoiceDetailByEmailId(input.emailId);
+        if (existing) return { invoiceId: existing.id, alreadyExtracted: true };
+
+        // Get the email
+        const email = await db.getEmailById(input.emailId, ctx.user.id);
+        if (!email) throw new Error("Email not found");
+
+        // Extract using AI
+        const extraction = await extractInvoiceDetails(
+          email.subject || "(No subject)",
+          email.body || email.bodyHtml || "(No body)",
+          email.fromAddress || "unknown",
+          email.fromName || "Unknown"
+        );
+
+        // Find linked task
+        const linkedTasks = await db.getTasksByEmailId(input.emailId, ctx.user.id);
+        const taskId = linkedTasks.length > 0 ? linkedTasks[0].id : null;
+
+        // Save to database
+        const result = await db.insertInvoiceDetail({
+          userId: ctx.user.id,
+          emailId: input.emailId,
+          taskId,
+          supplier: extraction.supplier,
+          invoiceNumber: extraction.invoiceNumber,
+          amount: extraction.amount,
+          currency: extraction.currency,
+          paymentDate: extraction.paymentDate,
+          dueDate: extraction.dueDate,
+          products: extraction.products,
+          lineItems: extraction.lineItems,
+          rawExtraction: extraction,
+        });
+
+        console.log(`[Invoice] Extracted details for email ${input.emailId}: ${extraction.supplier} ${extraction.amount} ${extraction.currency}`);
+        return { invoiceId: result?.id, alreadyExtracted: false, extraction };
+      }),
+
+    // Batch extract: process multiple invoice emails at once (5 at a time)
+    extractBatch: protectedProcedure.mutation(async ({ ctx }) => {
+      const invoiceEmails = await db.getInvoiceEmails(ctx.user.id);
+      let processed = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      for (const email of invoiceEmails.slice(0, 5)) {
+        try {
+          const existing = await db.getInvoiceDetailByEmailId(email.id);
+          if (existing) { skipped++; continue; }
+
+          const extraction = await extractInvoiceDetails(
+            email.subject || "(No subject)",
+            email.body || email.bodyHtml || "(No body)",
+            email.fromAddress || "unknown",
+            email.fromName || "Unknown"
+          );
+
+          const linkedTasks = await db.getTasksByEmailId(email.id, ctx.user.id);
+          const taskId = linkedTasks.length > 0 ? linkedTasks[0].id : null;
+
+          await db.insertInvoiceDetail({
+            userId: ctx.user.id,
+            emailId: email.id,
+            taskId,
+            supplier: extraction.supplier,
+            invoiceNumber: extraction.invoiceNumber,
+            amount: extraction.amount,
+            currency: extraction.currency,
+            paymentDate: extraction.paymentDate,
+            dueDate: extraction.dueDate,
+            products: extraction.products,
+            lineItems: extraction.lineItems,
+            rawExtraction: extraction,
+          });
+          processed++;
+        } catch (err: any) {
+          console.error(`[Invoice] Failed to extract email ${email.id}:`, err.message);
+          failed++;
+        }
+      }
+
+      console.log(`[Invoice] Batch: ${processed} extracted, ${skipped} skipped, ${failed} failed`);
+      return { processed, skipped, failed, totalInvoiceEmails: invoiceEmails.length };
+    }),
+
+    // Count how many invoice emails still need extraction
+    pendingCount: protectedProcedure.query(async ({ ctx }) => {
+      const invoiceEmails = await db.getInvoiceEmails(ctx.user.id);
+      let needExtraction = 0;
+      for (const email of invoiceEmails) {
+        const existing = await db.getInvoiceDetailByEmailId(email.id);
+        if (!existing) needExtraction++;
+      }
+      return { total: invoiceEmails.length, needExtraction };
+    }),
+
+    // Update invoice status
+    updateStatus: protectedProcedure
+      .input(z.object({
+        invoiceId: z.number(),
+        status: z.enum(["pending", "reviewed", "sent_to_economic", "paid", "rejected"]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.updateInvoiceStatus(input.invoiceId, input.status);
+        console.log(`[Invoice] Status updated: ${input.invoiceId} → ${input.status}`);
+        return { success: true };
+      }),
+
+    // Send to e-conomic (placeholder — will use real API when configured)
+    sendToEconomic: protectedProcedure
+      .input(z.object({ invoiceId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        // Get the invoice details
+        const invoices = await db.getInvoiceDetailsByUser(ctx.user.id);
+        const invoice = invoices.find(i => i.id === input.invoiceId);
+        if (!invoice) throw new Error("Invoice not found");
+
+        // Check if supplier has e-conomic configured
+        const supplier = await db.getSupplierByName(ctx.user.id, invoice.supplier);
+        if (!supplier || !supplier.isConfigured) {
+          throw new Error(`e-conomic not configured for supplier "${invoice.supplier}". Please configure it in Supplier Settings.`);
+        }
+
+        // TODO: Actual e-conomic API call will go here
+        // For now, mark as sent and log
+        await db.updateInvoiceStatus(input.invoiceId, "sent_to_economic", {
+          sentAt: new Date().toISOString(),
+          endpoint: supplier.eEconomicEndpoint,
+          note: "Placeholder — actual API integration pending",
+        });
+
+        console.log(`[Invoice] Sent to e-conomic: ${invoice.supplier} #${invoice.invoiceNumber} → ${supplier.eEconomicEndpoint}`);
+        return { success: true, supplier: invoice.supplier };
+      }),
+
+    // ===== SUPPLIER SETTINGS =====
+    suppliers: protectedProcedure.query(async ({ ctx }) => {
+      return db.getSupplierSettings(ctx.user.id);
+    }),
+
+    upsertSupplier: protectedProcedure
+      .input(z.object({
+        supplierName: z.string().min(1),
+        supplierEmail: z.string().optional(),
+        eEconomicEndpoint: z.string().optional(),
+        eEconomicApiKey: z.string().optional(),
+        eEconomicAgreement: z.string().optional(),
+        isConfigured: z.boolean().default(false),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await db.upsertSupplierSetting({
+          userId: ctx.user.id,
+          ...input,
+        });
+        console.log(`[Supplier] Upserted: ${input.supplierName} (configured: ${input.isConfigured})`);
+        return { success: true };
       }),
   }),
 });

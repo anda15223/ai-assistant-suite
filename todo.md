@@ -138,3 +138,16 @@
 - [x] Update Dashboard UI with batch progress bar, stop button, and auto-continue between batches
 - [x] New endpoints: classifyBatch (5 at a time), missingTaskCount (query remaining)
 - [x] New db helpers: getEmailsWithoutTasks, countEmailsWithoutTasks
+
+## Invoice Dashboard
+- [x] Create invoiceDetails table (supplier, paymentDate, dueDate, amount, currency, products, invoiceNumber, lineItems, status, emailId, taskId)
+- [x] Create supplierSettings table (supplierName, eEconomicEndpoint, eEconomicApiKey, eEconomicAgreement, isConfigured)
+- [x] Build AI extraction (extractInvoiceDetails) to parse invoice emails — handles Danish/Swedish/Norwegian/English
+- [x] Create tRPC invoice router: list, listEmails, extract, extractBatch, stats, pendingCount, updateStatus, sendToEconomic
+- [x] Create tRPC supplier endpoints: suppliers, upsertSupplier
+- [x] Build Invoice Dashboard page with stats cards, filter tabs, search, expandable rows with line items
+- [x] Add "Send to e-conomic" button per invoice (checks supplier config, placeholder API call)
+- [x] Add Supplier Settings panel with per-supplier e-conomic endpoint/key/agreement configuration
+- [x] Batch extraction with auto-continue (5 at a time, like email classification)
+- [x] Register /invoices route in App.tsx and add "Invoices" to sidebar navigation
+- [x] Write vitest tests for invoice extraction and dashboard logic (21 tests, 142 total passing across 10 files)

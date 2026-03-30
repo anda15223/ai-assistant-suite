@@ -15,6 +15,7 @@ import WhatsAppDetail from "./pages/WhatsAppDetail";
 import Employees from "./pages/Employees";
 import DashboardLayout from "./components/DashboardLayout";
 import PriorityView from "./pages/PriorityView";
+import Invoices from "./pages/Invoices";
 
 function Router() {
   return (
@@ -57,6 +58,11 @@ function Router() {
       <Route path={"/tasks"}>
         <DashboardLayout>
           <TaskBoard />
+        </DashboardLayout>
+      </Route>
+      <Route path={"/invoices"}>
+        <DashboardLayout>
+          <Invoices />
         </DashboardLayout>
       </Route>
       <Route path={"/priority"} component={PriorityView} />

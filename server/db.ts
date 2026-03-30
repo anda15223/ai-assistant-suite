@@ -1,7 +1,7 @@
 import { eq, desc, and, sql, isNotNull, isNull, or, notInArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, emailAccounts, emails, tasks, draftReplies } from "../drizzle/schema";
-import type { InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply } from "../drizzle/schema";
+import { InsertUser, users, emailAccounts, emails, tasks, draftReplies, invoiceDetails, supplierSettings } from "../drizzle/schema";
+import type { InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply, InsertInvoiceDetail, InsertSupplierSetting } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -659,4 +659,118 @@ export async function getAutoArchiveStats(userId: number, daysInactive: number =
     candidates: candidates?.count || 0,
     alreadyArchived: alreadyArchived?.count || 0,
   };
+}
+
+// ===== INVOICE DASHBOARD QUERIES =====
+
+// Get all emails classified as invoice or matching invoice-related keywords
+export async function getInvoiceEmails(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(emails).where(
+    and(
+      eq(emails.userId, userId),
+      or(
+        eq(emails.classification, "invoice"),
+        sql`LOWER(${emails.subject}) LIKE '%invoice%'`,
+        sql`LOWER(${emails.subject}) LIKE '%faktura%'`,
+        sql`LOWER(${emails.subject}) LIKE '%factura%'`,
+        sql`LOWER(${emails.subject}) LIKE '%payment%'`,
+        sql`LOWER(${emails.subject}) LIKE '%bilag%'`,
+        sql`LOWER(${emails.subject}) LIKE '%regning%'`,
+        sql`LOWER(${emails.subject}) LIKE '%følgeseddel%'`,
+        sql`LOWER(${emails.subject}) LIKE '%kreditnota%'`,
+        sql`LOWER(${emails.subject}) LIKE '%salgsfaktura%'`,
+      )
+    )
+  ).orderBy(desc(emails.receivedAt));
+}
+
+// Insert extracted invoice details
+export async function insertInvoiceDetail(data: InsertInvoiceDetail) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.insert(invoiceDetails).values(data).$returningId();
+  return result;
+}
+
+// Get all invoice details for a user
+export async function getInvoiceDetailsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(invoiceDetails).where(eq(invoiceDetails.userId, userId)).orderBy(desc(invoiceDetails.createdAt));
+}
+
+// Get invoice detail by email ID
+export async function getInvoiceDetailByEmailId(emailId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.select().from(invoiceDetails).where(eq(invoiceDetails.emailId, emailId));
+  return result || null;
+}
+
+// Update invoice status
+export async function updateInvoiceStatus(invoiceId: number, status: "pending" | "reviewed" | "sent_to_economic" | "paid" | "rejected", eEconomicResponse?: any) {
+  const db = await getDb();
+  if (!db) return;
+  const updates: any = { status };
+  if (status === "sent_to_economic") {
+    updates.sentToEconomicAt = new Date();
+    if (eEconomicResponse) updates.eEconomicResponse = eEconomicResponse;
+  }
+  await db.update(invoiceDetails).set(updates).where(eq(invoiceDetails.id, invoiceId));
+}
+
+// Get invoice stats
+export async function getInvoiceStats(userId: number) {
+  const db = await getDb();
+  if (!db) return { total: 0, pending: 0, reviewed: 0, sentToEconomic: 0, paid: 0 };
+  const [total] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(eq(invoiceDetails.userId, userId));
+  const [pending] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "pending")));
+  const [reviewed] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "reviewed")));
+  const [sentToEconomic] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "sent_to_economic")));
+  const [paid] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "paid")));
+  return {
+    total: total?.count || 0,
+    pending: pending?.count || 0,
+    reviewed: reviewed?.count || 0,
+    sentToEconomic: sentToEconomic?.count || 0,
+    paid: paid?.count || 0,
+  };
+}
+
+// ===== SUPPLIER SETTINGS =====
+
+export async function getSupplierSettings(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(supplierSettings).where(eq(supplierSettings.userId, userId)).orderBy(supplierSettings.supplierName);
+}
+
+export async function getSupplierByName(userId: number, supplierName: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [result] = await db.select().from(supplierSettings).where(
+    and(eq(supplierSettings.userId, userId), eq(supplierSettings.supplierName, supplierName))
+  );
+  return result || null;
+}
+
+export async function upsertSupplierSetting(data: InsertSupplierSetting) {
+  const db = await getDb();
+  if (!db) return null;
+  // Check if supplier already exists
+  const existing = await getSupplierByName(data.userId, data.supplierName);
+  if (existing) {
+    await db.update(supplierSettings).set({
+      supplierEmail: data.supplierEmail,
+      eEconomicEndpoint: data.eEconomicEndpoint,
+      eEconomicApiKey: data.eEconomicApiKey,
+      eEconomicAgreement: data.eEconomicAgreement,
+      isConfigured: data.isConfigured ?? false,
+    }).where(eq(supplierSettings.id, existing.id));
+    return existing;
+  }
+  const [result] = await db.insert(supplierSettings).values(data).$returningId();
+  return result;
 }
