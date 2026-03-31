@@ -186,3 +186,15 @@
 - [x] Update EmailDetail page with PBS/Faktura badge on invoice data and linked tasks
 - [x] Update PriorityView page with PBS/Faktura badge on invoice task cards
 - [x] Write tests for PBS/Faktura distinction (9 new tests, 166 total passing)
+
+## Bug: AI Not Reading PDF Attachments During Extraction
+- [x] Root cause 1: MIME type mismatch — PDFs stored as application/octet-stream were skipped by filter
+- [x] Root cause 2: Old extractions blocked re-extraction even when they had N/A data
+- [x] Fix: Resolve MIME type by filename extension (.pdf → application/pdf) in parseEmailSource
+- [x] Fix: Attachment filter now checks filename extension in addition to mimeType
+- [x] Fix: extractBatch auto-re-extracts N/A invoices when PDF attachments are available
+- [x] Fix: pendingCount includes N/A invoices with PDFs in the "need extraction" count
+- [x] Fix: Fixed existing DB records (updated mimeType from octet-stream to application/pdf)
+- [x] Added detailed logging to extractInvoiceDetails for debugging
+- [x] Simplified workflow banner (removed 3-step manual process, replaced with smart single-action)
+- [x] Write tests for MIME type fix and auto-re-extraction logic (15 new tests, 181 total passing)

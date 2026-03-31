@@ -719,8 +719,14 @@ export const appRouter = router({
         // Fetch attachments for this email
         const attachments = await db.getAttachmentsByEmail(input.emailId);
         const attachmentUrls = attachments
-          .filter(a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/"))
-          .map(a => ({ url: a.s3Url, mimeType: a.mimeType, filename: a.filename }));
+          .filter(a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/") || a.filename.toLowerCase().endsWith(".pdf"))
+          .map(a => ({
+            url: a.s3Url,
+            mimeType: a.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : a.mimeType,
+            filename: a.filename,
+          }));
+
+        console.log(`[Invoice] Extracting email ${input.emailId} with ${attachmentUrls.length} attachments:`, attachmentUrls.map(a => `${a.filename} (${a.mimeType})`).join(", ") || "none");
 
         // Extract using AI (with PDF attachments if available)
         const extraction = await extractInvoiceDetails(
@@ -766,13 +772,39 @@ export const appRouter = router({
       for (const email of invoiceEmails.slice(0, 5)) {
         try {
           const existing = await db.getInvoiceDetailByEmailId(email.id);
-          if (existing) { skipped++; continue; }
+          
+          // Check if existing extraction has poor data (N/A) and attachments are now available
+          if (existing) {
+            const hasNAData = existing.amount === "N/A" && existing.dueDate === "N/A" && existing.products === "N/A";
+            const attachments = await db.getAttachmentsByEmail(email.id);
+            const hasPdfAttachments = attachments.some(a => a.mimeType === "application/pdf" || a.filename.toLowerCase().endsWith(".pdf"));
+            
+            if (hasNAData && hasPdfAttachments) {
+              // Delete the poor extraction so we can re-extract with PDF content
+              console.log(`[Invoice] Re-extracting email ${email.id} — previous extraction had N/A values but PDF attachments are now available`);
+              const database = await db.getDb();
+              if (database) {
+                const { invoiceDetails: invTable } = await import("../drizzle/schema");
+                const { eq } = await import("drizzle-orm");
+                await database.delete(invTable).where(eq(invTable.id, existing.id));
+              }
+            } else {
+              skipped++;
+              continue;
+            }
+          }
 
           // Fetch attachments for this email
           const attachments = await db.getAttachmentsByEmail(email.id);
           const attachmentUrls = attachments
-            .filter(a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/"))
-            .map(a => ({ url: a.s3Url, mimeType: a.mimeType, filename: a.filename }));
+            .filter(a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/") || a.filename.toLowerCase().endsWith(".pdf"))
+            .map(a => ({
+              url: a.s3Url,
+              mimeType: a.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : a.mimeType,
+              filename: a.filename,
+            }));
+
+          console.log(`[Invoice] Batch extracting email ${email.id} with ${attachmentUrls.length} attachments:`, attachmentUrls.map(a => `${a.filename} (${a.mimeType})`).join(", ") || "none");
 
           const extraction = await extractInvoiceDetails(
             email.subject || "(No subject)",
@@ -815,11 +847,22 @@ export const appRouter = router({
     pendingCount: protectedProcedure.query(async ({ ctx }) => {
       const invoiceEmails = await db.getInvoiceEmails(ctx.user.id);
       let needExtraction = 0;
+      let needReExtraction = 0;
       for (const email of invoiceEmails) {
         const existing = await db.getInvoiceDetailByEmailId(email.id);
-        if (!existing) needExtraction++;
+        if (!existing) {
+          needExtraction++;
+        } else {
+          // Count extractions with N/A data that have PDF attachments available
+          const hasNAData = existing.amount === "N/A" && existing.dueDate === "N/A" && existing.products === "N/A";
+          if (hasNAData) {
+            const attachments = await db.getAttachmentsByEmail(email.id);
+            const hasPdf = attachments.some(a => a.mimeType === "application/pdf" || a.filename.toLowerCase().endsWith(".pdf"));
+            if (hasPdf) needReExtraction++;
+          }
+        }
       }
-      return { total: invoiceEmails.length, needExtraction };
+      return { total: invoiceEmails.length, needExtraction: needExtraction + needReExtraction, needReExtraction };
     }),
 
     // Resync attachments: re-fetch invoice emails from IMAP to download PDF attachments

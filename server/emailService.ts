@@ -130,9 +130,18 @@ function parseEmailSource(source: string): ParsedEmailParts {
           try {
             const buffer = decodeBase64(content);
             if (buffer.length > 0 && buffer.length < 15 * 1024 * 1024) { // Max 15MB
+              // Fix MIME type: if filename clearly indicates PDF but Content-Type is generic, correct it
+              let resolvedMimeType = contentType || "application/octet-stream";
+              if (filename.toLowerCase().endsWith(".pdf") && resolvedMimeType !== "application/pdf") {
+                resolvedMimeType = "application/pdf";
+              } else if (filename.toLowerCase().endsWith(".png") && !resolvedMimeType.startsWith("image/")) {
+                resolvedMimeType = "image/png";
+              } else if ((filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) && !resolvedMimeType.startsWith("image/")) {
+                resolvedMimeType = "image/jpeg";
+              }
               attachments.push({
                 filename,
-                mimeType: contentType || "application/octet-stream",
+                mimeType: resolvedMimeType,
                 content: buffer,
                 size: buffer.length,
               });

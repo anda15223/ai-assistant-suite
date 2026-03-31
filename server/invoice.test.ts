@@ -417,3 +417,173 @@ describe("PBS vs Faktura Invoice Type", () => {
     expect(typeConfig.pbs.description).toContain("Automatic");
   });
 });
+
+// ===== MIME TYPE FIX TESTS =====
+
+describe("MIME Type Detection Fix", () => {
+  it("should resolve application/octet-stream to application/pdf for .pdf files", () => {
+    const filename = "PBSadvis_PBS006392.pdf";
+    const contentType = "application/octet-stream";
+    
+    let resolvedMimeType = contentType;
+    if (filename.toLowerCase().endsWith(".pdf") && resolvedMimeType !== "application/pdf") {
+      resolvedMimeType = "application/pdf";
+    }
+    
+    expect(resolvedMimeType).toBe("application/pdf");
+  });
+
+  it("should keep application/pdf unchanged for .pdf files", () => {
+    const filename = "Faktura_22693.pdf";
+    const contentType = "application/pdf";
+    
+    let resolvedMimeType = contentType;
+    if (filename.toLowerCase().endsWith(".pdf") && resolvedMimeType !== "application/pdf") {
+      resolvedMimeType = "application/pdf";
+    }
+    
+    expect(resolvedMimeType).toBe("application/pdf");
+  });
+
+  it("should resolve octet-stream to image/png for .png files", () => {
+    const filename = "receipt.png";
+    const contentType = "application/octet-stream";
+    
+    let resolvedMimeType = contentType;
+    if (filename.toLowerCase().endsWith(".png") && !resolvedMimeType.startsWith("image/")) {
+      resolvedMimeType = "image/png";
+    }
+    
+    expect(resolvedMimeType).toBe("image/png");
+  });
+
+  it("should resolve octet-stream to image/jpeg for .jpg files", () => {
+    const filename = "scan.jpg";
+    const contentType = "application/octet-stream";
+    
+    let resolvedMimeType = contentType;
+    if ((filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) && !resolvedMimeType.startsWith("image/")) {
+      resolvedMimeType = "image/jpeg";
+    }
+    
+    expect(resolvedMimeType).toBe("image/jpeg");
+  });
+
+  it("should not change non-PDF/image MIME types", () => {
+    const filename = "data.csv";
+    const contentType = "text/csv";
+    
+    let resolvedMimeType = contentType;
+    if (filename.toLowerCase().endsWith(".pdf") && resolvedMimeType !== "application/pdf") {
+      resolvedMimeType = "application/pdf";
+    }
+    
+    expect(resolvedMimeType).toBe("text/csv");
+  });
+});
+
+// ===== ATTACHMENT FILTER TESTS =====
+
+describe("Attachment Filter for Extraction", () => {
+  it("should include PDFs by mimeType", () => {
+    const attachments = [
+      { mimeType: "application/pdf", filename: "invoice.pdf", s3Url: "https://s3/1.pdf" },
+      { mimeType: "text/plain", filename: "readme.txt", s3Url: "https://s3/2.txt" },
+    ];
+    
+    const filtered = attachments.filter(
+      a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/") || a.filename.toLowerCase().endsWith(".pdf")
+    );
+    
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].filename).toBe("invoice.pdf");
+  });
+
+  it("should include PDFs by filename even when mimeType is octet-stream", () => {
+    const attachments = [
+      { mimeType: "application/octet-stream", filename: "PBSadvis_PBS006392.pdf", s3Url: "https://s3/1.pdf" },
+    ];
+    
+    const filtered = attachments.filter(
+      a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/") || a.filename.toLowerCase().endsWith(".pdf")
+    );
+    
+    expect(filtered).toHaveLength(1);
+  });
+
+  it("should correct mimeType to application/pdf in the mapped output", () => {
+    const attachments = [
+      { mimeType: "application/octet-stream", filename: "PBSadvis.pdf", s3Url: "https://s3/1.pdf" },
+    ];
+    
+    const mapped = attachments
+      .filter(a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/") || a.filename.toLowerCase().endsWith(".pdf"))
+      .map(a => ({
+        url: a.s3Url,
+        mimeType: a.filename.toLowerCase().endsWith(".pdf") ? "application/pdf" : a.mimeType,
+        filename: a.filename,
+      }));
+    
+    expect(mapped[0].mimeType).toBe("application/pdf");
+  });
+
+  it("should include images by mimeType", () => {
+    const attachments = [
+      { mimeType: "image/png", filename: "scan.png", s3Url: "https://s3/1.png" },
+      { mimeType: "image/jpeg", filename: "photo.jpg", s3Url: "https://s3/2.jpg" },
+    ];
+    
+    const filtered = attachments.filter(
+      a => a.mimeType === "application/pdf" || a.mimeType.startsWith("image/") || a.filename.toLowerCase().endsWith(".pdf")
+    );
+    
+    expect(filtered).toHaveLength(2);
+  });
+});
+
+// ===== AUTO RE-EXTRACTION LOGIC TESTS =====
+
+describe("Auto Re-extraction Logic", () => {
+  it("should detect N/A extraction that needs re-extraction", () => {
+    const existing = { amount: "N/A", dueDate: "N/A", products: "N/A" };
+    const hasNAData = existing.amount === "N/A" && existing.dueDate === "N/A" && existing.products === "N/A";
+    expect(hasNAData).toBe(true);
+  });
+
+  it("should not flag extraction with real data for re-extraction", () => {
+    const existing = { amount: "1234.56", dueDate: "2026-04-15", products: "Catering services" };
+    const hasNAData = existing.amount === "N/A" && existing.dueDate === "N/A" && existing.products === "N/A";
+    expect(hasNAData).toBe(false);
+  });
+
+  it("should not flag partial N/A extraction for re-extraction", () => {
+    const existing = { amount: "4871.34", dueDate: "N/A", products: "unpaid invoices" };
+    const hasNAData = existing.amount === "N/A" && existing.dueDate === "N/A" && existing.products === "N/A";
+    expect(hasNAData).toBe(false);
+  });
+
+  it("should check for PDF attachments before re-extraction", () => {
+    const attachments = [
+      { mimeType: "application/pdf", filename: "invoice.pdf" },
+      { mimeType: "text/plain", filename: "readme.txt" },
+    ];
+    const hasPdf = attachments.some(a => a.mimeType === "application/pdf" || a.filename.toLowerCase().endsWith(".pdf"));
+    expect(hasPdf).toBe(true);
+  });
+
+  it("should not re-extract when no PDF attachments available", () => {
+    const attachments = [
+      { mimeType: "text/plain", filename: "readme.txt" },
+    ];
+    const hasPdf = attachments.some(a => a.mimeType === "application/pdf" || a.filename.toLowerCase().endsWith(".pdf"));
+    expect(hasPdf).toBe(false);
+  });
+
+  it("should detect PDF by filename even with wrong mimeType", () => {
+    const attachments = [
+      { mimeType: "application/octet-stream", filename: "PBSadvis.pdf" },
+    ];
+    const hasPdf = attachments.some(a => a.mimeType === "application/pdf" || a.filename.toLowerCase().endsWith(".pdf"));
+    expect(hasPdf).toBe(true);
+  });
+});

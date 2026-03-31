@@ -269,26 +269,24 @@ export default function Invoices() {
         </Card>
       </div>
 
-      {/* Step-by-Step Workflow Banner */}
+      {/* Invoice Processing Actions */}
       <Card className="border-amber-500/50 bg-amber-500/5">
-        <CardContent className="p-4 space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5 text-amber-400" />
-            <p className="text-sm font-bold text-foreground">Invoice Processing Workflow</p>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText className="w-5 h-5 text-amber-400" />
+            <p className="text-sm font-bold text-foreground">Invoice Processing</p>
+            {pendingCount && pendingCount.needExtraction > 0 && (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 ml-2">
+                {pendingCount.needExtraction} need{pendingCount.needReExtraction ? ` (${pendingCount.needReExtraction} re-extract)` : ""} processing
+              </Badge>
+            )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Most invoices arrive as PDF attachments. Follow these steps to extract accurate data:
+          <p className="text-xs text-muted-foreground mb-4">
+            Invoice data is extracted from PDF attachments using AI. Invoices with incomplete data (N/A) will be automatically re-extracted when PDFs are available.
           </p>
 
-          {/* Step 1: Download Attachments */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/50">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold">1</div>
-              <div>
-                <p className="text-sm font-medium">Download PDF Attachments</p>
-                <p className="text-xs text-muted-foreground">Re-fetch invoice emails from IMAP to download PDF files (10 at a time)</p>
-              </div>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {/* Download PDFs from IMAP */}
             <Button
               onClick={handleResyncAttachments}
               disabled={isResyncingAttachments}
@@ -297,23 +295,28 @@ export default function Invoices() {
               className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
             >
               {isResyncingAttachments ? (
-                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Downloading...</>
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Downloading PDFs...</>
               ) : (
-                <><Download className="w-4 h-4 mr-1" /> Download PDFs</>
+                <><Download className="w-4 h-4 mr-1" /> Download PDFs from Email</>
               )}
             </Button>
-          </div>
 
-          {/* Step 2: Reset Bad Extractions */}
-          {stats && stats.total > 0 && (
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/50">
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-xs font-bold">2</div>
-                <div>
-                  <p className="text-sm font-medium">Reset Existing Extractions</p>
-                  <p className="text-xs text-muted-foreground">Delete {stats.total} old extractions (made without PDF) so they can be re-processed</p>
-                </div>
-              </div>
+            {/* Extract / Re-extract Invoice Data */}
+            <Button
+              onClick={handleExtractBatch}
+              disabled={isExtracting || (pendingCount?.needExtraction === 0)}
+              className="bg-amber-500 hover:bg-amber-600 text-black"
+              size="sm"
+            >
+              {isExtracting ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Extracting from PDFs...</>
+              ) : (
+                <><RefreshCw className="w-4 h-4 mr-1" /> Extract Invoice Data</>
+              )}
+            </Button>
+
+            {/* Reset All Extractions (advanced) */}
+            {stats && stats.total > 0 && (
               <Button
                 onClick={handleDeleteAllExtractions}
                 disabled={isDeletingExtractions}
@@ -324,37 +327,10 @@ export default function Invoices() {
                 {isDeletingExtractions ? (
                   <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Deleting...</>
                 ) : (
-                  <><Trash2 className="w-4 h-4 mr-1" /> Reset Extractions</>
+                  <><Trash2 className="w-4 h-4 mr-1" /> Reset All Extractions</>
                 )}
               </Button>
-            </div>
-          )}
-
-          {/* Step 3: Extract with PDF */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/50">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">3</div>
-              <div>
-                <p className="text-sm font-medium">Extract Invoice Data (with PDF)</p>
-                <p className="text-xs text-muted-foreground">
-                  {pendingCount && pendingCount.needExtraction > 0
-                    ? `${pendingCount.needExtraction} invoices need extraction — AI will read the PDF attachments`
-                    : "All invoices have been extracted"}
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={handleExtractBatch}
-              disabled={isExtracting || (pendingCount?.needExtraction === 0)}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
-              size="sm"
-            >
-              {isExtracting ? (
-                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Extracting...</>
-              ) : (
-                <><RefreshCw className="w-4 h-4 mr-1" /> Extract Invoice Data</>
-              )}
-            </Button>
+            )}
           </div>
         </CardContent>
       </Card>

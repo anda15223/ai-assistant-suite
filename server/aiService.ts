@@ -571,6 +571,14 @@ export async function extractInvoiceDetails(
     text: `From: ${fromName} <${fromAddress}>\nSubject: ${subject}\n\n${textContent.substring(0, 6000)}${attachmentNote}`,
   });
 
+  console.log(`[Invoice AI] Extracting invoice from: ${fromName} <${fromAddress}>, Subject: ${subject}`);
+  console.log(`[Invoice AI] Content parts: ${userContent.length} (${userContent.map((c: any) => c.type).join(", ")})`);
+  if (attachmentUrls && attachmentUrls.length > 0) {
+    console.log(`[Invoice AI] Attachments passed to LLM:`, attachmentUrls.map(a => `${a.filename} [${a.mimeType}] ${a.url.substring(0, 80)}...`));
+  } else {
+    console.log(`[Invoice AI] No attachments — extracting from email body only`);
+  }
+
   const response = await invokeLLM({
     messages: [
       {
@@ -659,5 +667,7 @@ Always respond in valid JSON.`,
     throw new Error("No response from AI for invoice extraction");
   }
 
-  return JSON.parse(content) as InvoiceExtraction;
+  const parsed = JSON.parse(content) as InvoiceExtraction;
+  console.log(`[Invoice AI] Extraction result: supplier=${parsed.supplier}, amount=${parsed.amount} ${parsed.currency}, due=${parsed.dueDate}, type=${parsed.invoiceType}, items=${parsed.lineItems?.length || 0}`);
+  return parsed;
 }
