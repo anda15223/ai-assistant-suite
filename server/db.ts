@@ -1,16 +1,25 @@
-import { eq, desc, and, sql, isNotNull, isNull, or, notInArray } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { eq, desc, and, sql, isNotNull, isNull, or, notInArray, inArray } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { InsertUser, users, emailAccounts, emails, tasks, draftReplies, invoiceDetails, supplierSettings, emailAttachments } from "../drizzle/schema";
 import type { InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply, InsertInvoiceDetail, InsertSupplierSetting, InsertEmailAttachment } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _client: ReturnType<typeof postgres> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
+// Lazily create the drizzle Postgres instance.
+// Supabase pooler URLs include `?pgbouncer=true` — we set prepare:false
+// to be safe with PgBouncer transaction-mode pooling.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _client = postgres(process.env.DATABASE_URL, {
+        max: 1,
+        prepare: false,
+        ssl: "require",
+      });
+      _db = drizzle(_client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -69,7 +78,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.openId,
       set: updateSet,
     });
   } catch (error) {
@@ -115,8 +125,8 @@ export async function upsertEmailAccount(data: InsertEmailAccount) {
     }).where(eq(emailAccounts.id, existing[0].id));
     return existing[0].id;
   } else {
-    const result = await db.insert(emailAccounts).values(data);
-    return result[0].insertId;
+    const result = await db.insert(emailAccounts).values(data).returning({ id: emailAccounts.id });
+    return result[0].id;
   }
 }
 
@@ -144,8 +154,8 @@ export async function getEmailById(emailId: number, userId: number) {
 export async function insertEmail(data: InsertEmail) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(emails).values(data);
-  return result[0].insertId;
+  const result = await db.insert(emails).values(data).returning({ id: emails.id });
+  return result[0].id;
 }
 
 export async function emailExistsByMessageId(messageId: string, userId: number) {
@@ -175,10 +185,10 @@ export async function markEmailRead(emailId: number) {
 export async function getEmailStats(userId: number) {
   const db = await getDb();
   if (!db) return { total: 0, unread: 0, invoices: 0, tasks: 0 };
-  const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(eq(emails.userId, userId));
-  const [unreadResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.isRead, false)));
-  const [invoiceResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "invoice")));
-  const [taskResult] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "task")));
+  const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(emails).where(eq(emails.userId, userId));
+  const [unreadResult] = await db.select({ count: sql<number>`count(*)::int` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.isRead, false)));
+  const [invoiceResult] = await db.select({ count: sql<number>`count(*)::int` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "invoice")));
+  const [taskResult] = await db.select({ count: sql<number>`count(*)::int` }).from(emails).where(and(eq(emails.userId, userId), eq(emails.classification, "task")));
   return {
     total: totalResult?.count || 0,
     unread: unreadResult?.count || 0,
@@ -187,27 +197,24 @@ export async function getEmailStats(userId: number) {
   };
 }
 
-// Get all emails for a user (for reclassification)
 export async function getAllEmailsByUser(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(emails).where(eq(emails.userId, userId)).orderBy(desc(emails.receivedAt));
 }
 
-// Delete all tasks for a user (for clean reclassification)
 export async function deleteAllTasksByUser(userId: number) {
   const db = await getDb();
   if (!db) return;
   await db.delete(tasks).where(eq(tasks.userId, userId));
 }
 
-// Get accounting summary: total emails, total tasks, invoice tasks, regular tasks
 export async function getAccountingSummary(userId: number) {
   const db = await getDb();
   if (!db) return { totalEmails: 0, totalTasks: 0, invoiceTasks: 0, regularTasks: 0, matched: true };
-  const [emailCount] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(eq(emails.userId, userId));
-  const [taskCount] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(eq(tasks.userId, userId));
-  const [invoiceTaskCount] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "invoice")));
+  const [emailCount] = await db.select({ count: sql<number>`count(*)::int` }).from(emails).where(eq(emails.userId, userId));
+  const [taskCount] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.userId, userId));
+  const [invoiceTaskCount] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.category, "invoice")));
   const totalEmails = emailCount?.count || 0;
   const totalTasks = taskCount?.count || 0;
   const invoiceTasks = invoiceTaskCount?.count || 0;
@@ -224,7 +231,6 @@ export async function getAccountingSummary(userId: number) {
 export async function getEmailsWithoutTasks(userId: number, limit: number = 10) {
   const db = await getDb();
   if (!db) return [];
-  // Find emails that don't have a corresponding task
   const emailsWithTasks = db.select({ emailId: tasks.emailId }).from(tasks).where(and(eq(tasks.userId, userId), isNotNull(tasks.emailId)));
   return db.select().from(emails).where(and(eq(emails.userId, userId), notInArray(emails.id, emailsWithTasks))).orderBy(desc(emails.receivedAt)).limit(limit);
 }
@@ -233,7 +239,7 @@ export async function countEmailsWithoutTasks(userId: number): Promise<number> {
   const db = await getDb();
   if (!db) return 0;
   const emailsWithTasks = db.select({ emailId: tasks.emailId }).from(tasks).where(and(eq(tasks.userId, userId), isNotNull(tasks.emailId)));
-  const [result] = await db.select({ count: sql<number>`count(*)` }).from(emails).where(and(eq(emails.userId, userId), notInArray(emails.id, emailsWithTasks)));
+  const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(emails).where(and(eq(emails.userId, userId), notInArray(emails.id, emailsWithTasks)));
   return result?.count || 0;
 }
 
@@ -248,8 +254,8 @@ export async function getTasksByUser(userId: number, limit: number = 100) {
 export async function insertTask(data: InsertTask) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(tasks).values(data);
-  return result[0].insertId;
+  const result = await db.insert(tasks).values(data).returning({ id: tasks.id });
+  return result[0].id;
 }
 
 export async function updateTaskStatus(taskId: number, userId: number, status: "pending" | "in_progress" | "completed" | "dismissed") {
@@ -274,10 +280,10 @@ export async function getTaskEmailId(taskId: number, userId: number): Promise<nu
 export async function getTaskStats(userId: number) {
   const db = await getDb();
   if (!db) return { total: 0, pending: 0, inProgress: 0, completed: 0 };
-  const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(eq(tasks.userId, userId));
-  const [pendingResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "pending")));
-  const [inProgressResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "in_progress")));
-  const [completedResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "completed")));
+  const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.userId, userId));
+  const [pendingResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "pending")));
+  const [inProgressResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "in_progress")));
+  const [completedResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.status, "completed")));
   return {
     total: totalResult?.count || 0,
     pending: pendingResult?.count || 0,
@@ -309,8 +315,8 @@ export async function getDraftsByUser(userId: number) {
 export async function insertDraft(data: InsertDraftReply) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(draftReplies).values(data);
-  return result[0].insertId;
+  const result = await db.insert(draftReplies).values(data).returning({ id: draftReplies.id });
+  return result[0].id;
 }
 
 export async function updateDraftStatus(draftId: number, userId: number, status: "approved" | "rejected" | "sent") {
@@ -356,11 +362,11 @@ export async function getWhatsAppMessageById(messageId: number, userId: number) 
 export async function getWhatsAppStats(userId: number) {
   const db = await getDb();
   if (!db) return { total: 0, problems: 0, questions: 0, updates: 0, requests: 0 };
-  const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(eq(whatsappMessages.userId, userId));
-  const [problemResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "problem")));
-  const [questionResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "question")));
-  const [updateResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "update")));
-  const [requestResult] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "request")));
+  const [totalResult] = await db.select({ count: sql<number>`count(*)::int` }).from(whatsappMessages).where(eq(whatsappMessages.userId, userId));
+  const [problemResult] = await db.select({ count: sql<number>`count(*)::int` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "problem")));
+  const [questionResult] = await db.select({ count: sql<number>`count(*)::int` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "question")));
+  const [updateResult] = await db.select({ count: sql<number>`count(*)::int` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "update")));
+  const [requestResult] = await db.select({ count: sql<number>`count(*)::int` }).from(whatsappMessages).where(and(eq(whatsappMessages.userId, userId), eq(whatsappMessages.classification, "request")));
   return {
     total: totalResult?.count || 0,
     problems: problemResult?.count || 0,
@@ -373,8 +379,8 @@ export async function getWhatsAppStats(userId: number) {
 export async function getWhatsAppAccounting(userId: number) {
   const db = await getDb();
   if (!db) return { totalMessages: 0, totalTasks: 0, matched: true };
-  const [msgCount] = await db.select({ count: sql<number>`count(*)` }).from(whatsappMessages).where(eq(whatsappMessages.userId, userId));
-  const [taskCount] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.source, "whatsapp")));
+  const [msgCount] = await db.select({ count: sql<number>`count(*)::int` }).from(whatsappMessages).where(eq(whatsappMessages.userId, userId));
+  const [taskCount] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.source, "whatsapp")));
   const totalMessages = msgCount?.count || 0;
   const totalTasks = taskCount?.count || 0;
   return {
@@ -448,8 +454,8 @@ export async function upsertEmployee(data: InsertEmployee) {
     }).where(eq(employees.id, existing[0].id));
     return existing[0].id;
   } else {
-    const result = await db.insert(employees).values(data);
-    return result[0].insertId;
+    const result = await db.insert(employees).values(data).returning({ id: employees.id });
+    return result[0].id;
   }
 }
 
@@ -494,10 +500,8 @@ export async function updateTaskSuggestion(taskId: number, userId: number, data:
 export async function acceptTaskSuggestion(taskId: number, userId: number) {
   const db = await getDb();
   if (!db) return;
-  // Get the task to read its suggestedCategory
   const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))).limit(1);
   if (!task || !task.suggestedCategory) return;
-  // Apply the suggestion: set category = suggestedCategory and mark confirmed
   await db.update(tasks).set({
     category: task.suggestedCategory,
     suggestionConfirmed: true,
@@ -508,7 +512,6 @@ export async function acceptTaskSuggestion(taskId: number, userId: number) {
 export async function rejectTaskSuggestion(taskId: number, userId: number) {
   const db = await getDb();
   if (!db) return;
-  // Mark suggestion as confirmed (rejected) without changing category
   await db.update(tasks).set({
     suggestionConfirmed: true,
     lastActivityAt: new Date(),
@@ -518,18 +521,16 @@ export async function rejectTaskSuggestion(taskId: number, userId: number) {
 export async function getSuggestionStats(userId: number) {
   const db = await getDb();
   if (!db) return { pending: 0, accepted: 0, rejected: 0 };
-  // Pending: has suggestedCategory but not confirmed
-  const [pendingResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(
+  const [pendingResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(
     and(eq(tasks.userId, userId), isNotNull(tasks.suggestedCategory), or(isNull(tasks.suggestionConfirmed), eq(tasks.suggestionConfirmed, false)))
   );
-  // Accepted: confirmed AND category matches suggestedCategory
-  const [acceptedResult] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(
+  const [acceptedResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(
     and(eq(tasks.userId, userId), eq(tasks.suggestionConfirmed, true), isNotNull(tasks.suggestedCategory))
   );
   return {
     pending: pendingResult?.count || 0,
     accepted: acceptedResult?.count || 0,
-    rejected: 0, // approximation — rejected ones also have suggestionConfirmed=true but category != suggestedCategory
+    rejected: 0,
   };
 }
 
@@ -557,7 +558,7 @@ export async function getPendingTasksForReprioritization(userId: number) {
   return db.select().from(tasks)
     .where(and(
       eq(tasks.userId, userId),
-      sql`${tasks.status} IN ('pending', 'in_progress')`
+      inArray(tasks.status, ["pending", "in_progress"])
     ))
     .orderBy(desc(tasks.createdAt));
 }
@@ -565,11 +566,11 @@ export async function getPendingTasksForReprioritization(userId: number) {
 export async function getPriorityDistribution(userId: number) {
   const db = await getDb();
   if (!db) return { do_first: 0, schedule: 0, delegate: 0, archive: 0, unscored: 0 };
-  const [doFirst] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "do_first")));
-  const [schedule] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "schedule")));
-  const [delegate] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "delegate")));
-  const [archive] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "archive")));
-  const [unscored] = await db.select({ count: sql<number>`count(*)` }).from(tasks).where(and(eq(tasks.userId, userId), sql`${tasks.urgencyScore} IS NULL OR ${tasks.urgencyScore} = 5`));
+  const [doFirst] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "do_first")));
+  const [schedule] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "schedule")));
+  const [delegate] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "delegate")));
+  const [archive] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.quadrant, "archive")));
+  const [unscored] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks).where(and(eq(tasks.userId, userId), or(isNull(tasks.urgencyScore), eq(tasks.urgencyScore, 5))));
   return {
     do_first: doFirst?.count || 0,
     schedule: schedule?.count || 0,
@@ -587,10 +588,6 @@ export async function snoozeTask(taskId: number, userId: number, until: Date) {
 
 // ===== AUTO-ARCHIVE QUERIES =====
 
-/**
- * Get tasks in the 'archive' quadrant that have been inactive for more than `daysInactive` days.
- * Inactive = lastActivityAt is older than the threshold.
- */
 export async function getStaleArchiveTasks(userId: number, daysInactive: number = 30) {
   const db = await getDb();
   if (!db) return [];
@@ -600,16 +597,13 @@ export async function getStaleArchiveTasks(userId: number, daysInactive: number 
     .where(and(
       eq(tasks.userId, userId),
       eq(tasks.quadrant, "archive"),
-      sql`${tasks.status} IN ('pending', 'in_progress')`,
+      inArray(tasks.status, ["pending", "in_progress"]),
       sql`${tasks.lastActivityAt} < ${threshold}`,
-      sql`${tasks.autoArchivedAt} IS NULL`
+      isNull(tasks.autoArchivedAt)
     ))
     .orderBy(desc(tasks.lastActivityAt));
 }
 
-/**
- * Auto-archive a batch of tasks: set status to 'dismissed' and record the archive timestamp.
- */
 export async function autoArchiveTasks(taskIds: number[], userId: number) {
   const db = await getDb();
   if (!db) return 0;
@@ -620,40 +614,34 @@ export async function autoArchiveTasks(taskIds: number[], userId: number) {
     autoArchivedAt: now,
   }).where(and(
     eq(tasks.userId, userId),
-    sql`${tasks.id} IN (${sql.join(taskIds.map(id => sql`${id}`), sql`, `)})`
+    inArray(tasks.id, taskIds)
   ));
   return taskIds.length;
 }
 
-/**
- * Touch a task's lastActivityAt to reset the inactivity timer.
- */
 export async function touchTaskActivity(taskId: number, userId: number) {
   const db = await getDb();
   if (!db) return;
   await db.update(tasks).set({ lastActivityAt: new Date() }).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
 }
 
-/**
- * Get auto-archive stats: how many tasks are candidates, how many were already auto-archived.
- */
 export async function getAutoArchiveStats(userId: number, daysInactive: number = 30) {
   const db = await getDb();
   if (!db) return { candidates: 0, alreadyArchived: 0 };
   const threshold = new Date();
   threshold.setDate(threshold.getDate() - daysInactive);
-  const [candidates] = await db.select({ count: sql<number>`count(*)` }).from(tasks)
+  const [candidates] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks)
     .where(and(
       eq(tasks.userId, userId),
       eq(tasks.quadrant, "archive"),
-      sql`${tasks.status} IN ('pending', 'in_progress')`,
+      inArray(tasks.status, ["pending", "in_progress"]),
       sql`${tasks.lastActivityAt} < ${threshold}`,
-      sql`${tasks.autoArchivedAt} IS NULL`
+      isNull(tasks.autoArchivedAt)
     ));
-  const [alreadyArchived] = await db.select({ count: sql<number>`count(*)` }).from(tasks)
+  const [alreadyArchived] = await db.select({ count: sql<number>`count(*)::int` }).from(tasks)
     .where(and(
       eq(tasks.userId, userId),
-      sql`${tasks.autoArchivedAt} IS NOT NULL`
+      isNotNull(tasks.autoArchivedAt)
     ));
   return {
     candidates: candidates?.count || 0,
@@ -663,7 +651,6 @@ export async function getAutoArchiveStats(userId: number, daysInactive: number =
 
 // ===== INVOICE DASHBOARD QUERIES =====
 
-// Get all emails classified as invoice or matching invoice-related keywords
 export async function getInvoiceEmails(userId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -686,22 +673,19 @@ export async function getInvoiceEmails(userId: number) {
   ).orderBy(desc(emails.receivedAt));
 }
 
-// Insert extracted invoice details
 export async function insertInvoiceDetail(data: InsertInvoiceDetail) {
   const db = await getDb();
   if (!db) return null;
-  const [result] = await db.insert(invoiceDetails).values(data).$returningId();
-  return result;
+  const result = await db.insert(invoiceDetails).values(data).returning({ id: invoiceDetails.id });
+  return result[0];
 }
 
-// Get all invoice details for a user
 export async function getInvoiceDetailsByUser(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(invoiceDetails).where(eq(invoiceDetails.userId, userId)).orderBy(desc(invoiceDetails.createdAt));
 }
 
-// Get invoice detail by email ID
 export async function getInvoiceDetailByEmailId(emailId: number) {
   const db = await getDb();
   if (!db) return null;
@@ -709,7 +693,6 @@ export async function getInvoiceDetailByEmailId(emailId: number) {
   return result || null;
 }
 
-// Update invoice status
 export async function updateInvoiceStatus(invoiceId: number, status: "pending" | "reviewed" | "sent_to_economic" | "paid" | "rejected", eEconomicResponse?: any) {
   const db = await getDb();
   if (!db) return;
@@ -721,18 +704,17 @@ export async function updateInvoiceStatus(invoiceId: number, status: "pending" |
   await db.update(invoiceDetails).set(updates).where(eq(invoiceDetails.id, invoiceId));
 }
 
-// Get invoice stats (includes PBS vs Faktura counts)
 export async function getInvoiceStats(userId: number) {
   const db = await getDb();
   if (!db) return { total: 0, pending: 0, reviewed: 0, sentToEconomic: 0, paid: 0, pbs: 0, faktura: 0, unknown: 0 };
-  const [total] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(eq(invoiceDetails.userId, userId));
-  const [pending] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "pending")));
-  const [reviewed] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "reviewed")));
-  const [sentToEconomic] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "sent_to_economic")));
-  const [paid] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "paid")));
-  const [pbs] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.invoiceType, "pbs")));
-  const [faktura] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.invoiceType, "faktura")));
-  const [unknown] = await db.select({ count: sql<number>`count(*)` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.invoiceType, "unknown")));
+  const [total] = await db.select({ count: sql<number>`count(*)::int` }).from(invoiceDetails).where(eq(invoiceDetails.userId, userId));
+  const [pending] = await db.select({ count: sql<number>`count(*)::int` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "pending")));
+  const [reviewed] = await db.select({ count: sql<number>`count(*)::int` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "reviewed")));
+  const [sentToEconomic] = await db.select({ count: sql<number>`count(*)::int` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "sent_to_economic")));
+  const [paid] = await db.select({ count: sql<number>`count(*)::int` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.status, "paid")));
+  const [pbs] = await db.select({ count: sql<number>`count(*)::int` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.invoiceType, "pbs")));
+  const [faktura] = await db.select({ count: sql<number>`count(*)::int` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.invoiceType, "faktura")));
+  const [unknown] = await db.select({ count: sql<number>`count(*)::int` }).from(invoiceDetails).where(and(eq(invoiceDetails.userId, userId), eq(invoiceDetails.invoiceType, "unknown")));
   return {
     total: total?.count || 0,
     pending: pending?.count || 0,
@@ -765,7 +747,6 @@ export async function getSupplierByName(userId: number, supplierName: string) {
 export async function upsertSupplierSetting(data: InsertSupplierSetting) {
   const db = await getDb();
   if (!db) return null;
-  // Check if supplier already exists
   const existing = await getSupplierByName(data.userId, data.supplierName);
   if (existing) {
     await db.update(supplierSettings).set({
@@ -777,16 +758,16 @@ export async function upsertSupplierSetting(data: InsertSupplierSetting) {
     }).where(eq(supplierSettings.id, existing.id));
     return existing;
   }
-  const [result] = await db.insert(supplierSettings).values(data).$returningId();
-  return result;
+  const result = await db.insert(supplierSettings).values(data).returning({ id: supplierSettings.id });
+  return result[0];
 }
 
 // ── Email Attachments ──
 export async function insertEmailAttachment(data: InsertEmailAttachment) {
   const database = await getDb();
   if (!database) throw new Error("Database not available");
-  const [result] = await database.insert(emailAttachments).values(data);
-  return (result as any).insertId as number;
+  const result = await database.insert(emailAttachments).values(data).returning({ id: emailAttachments.id });
+  return result[0].id;
 }
 
 export async function getAttachmentsByEmail(emailId: number) {
@@ -798,5 +779,5 @@ export async function getAttachmentsByEmail(emailId: number) {
 export async function getAttachmentsByEmails(emailIds: number[]) {
   const database = await getDb();
   if (!database || emailIds.length === 0) return [];
-  return database.select().from(emailAttachments).where(sql`${emailAttachments.emailId} IN (${sql.join(emailIds.map(id => sql`${id}`), sql`, `)})`);
+  return database.select().from(emailAttachments).where(inArray(emailAttachments.emailId, emailIds));
 }

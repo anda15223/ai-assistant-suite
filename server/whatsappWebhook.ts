@@ -83,7 +83,7 @@ async function processWhatsAppMessage(msg: ParsedWhatsAppMessage) {
     const displayName = employee?.name || msg.senderName;
 
     // 2. Save message to DB (userId = 1 for owner, since webhook doesn't have auth context)
-    const [insertResult] = await db.insert(whatsappMessages).values({
+    const insertResult = await db.insert(whatsappMessages).values({
       userId: 1,
       waMessageId: msg.waMessageId,
       senderPhone: msg.senderPhone,
@@ -92,8 +92,8 @@ async function processWhatsAppMessage(msg: ParsedWhatsAppMessage) {
       messageText: msg.messageText,
       isProcessed: false,
       receivedAt: msg.timestamp,
-    });
-    const messageDbId = insertResult.insertId;
+    }).returning({ id: whatsappMessages.id });
+    const messageDbId = insertResult[0].id;
 
     console.log(`[WhatsApp] Saved message ${msg.waMessageId} from ${displayName} (${msg.senderPhone})`);
 
