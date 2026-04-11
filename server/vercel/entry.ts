@@ -5,7 +5,7 @@
  * Express app handles it.
  */
 import "dotenv/config";
-import { createApp } from "../server/_core/createApp";
+import { createApp } from "../_core/createApp";
 
 const app = createApp();
 
