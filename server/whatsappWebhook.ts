@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { parseWebhookMessages, markWhatsAppMessageAsRead, type ParsedWhatsAppMessage } from "./whatsappService";
 import { classifyWhatsAppMessage } from "./aiService";
 import { getDb } from "./db";
@@ -9,7 +9,7 @@ import { invokeLLM } from "./_core/llm";
 export const whatsappWebhookRouter = Router();
 
 // GET /api/webhook/whatsapp — Verification endpoint
-whatsappWebhookRouter.get("/", (req, res) => {
+whatsappWebhookRouter.get("/", (req: Request, res: Response) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
@@ -26,7 +26,7 @@ whatsappWebhookRouter.get("/", (req, res) => {
 });
 
 // POST /api/webhook/whatsapp — Message receiver
-whatsappWebhookRouter.post("/", async (req, res) => {
+whatsappWebhookRouter.post("/", async (req: Request, res: Response) => {
   // MUST return 200 immediately to prevent Meta retries
   res.sendStatus(200);
 

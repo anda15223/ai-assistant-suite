@@ -1,4 +1,5 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import type { Response as ExpressResponse } from "express";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { authService } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
@@ -15,8 +16,9 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
+      const res = ctx.res as ExpressResponse;
       const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
     register: publicProcedure
@@ -33,8 +35,9 @@ export const appRouter = router({
         const passwordHash = await authService.hashPassword(input.password);
         const user = await db.createUser(input.email, input.name, passwordHash);
         const token = await authService.createSessionToken(user.id, user.email, user.name ?? "");
+        const res = ctx.res as ExpressResponse;
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       }),
     login: publicProcedure
@@ -53,8 +56,9 @@ export const appRouter = router({
         }
         await db.updateLastSignedIn(user.id);
         const token = await authService.createSessionToken(user.id, user.email, user.name ?? "");
+        const res = ctx.res as ExpressResponse;
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       }),
   }),

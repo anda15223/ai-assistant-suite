@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -25,7 +25,7 @@ export function createApp(): Express {
         })
       );
 
-  app.get("/api/health", (_req, res) => {
+  app.get("/api/health", (_req: Request, res: Response) => {
         res.status(200).json({ ok: true, env: process.env.NODE_ENV ?? "unknown" });
   });
 
