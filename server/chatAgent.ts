@@ -525,12 +525,12 @@ export async function runChatAgent(
   }));
 
   // Tool-use loop: Claude calls tools, we execute them, feed results back
-  const MAX_ITERATIONS = 10;
+  const MAX_ITERATIONS = 5;
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
+      model: "claude-3-5-haiku-20241022",
+      max_tokens: 2048,
       system: SYSTEM_PROMPT,
       tools: TOOLS,
       messages: anthropicMessages,
