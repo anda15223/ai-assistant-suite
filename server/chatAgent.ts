@@ -3,6 +3,7 @@ import { ENV } from "./_core/env";
 import * as db from "./db";
 import { fetchEmails, sendEmail, fetchAttachmentsForEmail } from "./emailService";
 import { classifyEmail, extractInvoiceDetails, generateDraftReply, scoreTaskUrgency } from "./aiService";
+import { searchDriveFiles, listDriveFiles, readDriveFile, getDriveConnectionStatus } from "./googleDrive";
 
 // ── Tool definitions ────────────────────────────────────────────────
 
@@ -144,6 +145,40 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object" as const,
       properties: {},
+    },
+  },
+  {
+    name: "search_drive",
+    description: "Search Google Drive files by keyword. Searches file names and content. Requires Google Drive to be connected in Settings.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "Search keyword or phrase" },
+        limit: { type: "number", description: "Max results (default 20)" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "list_drive_files",
+    description: "List files in Google Drive, optionally in a specific folder.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        folder_id: { type: "string", description: "Google Drive folder ID (optional, defaults to root)" },
+        limit: { type: "number", description: "Max results (default 20)" },
+      },
+    },
+  },
+  {
+    name: "read_drive_file",
+    description: "Read the content of a Google Drive file. Works with Google Docs, Sheets (as CSV), and text files. PDFs return metadata only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        file_id: { type: "string", description: "The Google Drive file ID" },
+      },
+      required: ["file_id"],
     },
   },
 ];
@@ -403,6 +438,47 @@ async function executeTool(
         }
         await db.updateLastSync(account.id);
         return JSON.stringify({ synced: newCount, total: fetched.length });
+      }
+
+      case "search_drive": {
+        const status = await getDriveConnectionStatus(userId);
+        if (!status.connected) return JSON.stringify({ error: "Google Drive not connected. Go to Settings to connect." });
+        const files = await searchDriveFiles(userId, args.query as string, (args.limit as number) || 20);
+        return JSON.stringify({
+          count: files.length,
+          files: files.map((f) => ({
+            id: f.id,
+            name: f.name,
+            mimeType: f.mimeType,
+            modifiedTime: f.modifiedTime,
+            size: f.size,
+            webViewLink: f.webViewLink,
+          })),
+        });
+      }
+
+      case "list_drive_files": {
+        const status = await getDriveConnectionStatus(userId);
+        if (!status.connected) return JSON.stringify({ error: "Google Drive not connected. Go to Settings to connect." });
+        const files = await listDriveFiles(userId, args.folder_id as string, (args.limit as number) || 20);
+        return JSON.stringify({
+          count: files.length,
+          files: files.map((f) => ({
+            id: f.id,
+            name: f.name,
+            mimeType: f.mimeType,
+            modifiedTime: f.modifiedTime,
+            size: f.size,
+            webViewLink: f.webViewLink,
+          })),
+        });
+      }
+
+      case "read_drive_file": {
+        const status = await getDriveConnectionStatus(userId);
+        if (!status.connected) return JSON.stringify({ error: "Google Drive not connected. Go to Settings to connect." });
+        const file = await readDriveFile(userId, args.file_id as string);
+        return JSON.stringify(file);
       }
 
       default:

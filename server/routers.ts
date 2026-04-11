@@ -12,6 +12,7 @@ import { storagePut } from "./storage";
 import { classifyEmail, generateDraftReply, scoreTaskUrgency, computeEscalation, extractInvoiceDetails } from "./aiService";
 import { sendWhatsAppMessage } from "./whatsappService";
 import { runChatAgent, type ChatMessage } from "./chatAgent";
+import { getGoogleAuthUrl, handleGoogleCallback, getDriveConnectionStatus } from "./googleDrive";
 
 export const appRouter = router({
   system: systemRouter,
@@ -77,6 +78,25 @@ export const appRouter = router({
         const response = await runChatAgent(input.messages as ChatMessage[], ctx.user.id);
         return { response };
       }),
+  }),
+
+  googleDrive: router({
+    status: protectedProcedure.query(async ({ ctx }) => {
+      return getDriveConnectionStatus(ctx.user.id);
+    }),
+    getAuthUrl: protectedProcedure.mutation(async () => {
+      return { url: getGoogleAuthUrl() };
+    }),
+    callback: protectedProcedure
+      .input(z.object({ code: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        const result = await handleGoogleCallback(input.code, ctx.user.id);
+        return result;
+      }),
+    disconnect: protectedProcedure.mutation(async ({ ctx }) => {
+      await db.deleteOAuthToken(ctx.user.id, "google");
+      return { success: true };
+    }),
   }),
 
   emailAccount: router({

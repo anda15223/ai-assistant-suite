@@ -235,3 +235,19 @@ export const supplierSettings = pgTable("supplier_settings", {
 
 export type SupplierSetting = typeof supplierSettings.$inferSelect;
 export type InsertSupplierSetting = typeof supplierSettings.$inferInsert;
+
+export const oauthTokens = pgTable("oauth_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
+  provider: varchar("provider", { length: 50 }).notNull(), // "google"
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken"),
+  expiresAt: timestamp("expiresAt"),
+  scope: text("scope"),
+  email: varchar("tokenEmail", { length: 320 }),
+  createdAt: timestamp("oaCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("oaUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type OAuthToken = typeof oauthTokens.$inferSelect;
+export type InsertOAuthToken = typeof oauthTokens.$inferInsert;

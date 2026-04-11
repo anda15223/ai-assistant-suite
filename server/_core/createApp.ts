@@ -26,6 +26,17 @@ export function createApp(): Express {
         })
       );
 
+  // Google OAuth callback — redirects to frontend with auth code
+  app.get("/api/auth/google/callback", (req: Request, res: Response) => {
+    const code = req.query.code as string;
+    if (!code) {
+      res.status(400).json({ error: "Missing authorization code" });
+      return;
+    }
+    // Redirect to frontend settings page with the code
+    res.redirect(`/settings?google_code=${encodeURIComponent(code)}`);
+  });
+
   app.get("/api/health", async (_req: Request, res: Response) => {
     try {
       const db = await getDb();

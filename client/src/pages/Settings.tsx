@@ -4,11 +4,45 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Settings as SettingsIcon, Mail, Check, Loader2, Wifi, WifiOff } from "lucide-react";
+import { Settings as SettingsIcon, Mail, Check, Loader2, Wifi, WifiOff, HardDrive, Unlink } from "lucide-react";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 
 export default function Settings() {
+  // Google Drive OAuth callback handling
+  const driveStatus = trpc.googleDrive.status.useQuery();
+  const driveAuthUrl = trpc.googleDrive.getAuthUrl.useMutation({
+    onSuccess: (data) => {
+      window.location.href = data.url;
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const driveCallback = trpc.googleDrive.callback.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Google Drive connected: ${data.email}`);
+      driveStatus.refetch();
+      // Clean URL
+      window.history.replaceState({}, "", "/settings");
+    },
+    onError: (err) => toast.error(`Failed to connect: ${err.message}`),
+  });
+  const driveDisconnect = trpc.googleDrive.disconnect.useMutation({
+    onSuccess: () => {
+      toast.success("Google Drive disconnected");
+      driveStatus.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  // Handle OAuth redirect code
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("google_code");
+    if (code) {
+      driveCallback.mutate({ code });
+    }
+  }, []);
+
   const account = trpc.emailAccount.get.useQuery();
   const saveAccount = trpc.emailAccount.save.useMutation({
     onSuccess: () => {
@@ -155,6 +189,68 @@ export default function Settings() {
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Google Drive */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <HardDrive className="w-4 h-4" />
+                Google Drive
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Connect Google Drive so the AI Chat can search and read your documents
+              </CardDescription>
+            </div>
+            {driveStatus.data?.connected && (
+              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                <Check className="w-3 h-3 mr-1" /> Connected
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {driveStatus.data?.connected ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Connected as <span className="text-foreground font-medium">{driveStatus.data.email}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                The AI Chat can now search and read files from your Google Drive. Try asking: "Search Drive for vendor contracts"
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => driveDisconnect.mutate()}
+                disabled={driveDisconnect.isPending}
+                className="text-destructive hover:text-destructive"
+              >
+                {driveDisconnect.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Unlink className="w-4 h-4 mr-2" />}
+                Disconnect
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Connect your Google Drive to let the AI assistant search and read your documents, spreadsheets, and files.
+              </p>
+              <Button
+                onClick={() => driveAuthUrl.mutate()}
+                disabled={driveAuthUrl.isPending || driveCallback.isPending}
+                className="bg-amber-500 hover:bg-amber-600 text-black"
+              >
+                {(driveAuthUrl.isPending || driveCallback.isPending) ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <HardDrive className="w-4 h-4 mr-2" />
+                )}
+                Connect Google Drive
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

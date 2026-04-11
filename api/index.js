@@ -17,6 +17,7 @@ __export(schema_exports, {
   emails: () => emails,
   employees: () => employees,
   invoiceDetails: () => invoiceDetails,
+  oauthTokens: () => oauthTokens,
   supplierSettings: () => supplierSettings,
   tasks: () => tasks,
   users: () => users,
@@ -24,7 +25,7 @@ __export(schema_exports, {
   whatsappMessages: () => whatsappMessages
 });
 import { integer, serial, pgTable, text, timestamp, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
-var updatedNow, users, emailAccounts, emails, emailAttachments, tasks, draftReplies, whatsappMessages, whatsappDraftReplies, employees, invoiceDetails, supplierSettings;
+var updatedNow, users, emailAccounts, emails, emailAttachments, tasks, draftReplies, whatsappMessages, whatsappDraftReplies, employees, invoiceDetails, supplierSettings, oauthTokens;
 var init_schema = __esm({
   "drizzle/schema.ts"() {
     "use strict";
@@ -197,6 +198,19 @@ var init_schema = __esm({
       isConfigured: boolean("isConfigured").default(false).notNull(),
       createdAt: timestamp("ssCreatedAt").defaultNow().notNull(),
       updatedAt: timestamp("ssUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow)
+    });
+    oauthTokens = pgTable("oauth_tokens", {
+      id: serial("id").primaryKey(),
+      userId: integer("userId").notNull(),
+      provider: varchar("provider", { length: 50 }).notNull(),
+      // "google"
+      accessToken: text("accessToken").notNull(),
+      refreshToken: text("refreshToken"),
+      expiresAt: timestamp("expiresAt"),
+      scope: text("scope"),
+      email: varchar("tokenEmail", { length: 320 }),
+      createdAt: timestamp("oaCreatedAt").defaultNow().notNull(),
+      updatedAt: timestamp("oaUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow)
     });
   }
 });
@@ -852,6 +866,42 @@ async function getAttachmentsByEmails(emailIds) {
   if (!database || emailIds.length === 0) return [];
   return database.select().from(emailAttachments).where(inArray(emailAttachments.emailId, emailIds));
 }
+async function getOAuthToken(userId, provider) {
+  const database = await getDb();
+  if (!database) return void 0;
+  const result = await database.select().from(oauthTokens).where(and(eq(oauthTokens.userId, userId), eq(oauthTokens.provider, provider))).limit(1);
+  return result.length > 0 ? result[0] : void 0;
+}
+async function upsertOAuthToken(data) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const existing = await getOAuthToken(data.userId, data.provider);
+  if (existing) {
+    await database.update(oauthTokens).set({
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken ?? existing.refreshToken,
+      expiresAt: data.expiresAt,
+      scope: data.scope ?? existing.scope,
+      email: data.email ?? existing.email
+    }).where(eq(oauthTokens.id, existing.id));
+    return existing.id;
+  }
+  const result = await database.insert(oauthTokens).values({
+    userId: data.userId,
+    provider: data.provider,
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+    expiresAt: data.expiresAt,
+    scope: data.scope,
+    email: data.email
+  }).returning({ id: oauthTokens.id });
+  return result[0].id;
+}
+async function deleteOAuthToken(userId, provider) {
+  const database = await getDb();
+  if (!database) return;
+  await database.delete(oauthTokens).where(and(eq(oauthTokens.userId, userId), eq(oauthTokens.provider, provider)));
+}
 
 // server/_core/env.ts
 var ENV = {
@@ -862,6 +912,9 @@ var ENV = {
   awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? "",
   awsBucketName: process.env.AWS_BUCKET_NAME ?? "",
   awsRegion: process.env.AWS_REGION ?? "eu-central-1",
+  googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+  googleRedirectUri: process.env.GOOGLE_REDIRECT_URI ?? "",
   whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN ?? "",
   whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "",
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN ?? "",
@@ -2089,6 +2142,147 @@ function parseWebhookMessages(body) {
 
 // server/chatAgent.ts
 import Anthropic2 from "@anthropic-ai/sdk";
+
+// server/googleDrive.ts
+import { google } from "googleapis";
+var SCOPES = [
+  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/userinfo.email"
+];
+function createOAuth2Client() {
+  return new google.auth.OAuth2(
+    ENV.googleClientId,
+    ENV.googleClientSecret,
+    ENV.googleRedirectUri
+  );
+}
+function getGoogleAuthUrl() {
+  const client = createOAuth2Client();
+  return client.generateAuthUrl({
+    access_type: "offline",
+    scope: SCOPES,
+    prompt: "consent"
+  });
+}
+async function handleGoogleCallback(code, userId) {
+  const client = createOAuth2Client();
+  const { tokens } = await client.getToken(code);
+  client.setCredentials(tokens);
+  const oauth2 = google.oauth2({ version: "v2", auth: client });
+  const userInfo = await oauth2.userinfo.get();
+  const email = userInfo.data.email || "";
+  await upsertOAuthToken({
+    userId,
+    provider: "google",
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token,
+    expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+    scope: tokens.scope,
+    email
+  });
+  return { email };
+}
+async function getAuthenticatedClient(userId) {
+  const token = await getOAuthToken(userId, "google");
+  if (!token) throw new Error("Google Drive not connected. Go to Settings to connect.");
+  const client = createOAuth2Client();
+  client.setCredentials({
+    access_token: token.accessToken,
+    refresh_token: token.refreshToken,
+    expiry_date: token.expiresAt?.getTime()
+  });
+  client.on("tokens", async (newTokens) => {
+    await upsertOAuthToken({
+      userId,
+      provider: "google",
+      accessToken: newTokens.access_token || token.accessToken,
+      refreshToken: newTokens.refresh_token,
+      expiresAt: newTokens.expiry_date ? new Date(newTokens.expiry_date) : null
+    });
+  });
+  return client;
+}
+async function searchDriveFiles(userId, query, limit = 20) {
+  const auth = await getAuthenticatedClient(userId);
+  const drive = google.drive({ version: "v3", auth });
+  const escapedQuery = query.replace(/'/g, "\\'");
+  const q = `fullText contains '${escapedQuery}' and trashed = false`;
+  const response = await drive.files.list({
+    q,
+    pageSize: limit,
+    fields: "files(id, name, mimeType, modifiedTime, size, webViewLink, parents)",
+    orderBy: "modifiedTime desc"
+  });
+  return response.data.files || [];
+}
+async function listDriveFiles(userId, folderId, limit = 20) {
+  const auth = await getAuthenticatedClient(userId);
+  const drive = google.drive({ version: "v3", auth });
+  const q = folderId ? `'${folderId}' in parents and trashed = false` : "trashed = false";
+  const response = await drive.files.list({
+    q,
+    pageSize: limit,
+    fields: "files(id, name, mimeType, modifiedTime, size, webViewLink, parents)",
+    orderBy: "modifiedTime desc"
+  });
+  return response.data.files || [];
+}
+async function readDriveFile(userId, fileId) {
+  const auth = await getAuthenticatedClient(userId);
+  const drive = google.drive({ version: "v3", auth });
+  const meta = await drive.files.get({
+    fileId,
+    fields: "id, name, mimeType"
+  });
+  const name = meta.data.name || "Unknown";
+  const mimeType = meta.data.mimeType || "";
+  if (mimeType.startsWith("application/vnd.google-apps.")) {
+    let exportMime = "text/plain";
+    if (mimeType === "application/vnd.google-apps.spreadsheet") {
+      exportMime = "text/csv";
+    }
+    const exported = await drive.files.export(
+      { fileId, mimeType: exportMime },
+      { responseType: "text" }
+    );
+    return {
+      name,
+      mimeType: exportMime,
+      content: (typeof exported.data === "string" ? exported.data : JSON.stringify(exported.data)).substring(0, 1e4)
+    };
+  }
+  if (mimeType === "application/pdf") {
+    return {
+      name,
+      mimeType,
+      content: `[PDF file: ${name}. Use the file's webViewLink to open it in Google Drive.]`
+    };
+  }
+  try {
+    const content = await drive.files.get(
+      { fileId, alt: "media" },
+      { responseType: "text" }
+    );
+    return {
+      name,
+      mimeType,
+      content: (typeof content.data === "string" ? content.data : JSON.stringify(content.data)).substring(0, 1e4)
+    };
+  } catch {
+    return {
+      name,
+      mimeType,
+      content: `[Binary file: ${name} (${mimeType}). Cannot read as text.]`
+    };
+  }
+}
+async function getDriveConnectionStatus(userId) {
+  const token = await getOAuthToken(userId, "google");
+  if (!token) return { connected: false, email: null };
+  return { connected: true, email: token.email };
+}
+
+// server/chatAgent.ts
 var TOOLS = [
   {
     name: "search_emails",
@@ -2226,6 +2420,40 @@ var TOOLS = [
     input_schema: {
       type: "object",
       properties: {}
+    }
+  },
+  {
+    name: "search_drive",
+    description: "Search Google Drive files by keyword. Searches file names and content. Requires Google Drive to be connected in Settings.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search keyword or phrase" },
+        limit: { type: "number", description: "Max results (default 20)" }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "list_drive_files",
+    description: "List files in Google Drive, optionally in a specific folder.",
+    input_schema: {
+      type: "object",
+      properties: {
+        folder_id: { type: "string", description: "Google Drive folder ID (optional, defaults to root)" },
+        limit: { type: "number", description: "Max results (default 20)" }
+      }
+    }
+  },
+  {
+    name: "read_drive_file",
+    description: "Read the content of a Google Drive file. Works with Google Docs, Sheets (as CSV), and text files. PDFs return metadata only.",
+    input_schema: {
+      type: "object",
+      properties: {
+        file_id: { type: "string", description: "The Google Drive file ID" }
+      },
+      required: ["file_id"]
     }
   }
 ];
@@ -2458,6 +2686,44 @@ async function executeTool(toolName, args, userId) {
         await updateLastSync(account.id);
         return JSON.stringify({ synced: newCount, total: fetched.length });
       }
+      case "search_drive": {
+        const status = await getDriveConnectionStatus(userId);
+        if (!status.connected) return JSON.stringify({ error: "Google Drive not connected. Go to Settings to connect." });
+        const files = await searchDriveFiles(userId, args.query, args.limit || 20);
+        return JSON.stringify({
+          count: files.length,
+          files: files.map((f) => ({
+            id: f.id,
+            name: f.name,
+            mimeType: f.mimeType,
+            modifiedTime: f.modifiedTime,
+            size: f.size,
+            webViewLink: f.webViewLink
+          }))
+        });
+      }
+      case "list_drive_files": {
+        const status = await getDriveConnectionStatus(userId);
+        if (!status.connected) return JSON.stringify({ error: "Google Drive not connected. Go to Settings to connect." });
+        const files = await listDriveFiles(userId, args.folder_id, args.limit || 20);
+        return JSON.stringify({
+          count: files.length,
+          files: files.map((f) => ({
+            id: f.id,
+            name: f.name,
+            mimeType: f.mimeType,
+            modifiedTime: f.modifiedTime,
+            size: f.size,
+            webViewLink: f.webViewLink
+          }))
+        });
+      }
+      case "read_drive_file": {
+        const status = await getDriveConnectionStatus(userId);
+        if (!status.connected) return JSON.stringify({ error: "Google Drive not connected. Go to Settings to connect." });
+        const file = await readDriveFile(userId, args.file_id);
+        return JSON.stringify(file);
+      }
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
@@ -2582,6 +2848,22 @@ var appRouter = router({
     })).mutation(async ({ ctx, input }) => {
       const response = await runChatAgent(input.messages, ctx.user.id);
       return { response };
+    })
+  }),
+  googleDrive: router({
+    status: protectedProcedure.query(async ({ ctx }) => {
+      return getDriveConnectionStatus(ctx.user.id);
+    }),
+    getAuthUrl: protectedProcedure.mutation(async () => {
+      return { url: getGoogleAuthUrl() };
+    }),
+    callback: protectedProcedure.input(z2.object({ code: z2.string() })).mutation(async ({ ctx, input }) => {
+      const result = await handleGoogleCallback(input.code, ctx.user.id);
+      return result;
+    }),
+    disconnect: protectedProcedure.mutation(async ({ ctx }) => {
+      await deleteOAuthToken(ctx.user.id, "google");
+      return { success: true };
     })
   }),
   emailAccount: router({
@@ -3587,6 +3869,14 @@ function createApp() {
       createContext
     })
   );
+  app2.get("/api/auth/google/callback", (req, res) => {
+    const code = req.query.code;
+    if (!code) {
+      res.status(400).json({ error: "Missing authorization code" });
+      return;
+    }
+    res.redirect(`/settings?google_code=${encodeURIComponent(code)}`);
+  });
   app2.get("/api/health", async (_req, res) => {
     try {
       const db = await getDb();

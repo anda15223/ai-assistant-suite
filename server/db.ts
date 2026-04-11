@@ -1,7 +1,7 @@
 import { eq, desc, and, sql, isNotNull, isNull, or, notInArray, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { users, emailAccounts, emails, tasks, draftReplies, invoiceDetails, supplierSettings, emailAttachments } from "../drizzle/schema";
+import { users, emailAccounts, emails, tasks, draftReplies, invoiceDetails, supplierSettings, emailAttachments, oauthTokens } from "../drizzle/schema";
 import type { InsertUser, InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply, InsertInvoiceDetail, InsertSupplierSetting, InsertEmailAttachment } from "../drizzle/schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -762,4 +762,58 @@ export async function getAttachmentsByEmails(emailIds: number[]) {
   const database = await getDb();
   if (!database || emailIds.length === 0) return [];
   return database.select().from(emailAttachments).where(inArray(emailAttachments.emailId, emailIds));
+}
+
+// ===== OAUTH TOKENS =====
+
+export async function getOAuthToken(userId: number, provider: string) {
+  const database = await getDb();
+  if (!database) return undefined;
+  const result = await database.select().from(oauthTokens)
+    .where(and(eq(oauthTokens.userId, userId), eq(oauthTokens.provider, provider)))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertOAuthToken(data: {
+  userId: number;
+  provider: string;
+  accessToken: string;
+  refreshToken?: string | null;
+  expiresAt?: Date | null;
+  scope?: string | null;
+  email?: string | null;
+}) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const existing = await getOAuthToken(data.userId, data.provider);
+  if (existing) {
+    await database.update(oauthTokens)
+      .set({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken ?? existing.refreshToken,
+        expiresAt: data.expiresAt,
+        scope: data.scope ?? existing.scope,
+        email: data.email ?? existing.email,
+      })
+      .where(eq(oauthTokens.id, existing.id));
+    return existing.id;
+  }
+  const result = await database.insert(oauthTokens).values({
+    userId: data.userId,
+    provider: data.provider,
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+    expiresAt: data.expiresAt,
+    scope: data.scope,
+    email: data.email,
+  }).returning({ id: oauthTokens.id });
+  return result[0].id;
+}
+
+export async function deleteOAuthToken(userId: number, provider: string) {
+  const database = await getDb();
+  if (!database) return;
+  await database.delete(oauthTokens)
+    .where(and(eq(oauthTokens.userId, userId), eq(oauthTokens.provider, provider)));
 }
