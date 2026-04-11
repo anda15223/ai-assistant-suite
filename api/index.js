@@ -2749,25 +2749,37 @@ async function runChatAgent(messages, userId) {
   if (!ENV.anthropicApiKey) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
+  const HARD_TIMEOUT_MS = 55e3;
+  const result = await Promise.race([
+    _runChatAgentInner(messages, userId),
+    new Promise(
+      (resolve) => setTimeout(() => {
+        console.log("[ChatAgent] Hard timeout at 55s, returning fallback");
+        resolve('\u23F3 The request took too long to complete. I was working on it but ran out of time.\n\nTry a simpler request like:\n- "Search Drive for Jelling"\n- "List my tasks"\n- "Search emails about festivals"');
+      }, HARD_TIMEOUT_MS)
+    )
+  ]);
+  return result;
+}
+async function _runChatAgentInner(messages, userId) {
   const client = new Anthropic2({ apiKey: ENV.anthropicApiKey });
   const anthropicMessages = messages.map((m) => ({
     role: m.role,
     content: m.content
   }));
-  const MAX_ITERATIONS = 4;
-  const TIMEOUT_MS = 5e4;
+  const MAX_ITERATIONS = 3;
+  const SOFT_TIMEOUT_MS = 4e4;
   const startTime = Date.now();
   let lastTextResponse = "";
   const toolCallLog = [];
   for (let i = 0; i < MAX_ITERATIONS; i++) {
-    const elapsed = Date.now() - startTime;
-    if (elapsed > TIMEOUT_MS) {
-      console.log(`[ChatAgent] Timeout after ${elapsed}ms, returning partial results`);
+    if (Date.now() - startTime > SOFT_TIMEOUT_MS) {
+      console.log(`[ChatAgent] Soft timeout, returning collected text`);
       break;
     }
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
+      max_tokens: 2048,
       system: SYSTEM_PROMPT,
       tools: TOOLS,
       messages: anthropicMessages
@@ -2783,14 +2795,13 @@ async function runChatAgent(messages, userId) {
       const toolResults = [];
       for (const block of response.content) {
         if (block.type === "tool_use") {
-          if (Date.now() - startTime > TIMEOUT_MS) {
-            console.log(`[ChatAgent] Timeout before tool ${block.name}, returning partial`);
+          if (Date.now() - startTime > SOFT_TIMEOUT_MS) {
             toolResults.push({
               type: "tool_result",
               tool_use_id: block.id,
-              content: JSON.stringify({ error: "Timeout - request took too long. Ask me to continue." })
+              content: JSON.stringify({ error: "Timeout - please ask to continue." })
             });
-            toolCallLog.push(`${block.name} (skipped - timeout)`);
+            toolCallLog.push(`${block.name} (skipped)`);
             continue;
           }
           console.log(`[ChatAgent] Calling tool: ${block.name}`, block.input);
@@ -2811,11 +2822,10 @@ async function runChatAgent(messages, userId) {
     }
   }
   if (lastTextResponse) return lastTextResponse;
-  const toolsSummary = toolCallLog.length > 0 ? `I ran these tools before timing out: ${toolCallLog.join(", ")}. ` : "";
-  return `${toolsSummary}The request was too complex to complete in one go. Try breaking it into smaller steps, e.g.:
-- "Search Drive for festivals"
-- "Search emails for Jelling"
-- "List my tasks"`;
+  const summary = toolCallLog.length > 0 ? `I completed these steps: ${toolCallLog.join(", ")}.
+
+But ran out of time before generating a summary. Ask me "continue" or "summarize what you found".` : "The request timed out. Try a simpler question.";
+  return summary;
 }
 
 // server/routers.ts

@@ -519,63 +519,74 @@ export async function runChatAgent(
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
 
+  // Hard timeout wrapper — returns whatever we have before Vercel kills us
+  const HARD_TIMEOUT_MS = 55_000; // 55s (Vercel kills at 60s)
+
+  const result = await Promise.race([
+    _runChatAgentInner(messages, userId),
+    new Promise<string>((resolve) =>
+      setTimeout(() => {
+        console.log("[ChatAgent] Hard timeout at 55s, returning fallback");
+        resolve("⏳ The request took too long to complete. I was working on it but ran out of time.\n\nTry a simpler request like:\n- \"Search Drive for Jelling\"\n- \"List my tasks\"\n- \"Search emails about festivals\"");
+      }, HARD_TIMEOUT_MS)
+    ),
+  ]);
+
+  return result;
+}
+
+async function _runChatAgentInner(
+  messages: ChatMessage[],
+  userId: number
+): Promise<string> {
   const client = new Anthropic({ apiKey: ENV.anthropicApiKey });
 
-  // Convert chat history to Anthropic format
   const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
     role: m.role,
     content: m.content,
   }));
 
-  // Tool-use loop with timeout guard (Vercel has 60s limit)
-  const MAX_ITERATIONS = 4;
-  const TIMEOUT_MS = 50_000; // 50s safety margin (Vercel kills at 60s)
+  const MAX_ITERATIONS = 3;
+  const SOFT_TIMEOUT_MS = 40_000; // Stop starting new iterations after 40s
   const startTime = Date.now();
   let lastTextResponse = "";
   const toolCallLog: string[] = [];
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
-    // Check if we're running out of time
-    const elapsed = Date.now() - startTime;
-    if (elapsed > TIMEOUT_MS) {
-      console.log(`[ChatAgent] Timeout after ${elapsed}ms, returning partial results`);
+    if (Date.now() - startTime > SOFT_TIMEOUT_MS) {
+      console.log(`[ChatAgent] Soft timeout, returning collected text`);
       break;
     }
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
+      max_tokens: 2048,
       system: SYSTEM_PROMPT,
       tools: TOOLS,
       messages: anthropicMessages,
     });
 
-    // Collect any text from this response
     for (const block of response.content) {
       if (block.type === "text") lastTextResponse += block.text;
     }
 
-    // If Claude responds with text only (no tool use), we're done
     if (response.stop_reason === "end_turn") {
       return lastTextResponse;
     }
 
-    // If Claude wants to use tools, execute them and continue the loop
     if (response.stop_reason === "tool_use") {
       anthropicMessages.push({ role: "assistant", content: response.content });
 
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
       for (const block of response.content) {
         if (block.type === "tool_use") {
-          // Check timeout before each tool call
-          if (Date.now() - startTime > TIMEOUT_MS) {
-            console.log(`[ChatAgent] Timeout before tool ${block.name}, returning partial`);
+          if (Date.now() - startTime > SOFT_TIMEOUT_MS) {
             toolResults.push({
               type: "tool_result",
               tool_use_id: block.id,
-              content: JSON.stringify({ error: "Timeout - request took too long. Ask me to continue." }),
+              content: JSON.stringify({ error: "Timeout - please ask to continue." }),
             });
-            toolCallLog.push(`${block.name} (skipped - timeout)`);
+            toolCallLog.push(`${block.name} (skipped)`);
             continue;
           }
 
@@ -598,12 +609,10 @@ export async function runChatAgent(
     }
   }
 
-  // If we exhausted iterations or timed out, try one final call to get a text summary
   if (lastTextResponse) return lastTextResponse;
 
-  // Return a helpful message about what was done
-  const toolsSummary = toolCallLog.length > 0
-    ? `I ran these tools before timing out: ${toolCallLog.join(", ")}. `
-    : "";
-  return `${toolsSummary}The request was too complex to complete in one go. Try breaking it into smaller steps, e.g.:\n- "Search Drive for festivals"\n- "Search emails for Jelling"\n- "List my tasks"`;
+  const summary = toolCallLog.length > 0
+    ? `I completed these steps: ${toolCallLog.join(", ")}.\n\nBut ran out of time before generating a summary. Ask me "continue" or "summarize what you found".`
+    : "The request timed out. Try a simpler question.";
+  return summary;
 }
