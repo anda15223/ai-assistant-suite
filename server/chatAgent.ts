@@ -492,15 +492,18 @@ async function executeTool(
 
 // ── Agent loop ──────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are an AI assistant integrated into the user's personal productivity dashboard. You have direct access to their emails, tasks, invoices, and other data through tools.
+const SYSTEM_PROMPT = `You are an AI assistant integrated into the user's personal productivity dashboard. You have direct access to their emails, tasks, invoices, and Google Drive through tools.
 
 Key behaviors:
-- Use tools to look up real data before answering questions. Never guess or make up data.
+- Use tools to look up real data before answering. Never guess or make up data.
 - When the user asks to find, search, or organize something, use the appropriate tools.
 - When creating tasks, use clear titles and descriptions.
 - Summarize results concisely with key details. Use markdown formatting.
 - If a tool returns an error, explain the issue and suggest what the user can do.
-- You can chain multiple tool calls to accomplish complex requests (e.g., search emails, then extract invoice data from matches).
+- You can chain tool calls, but be efficient — you have limited time per request (~45 seconds total).
+- For complex multi-step requests, do the most important steps first and tell the user to ask you to continue for the rest.
+- Prefer search_drive and search_emails (targeted) over list_drive_files and list_emails (broad).
+- Avoid reading every file — only read files that are clearly relevant.
 - Today's date is ${new Date().toISOString().split("T")[0]}.`;
 
 export type ChatMessage = {
@@ -524,36 +527,58 @@ export async function runChatAgent(
     content: m.content,
   }));
 
-  // Tool-use loop: Claude calls tools, we execute them, feed results back
-  const MAX_ITERATIONS = 5;
+  // Tool-use loop with timeout guard (Vercel has 60s limit)
+  const MAX_ITERATIONS = 4;
+  const TIMEOUT_MS = 50_000; // 50s safety margin (Vercel kills at 60s)
+  const startTime = Date.now();
+  let lastTextResponse = "";
+  const toolCallLog: string[] = [];
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
+    // Check if we're running out of time
+    const elapsed = Date.now() - startTime;
+    if (elapsed > TIMEOUT_MS) {
+      console.log(`[ChatAgent] Timeout after ${elapsed}ms, returning partial results`);
+      break;
+    }
+
     const response = await client.messages.create({
-      model: "claude-3-5-haiku-20241022",
-      max_tokens: 2048,
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
       system: SYSTEM_PROMPT,
       tools: TOOLS,
       messages: anthropicMessages,
     });
 
+    // Collect any text from this response
+    for (const block of response.content) {
+      if (block.type === "text") lastTextResponse += block.text;
+    }
+
     // If Claude responds with text only (no tool use), we're done
     if (response.stop_reason === "end_turn") {
-      let text = "";
-      for (const block of response.content) {
-        if (block.type === "text") text += block.text;
-      }
-      return text;
+      return lastTextResponse;
     }
 
     // If Claude wants to use tools, execute them and continue the loop
     if (response.stop_reason === "tool_use") {
-      // Add Claude's response (with tool_use blocks) to the conversation
       anthropicMessages.push({ role: "assistant", content: response.content });
 
-      // Execute each tool call and collect results
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
       for (const block of response.content) {
         if (block.type === "tool_use") {
+          // Check timeout before each tool call
+          if (Date.now() - startTime > TIMEOUT_MS) {
+            console.log(`[ChatAgent] Timeout before tool ${block.name}, returning partial`);
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: JSON.stringify({ error: "Timeout - request took too long. Ask me to continue." }),
+            });
+            toolCallLog.push(`${block.name} (skipped - timeout)`);
+            continue;
+          }
+
           console.log(`[ChatAgent] Calling tool: ${block.name}`, block.input);
           const result = await executeTool(
             block.name,
@@ -565,13 +590,20 @@ export async function runChatAgent(
             tool_use_id: block.id,
             content: result,
           });
+          toolCallLog.push(block.name);
         }
       }
 
-      // Add tool results as a user message
       anthropicMessages.push({ role: "user", content: toolResults });
     }
   }
 
-  return "I've reached the maximum number of steps for this request. Please try breaking it into smaller requests.";
+  // If we exhausted iterations or timed out, try one final call to get a text summary
+  if (lastTextResponse) return lastTextResponse;
+
+  // Return a helpful message about what was done
+  const toolsSummary = toolCallLog.length > 0
+    ? `I ran these tools before timing out: ${toolCallLog.join(", ")}. `
+    : "";
+  return `${toolsSummary}The request was too complex to complete in one go. Try breaking it into smaller steps, e.g.:\n- "Search Drive for festivals"\n- "Search emails for Jelling"\n- "List my tasks"`;
 }
