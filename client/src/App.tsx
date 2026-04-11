@@ -19,6 +19,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import PriorityView from "./pages/PriorityView";
 import Invoices from "./pages/Invoices";
 import Festivals from "./pages/Festivals";
+import Chat from "./pages/Chat";
 
 function Router() {
   return (
@@ -76,6 +77,11 @@ function Router() {
         </DashboardLayout>
       </Route>
       <Route path={"/priority"} component={PriorityView} />
+      <Route path={"/chat"}>
+        <DashboardLayout>
+          <Chat />
+        </DashboardLayout>
+      </Route>
       <Route path={"/settings"}>
         <DashboardLayout>
           <Settings />

@@ -11,6 +11,7 @@ import { fetchEmails, testConnection, sendEmail, fetchAttachmentsForEmail } from
 import { storagePut } from "./storage";
 import { classifyEmail, generateDraftReply, scoreTaskUrgency, computeEscalation, extractInvoiceDetails } from "./aiService";
 import { sendWhatsAppMessage } from "./whatsappService";
+import { runChatAgent, type ChatMessage } from "./chatAgent";
 
 export const appRouter = router({
   system: systemRouter,
@@ -61,6 +62,20 @@ export const appRouter = router({
         const cookieOptions = getSessionCookieOptions(ctx.req);
         res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
         return { id: user.id, email: user.email, name: user.name, role: user.role };
+      }),
+  }),
+
+  chat: router({
+    send: protectedProcedure
+      .input(z.object({
+        messages: z.array(z.object({
+          role: z.enum(["user", "assistant"]),
+          content: z.string(),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const response = await runChatAgent(input.messages as ChatMessage[], ctx.user.id);
+        return { response };
       }),
   }),
 
