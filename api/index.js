@@ -2846,8 +2846,13 @@ var appRouter = router({
         content: z2.string()
       }))
     })).mutation(async ({ ctx, input }) => {
-      const response = await runChatAgent(input.messages, ctx.user.id);
-      return { response };
+      try {
+        const response = await runChatAgent(input.messages, ctx.user.id);
+        return { response };
+      } catch (err) {
+        console.error("[Chat] Agent error:", err);
+        throw err;
+      }
     })
   }),
   googleDrive: router({

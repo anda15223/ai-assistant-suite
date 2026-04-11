@@ -75,8 +75,13 @@ export const appRouter = router({
         })),
       }))
       .mutation(async ({ ctx, input }) => {
-        const response = await runChatAgent(input.messages as ChatMessage[], ctx.user.id);
-        return { response };
+        try {
+          const response = await runChatAgent(input.messages as ChatMessage[], ctx.user.id);
+          return { response };
+        } catch (err) {
+          console.error("[Chat] Agent error:", err);
+          throw err;
+        }
       }),
   }),
 
