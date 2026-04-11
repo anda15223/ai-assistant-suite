@@ -4,6 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { authService } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { fetchEmails, testConnection, sendEmail, fetchAttachmentsForEmail } from "./emailService";
@@ -30,7 +31,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const existing = await db.getUserByEmail(input.email);
         if (existing) {
-          throw new Error("An account with this email already exists");
+          throw new TRPCError({ code: "CONFLICT", message: "An account with this email already exists" });
         }
         const passwordHash = await authService.hashPassword(input.password);
         const user = await db.createUser(input.email, input.name, passwordHash);
@@ -48,11 +49,11 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const user = await db.getUserByEmail(input.email);
         if (!user || !user.passwordHash) {
-          throw new Error("Invalid email or password");
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
         }
         const valid = await authService.verifyPassword(input.password, user.passwordHash);
         if (!valid) {
-          throw new Error("Invalid email or password");
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
         }
         await db.updateLastSignedIn(user.id);
         const token = await authService.createSessionToken(user.id, user.email, user.name ?? "");

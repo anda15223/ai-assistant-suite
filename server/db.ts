@@ -11,17 +11,26 @@ let _client: ReturnType<typeof postgres> | null = null;
 // Supabase pooler URLs include `?pgbouncer=true` — we set prepare:false
 // to be safe with PgBouncer transaction-mode pooling.
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (!_db) {
+    const url = process.env.DATABASE_URL;
+    if (!url) {
+      console.error("[Database] DATABASE_URL is not set");
+      return null;
+    }
     try {
-      _client = postgres(process.env.DATABASE_URL, {
+      _client = postgres(url, {
         max: 1,
         prepare: false,
         ssl: "require",
       });
       _db = drizzle(_client);
+      // Verify the connection is actually working
+      await _db.execute(sql`SELECT 1`);
+      console.log("[Database] Connected successfully");
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _db = null;
+      _client = null;
     }
   }
   return _db;

@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response } from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { getDb } from "../db";
 import { whatsappWebhookRouter } from "../whatsappWebhook";
 
 /**
@@ -25,8 +26,33 @@ export function createApp(): Express {
         })
       );
 
-  app.get("/api/health", (_req: Request, res: Response) => {
-        res.status(200).json({ ok: true, env: process.env.NODE_ENV ?? "unknown" });
+  app.get("/api/health", async (_req: Request, res: Response) => {
+    try {
+      const db = await getDb();
+      if (db) {
+        res.status(200).json({
+          ok: true,
+          db: "connected",
+          env: process.env.NODE_ENV ?? "unknown",
+          hasDbUrl: !!process.env.DATABASE_URL,
+        });
+      } else {
+        res.status(503).json({
+          ok: false,
+          db: "disconnected",
+          error: "Database connection failed",
+          hasDbUrl: !!process.env.DATABASE_URL,
+          env: process.env.NODE_ENV ?? "unknown",
+        });
+      }
+    } catch (error) {
+      res.status(503).json({
+        ok: false,
+        db: "error",
+        error: error instanceof Error ? error.message : "Unknown error",
+        hasDbUrl: !!process.env.DATABASE_URL,
+      });
+    }
   });
 
   return app;
