@@ -15,10 +15,9 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
 
   const user: AuthenticatedUser = {
     id: 1,
-    openId: "test-user-123",
     email: "test@example.com",
+    passwordHash: null,
     name: "Test User",
-    loginMethod: "manus",
     role: "user",
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -81,7 +80,7 @@ describe("auth.me", () => {
 
     const result = await caller.auth.me();
     expect(result).not.toBeNull();
-    expect(result?.openId).toBe("test-user-123");
+    expect(result?.email).toBe("test@example.com");
     expect(result?.name).toBe("Test User");
   });
 

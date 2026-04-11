@@ -1,5 +1,4 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import StationsSection from "@/components/StationsSection";
@@ -20,12 +19,12 @@ export default function Home() {
       <Navbar
         isAuthenticated={isAuthenticated}
         onDashboard={() => navigate("/dashboard")}
-        loginUrl={getLoginUrl()}
+        loginUrl="/login"
       />
       <HeroSection
         isAuthenticated={isAuthenticated}
         onDashboard={() => navigate("/dashboard")}
-        loginUrl={getLoginUrl()}
+        loginUrl="/login"
       />
       <StationsSection />
       <ArchitectureSection />
