@@ -1,17 +1,17 @@
 {
-    "$schema": "https://openapi.vercel.sh/vercel.json",
-    "buildCommand": "pnpm run build",
-    "outputDirectory": "dist/public",
-    "installCommand": "pnpm install",
-    "framework": null,
-    "functions": {
-          "api/index.js": {
-                  "memory": 1024,
-                  "maxDuration": 30
-          }
-    },
-    "rewrites": [
-          { "source": "/api/(.*)", "destination": "/api" },
-          { "source": "/((?!api/).*)", "destination": "/index.html" }
-    ]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npx vite build && npx esbuild api/index.ts --platform=node --packages=external --bundle --format=esm --outfile=api/index.js",
+  "outputDirectory": "dist/public",
+  "installCommand": "npm install --legacy-peer-deps --include=dev",
+  "framework": null,
+  "functions": {
+    "api/index.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }
