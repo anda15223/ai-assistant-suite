@@ -19,8 +19,9 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Mail, CheckSquare, Settings, Home, MessageCircle, Users, Cpu, Flame, FileText } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Mail, CheckSquare, Settings, Home, MessageCircle, Users, Cpu, Flame, FileText, Tent } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -33,6 +34,7 @@ const menuItems = [
   { icon: Users, label: "Employees", path: "/employees" },
   { icon: CheckSquare, label: "Task Board", path: "/tasks" },
   { icon: FileText, label: "Invoices", path: "/invoices" },
+  { icon: Tent, label: "Festivals", path: "/festivals" },
   { icon: Flame, label: "Priority Matrix", path: "/priority" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
@@ -78,7 +80,7 @@ export default function DashboardLayout({
           </div>
           <Button
             onClick={() => {
-              window.location.href = "/login";
+              window.location.href = getLoginUrl();
             }}
             size="lg"
             className="w-full shadow-lg hover:shadow-xl transition-all bg-amber-500 hover:bg-amber-600 text-black"

@@ -5,8 +5,6 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import EmailInbox from "./pages/EmailInbox";
 import EmailDetail from "./pages/EmailDetail";
@@ -18,13 +16,12 @@ import Employees from "./pages/Employees";
 import DashboardLayout from "./components/DashboardLayout";
 import PriorityView from "./pages/PriorityView";
 import Invoices from "./pages/Invoices";
+import Festivals from "./pages/Festivals";
 
 function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
-      <Route path={"/login"} component={Login} />
-      <Route path={"/register"} component={Register} />
       <Route path={"/dashboard"}>
         <DashboardLayout>
           <Dashboard />
@@ -67,6 +64,11 @@ function Router() {
       <Route path={"/invoices"}>
         <DashboardLayout>
           <Invoices />
+        </DashboardLayout>
+      </Route>
+      <Route path={"/festivals"}>
+        <DashboardLayout>
+          <Festivals />
         </DashboardLayout>
       </Route>
       <Route path={"/priority"} component={PriorityView} />
