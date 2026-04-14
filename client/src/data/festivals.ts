@@ -260,7 +260,10 @@ export const FESTIVALS: Festival[] = [
     driveFolderId: "1vHmZrH6LfaD6bGnzKj0zjVY2LBUDKREp",
     concepts: ["The Fish Project", "Gyros by Gaia", "Le Creperie", "Chicks & Buns"],
     contacts: [],
-    docs: [],
+    docs: [
+      { title: "Production Plan Copenhell", driveId: "1EeOHux8PeGOJkjl60Gj0qN3AKBF5fbbdB8mrwfm2AcU", type: "doc", note: "Setup from Sat 13 Jun. 10 missing items to resolve." },
+      { title: "Menu + Prices", driveId: "10BkjG8OdoZ5vqFa9GY73g-D50ZkrMojZthnxhHEAVlk", type: "doc", note: "Fish N Chips 139kr, Fiskeburger 109kr, Burger menu 149kr, Fritter+dip 55kr." },
+    ],
     tasks: withIds("copenhell", SHARED_TASK_TEMPLATE),
   },
 

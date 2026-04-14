@@ -24,6 +24,15 @@ import {
   Mail,
   Plus,
   Copy,
+  FolderOpen,
+  Table2,
+  ClipboardList,
+  UtensilsCrossed,
+  Users,
+  PackageCheck,
+  PackageX,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   FESTIVALS,
@@ -91,6 +100,76 @@ function buildMailto(to: string, subject: string, body: string) {
   )}&body=${encodeURIComponent(body)}`;
 }
 
+function docTypeIcon(type: "doc" | "sheet" | "folder") {
+  if (type === "folder") return <FolderOpen className="h-4 w-4 text-yellow-400" />;
+  if (type === "sheet") return <Table2 className="h-4 w-4 text-green-400" />;
+  return <FileText className="h-4 w-4 text-blue-400" />;
+}
+
+function daysUntil(dateStr?: string): number | null {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr).getTime() - new Date().getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function countdownBadge(dateStr?: string) {
+  const days = daysUntil(dateStr);
+  if (days === null) return null;
+  if (days < 0)
+    return (
+      <Badge variant="outline" className="bg-slate-500/10 text-slate-400 border-slate-500/30">
+        Past
+      </Badge>
+    );
+  if (days <= 7)
+    return (
+      <Badge variant="outline" className="bg-red-500/15 text-red-400 border-red-500/30 animate-pulse">
+        {days}d away!
+      </Badge>
+    );
+  if (days <= 30)
+    return (
+      <Badge variant="outline" className="bg-amber-500/15 text-amber-400 border-amber-500/30">
+        {days}d
+      </Badge>
+    );
+  return (
+    <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
+      {days}d
+    </Badge>
+  );
+}
+
+/** Parse notes to detect "missing items" lines */
+function extractMissingItems(note: string): string[] {
+  const items: string[] = [];
+  const lines = note.split("\n");
+  let inMissing = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/missing\s+items|mangler|missing/i.test(trimmed)) {
+      inMissing = true;
+      continue;
+    }
+    if (inMissing && (trimmed.startsWith("-") || trimmed.startsWith("•") || trimmed.match(/^\d+[\.\)]/))) {
+      items.push(trimmed.replace(/^[-•\d.)\s]+/, "").trim());
+    } else if (inMissing && trimmed === "") {
+      inMissing = false;
+    }
+  }
+  return items;
+}
+
+/** Detect if a doc is a production plan */
+function isProductionPlan(title: string) {
+  return /production\s*plan|produktionsplan/i.test(title);
+}
+
+/** Detect if a doc is a menu */
+function isMenu(title: string) {
+  return /menu|priser|prices/i.test(title);
+}
+
 export default function Festivals() {
   const [state, setState] = useState<PersistedState>(loadState);
   const [activeSlug, setActiveSlug] = useState<string>(ACTIVE_FESTIVALS[0]?.slug ?? "");
@@ -126,7 +205,7 @@ export default function Festivals() {
     }));
   };
 
-  const stats = useMemo(() => {
+  const globalStats = useMemo(() => {
     const all = FESTIVALS.flatMap((f) => f.tasks);
     const done = all.filter(
       (t) => (state.taskOverrides[t.id]?.status ?? t.status) === "done"
@@ -137,6 +216,23 @@ export default function Festivals() {
       return status !== "done" && new Date(t.deadline) < new Date();
     }).length;
     return { total: all.length, done, overdue };
+  }, [state]);
+
+  // Per-festival readiness scores
+  const readiness = useMemo(() => {
+    const map: Record<string, { done: number; total: number; hasPlan: boolean; hasMenu: boolean }> = {};
+    for (const f of ACTIVE_FESTIVALS) {
+      const fDone = f.tasks.filter(
+        (t) => (state.taskOverrides[t.id]?.status ?? t.status) === "done"
+      ).length;
+      map[f.slug] = {
+        done: fDone,
+        total: f.tasks.length,
+        hasPlan: f.docs.some((d) => isProductionPlan(d.title)),
+        hasMenu: f.docs.some((d) => isMenu(d.title)),
+      };
+    }
+    return map;
   }, [state]);
 
   const openDraft = (task: FestivalTask) => {
@@ -154,30 +250,44 @@ export default function Festivals() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* ─── Header ─── */}
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             🎪 Festivals 2026
           </h1>
           <p className="text-muted-foreground mt-1">
-            Live overview of all festival prep — sourced from Drive folder &quot;Festivals 2026&quot; +
-            one.com inbox/sent. Edit tasks, add notes, draft replies. Saved locally in your browser.
+            Live overview of all festival prep — sourced from Drive &quot;Festivals 2026&quot; +
+            one.com inbox. Edit tasks, add notes, draft replies. Saved locally.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <StatPill label="Festivals" value={ACTIVE_FESTIVALS.length} tone="info" />
-          <StatPill label="Tasks done" value={`${stats.done}/${stats.total}`} tone="success" />
-          <StatPill label="Overdue" value={stats.overdue} tone={stats.overdue ? "danger" : "muted"} />
+          <StatPill label="Tasks done" value={`${globalStats.done}/${globalStats.total}`} tone="success" />
+          <StatPill label="Overdue" value={globalStats.overdue} tone={globalStats.overdue ? "danger" : "muted"} />
         </div>
       </header>
 
+      {/* ─── Festival Tabs ─── */}
       <Tabs value={activeSlug} onValueChange={setActiveSlug} className="w-full">
-        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted p-1">
-          {ACTIVE_FESTIVALS.map((f) => (
-            <TabsTrigger key={f.slug} value={f.slug} className="text-xs">
-              {f.emoji} {f.number}. {f.name}
-            </TabsTrigger>
-          ))}
+        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted p-1 rounded-lg">
+          {ACTIVE_FESTIVALS.map((f) => {
+            const r = readiness[f.slug];
+            const pct = r ? Math.round((r.done / r.total) * 100) : 0;
+            const days = daysUntil(f.startDate);
+            const urgent = days !== null && days >= 0 && days <= 14;
+            return (
+              <TabsTrigger
+                key={f.slug}
+                value={f.slug}
+                className={`text-xs gap-1 ${urgent ? "ring-1 ring-red-500/40" : ""}`}
+              >
+                <span>{f.emoji}</span>
+                <span>{f.name}</span>
+                <span className="ml-1 text-[10px] opacity-60">{pct}%</span>
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
         {ACTIVE_FESTIVALS.map((festival) => (
@@ -185,6 +295,7 @@ export default function Festivals() {
             <FestivalView
               festival={festival}
               state={state}
+              readiness={readiness[festival.slug]}
               onTaskUpdate={updateTask}
               onNoteChange={(v) => setFestivalNote(festival.slug, v)}
               onAddDoc={(t, u) => addExtraDoc(festival.slug, t, u)}
@@ -194,18 +305,15 @@ export default function Festivals() {
         ))}
       </Tabs>
 
-      {/* Draft Reply Dialog */}
+      {/* ─── Draft Reply Dialog ─── */}
       <Dialog open={!!draftTask} onOpenChange={(o) => !o && closeDraft()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Draft email reply</DialogTitle>
             <DialogDescription>
-              Edit the draft below, then either copy it or open it in your default mail client. The
-              app will eventually wire this to the SMTP send pipeline (one.com) so you can send
-              directly from here.
+              Edit the draft below, then copy or open in your mail client.
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground">To</label>
@@ -233,7 +341,6 @@ export default function Festivals() {
               />
             </div>
           </div>
-
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={copyDraftToClipboard}>
               <Copy className="h-4 w-4 mr-1" /> Copy
@@ -249,6 +356,8 @@ export default function Festivals() {
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
 function StatPill({
   label,
@@ -273,9 +382,31 @@ function StatPill({
   );
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function ReadinessBar({ done, total }: { done: number; total: number }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const color =
+    pct >= 80 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-red-500";
+  return (
+    <div className="flex items-center gap-2 w-full">
+      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${color}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-xs font-medium whitespace-nowrap">{pct}%</span>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
 function FestivalView({
   festival,
   state,
+  readiness,
   onTaskUpdate,
   onNoteChange,
   onAddDoc,
@@ -283,6 +414,7 @@ function FestivalView({
 }: {
   festival: Festival;
   state: PersistedState;
+  readiness?: { done: number; total: number; hasPlan: boolean; hasMenu: boolean };
   onTaskUpdate: (id: string, patch: Partial<{ status: TaskStatus; notes: string }>) => void;
   onNoteChange: (v: string) => void;
   onAddDoc: (title: string, url: string) => void;
@@ -290,6 +422,7 @@ function FestivalView({
 }) {
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocUrl, setNewDocUrl] = useState("");
+  const [showNotes, setShowNotes] = useState(true);
   const note = state.festivalNotes[festival.slug] ?? "";
   const extras = state.extraDocs[festival.slug] ?? [];
 
@@ -303,56 +436,218 @@ function FestivalView({
   const inProgress = tasks.filter((t) => t.status === "in_progress");
   const done = tasks.filter((t) => t.status === "done");
 
+  // Separate doc types for organized display
+  const productionPlans = festival.docs.filter((d) => isProductionPlan(d.title));
+  const menus = festival.docs.filter((d) => isMenu(d.title));
+  const otherDocs = festival.docs.filter(
+    (d) => !isProductionPlan(d.title) && !isMenu(d.title)
+  );
+
+  // Parse missing items from doc notes
+  const missingItems: string[] = [];
+  for (const d of festival.docs) {
+    if (d.note && /missing/i.test(d.note)) {
+      const match = d.note.match(/(\d+)\s*missing/i);
+      if (match) {
+        missingItems.push(`${match[1]} items (${d.title})`);
+      }
+    }
+  }
+
   return (
     <div className="space-y-4">
-      {/* Header card */}
+      {/* ─── Header Card ─── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-2xl flex items-center gap-2">
-            {festival.emoji} {festival.name}
-          </CardTitle>
-          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mt-2">
-            {festival.startDate && (
-              <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" /> {festival.startDate}
-                {festival.endDate ? ` → ${festival.endDate}` : ""}
-              </span>
-            )}
-            {festival.address && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" /> {festival.address}
-              </span>
-            )}
-            <a
-              href={driveUrl(festival.driveFolderId, "folder")}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 text-blue-400 hover:underline"
-            >
-              <ExternalLink className="h-4 w-4" /> Drive folder
-            </a>
+          <div className="flex items-start justify-between flex-wrap gap-2">
+            <div>
+              <CardTitle className="text-2xl flex items-center gap-2">
+                {festival.emoji} {festival.name}
+                {countdownBadge(festival.startDate)}
+              </CardTitle>
+              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mt-2">
+                {festival.startDate && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" /> {festival.startDate}
+                    {festival.endDate ? ` → ${festival.endDate}` : ""}
+                  </span>
+                )}
+                {festival.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" /> {festival.address}
+                  </span>
+                )}
+                <a
+                  href={driveUrl(festival.driveFolderId, "folder")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 text-blue-400 hover:underline"
+                >
+                  <ExternalLink className="h-4 w-4" /> Drive folder
+                </a>
+              </div>
+            </div>
+
+            {/* ─── Readiness indicators ─── */}
+            <div className="flex gap-2 flex-wrap">
+              {readiness?.hasPlan ? (
+                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30 gap-1">
+                  <ClipboardList className="h-3 w-3" /> Plan
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30 gap-1">
+                  <ClipboardList className="h-3 w-3" /> No plan
+                </Badge>
+              )}
+              {readiness?.hasMenu ? (
+                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30 gap-1">
+                  <UtensilsCrossed className="h-3 w-3" /> Menu
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30 gap-1">
+                  <UtensilsCrossed className="h-3 w-3" /> No menu
+                </Badge>
+              )}
+              {missingItems.length > 0 && (
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 gap-1">
+                  <PackageX className="h-3 w-3" /> {missingItems.join(", ")}
+                </Badge>
+              )}
+              {missingItems.length === 0 && readiness?.hasPlan && (
+                <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30 gap-1">
+                  <PackageCheck className="h-3 w-3" /> All items OK
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="flex flex-wrap gap-1 mb-2">
+
+        <CardContent className="pt-0 space-y-3">
+          {/* Concepts */}
+          <div className="flex flex-wrap gap-1">
             {festival.concepts.map((c) => (
               <Badge key={c} variant="secondary">
                 {c}
               </Badge>
             ))}
           </div>
+
+          {/* Contacts */}
           {festival.contacts.length > 0 && (
-            <div className="text-sm text-muted-foreground">
-              <strong>Contacts:</strong>{" "}
+            <div className="text-sm text-muted-foreground flex items-center gap-1">
+              <Users className="h-4 w-4 flex-shrink-0" />
               {festival.contacts
                 .map((c) => `${c.name}${c.role ? ` (${c.role})` : ""}${c.email ? ` <${c.email}>` : ""}`)
                 .join(" · ")}
             </div>
           )}
+
+          {/* Readiness bar */}
+          {readiness && (
+            <div className="max-w-md">
+              <div className="text-xs text-muted-foreground mb-1">
+                Task progress: {readiness.done}/{readiness.total}
+              </div>
+              <ReadinessBar done={readiness.done} total={readiness.total} />
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Kanban */}
+      {/* ─── Documents Grid (Production Plans / Menus / Other) ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Production Plans */}
+        <Card className="border-t-2 border-t-blue-500/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-blue-400" /> Production Plans
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {productionPlans.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No production plan found</p>
+            ) : (
+              productionPlans.map((d) => <DocLink key={d.driveId} doc={d} />)
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Menus */}
+        <Card className="border-t-2 border-t-amber-500/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <UtensilsCrossed className="h-4 w-4 text-amber-400" /> Menus & Prices
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {menus.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No menu found</p>
+            ) : (
+              menus.map((d) => <DocLink key={d.driveId} doc={d} />)
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Other docs + extras */}
+        <Card className="border-t-2 border-t-slate-500/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-slate-400" /> Other Documents
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {otherDocs.length === 0 && extras.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No other docs</p>
+            ) : (
+              <>
+                {otherDocs.map((d) => (
+                  <DocLink key={d.driveId} doc={d} />
+                ))}
+                {extras.map((d, i) => (
+                  <a
+                    key={`extra-${i}`}
+                    href={d.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block p-2 rounded border border-dashed border-border hover:border-blue-500/40 transition"
+                  >
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <ExternalLink className="h-3 w-3" /> {d.title}
+                    </div>
+                  </a>
+                ))}
+              </>
+            )}
+            {/* Add doc form */}
+            <div className="flex gap-2 pt-2">
+              <input
+                placeholder="Title"
+                value={newDocTitle}
+                onChange={(e) => setNewDocTitle(e.target.value)}
+                className="flex-1 bg-background border border-border rounded px-2 py-1 text-xs"
+              />
+              <input
+                placeholder="URL"
+                value={newDocUrl}
+                onChange={(e) => setNewDocUrl(e.target.value)}
+                className="flex-1 bg-background border border-border rounded px-2 py-1 text-xs"
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  onAddDoc(newDocTitle, newDocUrl);
+                  setNewDocTitle("");
+                  setNewDocUrl("");
+                }}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ─── Kanban ─── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KanbanColumn
           title="📥 To do"
@@ -377,89 +672,102 @@ function FestivalView({
         />
       </div>
 
-      {/* Docs + notes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4" /> Drive documents
+      {/* ─── Notes (collapsible) ─── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <button
+            className="flex items-center gap-2 w-full text-left"
+            onClick={() => setShowNotes(!showNotes)}
+          >
+            <CardTitle className="text-base flex items-center gap-2 flex-1">
+              📝 Festival Notes
+              {note && (
+                <Badge variant="outline" className="text-xs">
+                  {note.split("\n").filter(Boolean).length} lines
+                </Badge>
+              )}
             </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {festival.docs.length === 0 && extras.length === 0 && (
-              <p className="text-sm text-muted-foreground">No docs yet — folder may be empty.</p>
+            {showNotes ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             )}
-            {festival.docs.map((d) => (
-              <a
-                key={d.driveId}
-                href={driveUrl(d.driveId, d.type)}
-                target="_blank"
-                rel="noreferrer"
-                className="block p-2 rounded border border-border hover:border-blue-500/40 transition"
-              >
-                <div className="flex items-center gap-2 font-medium">
-                  <ExternalLink className="h-4 w-4" /> {d.title}
-                </div>
-                {d.note && <div className="text-xs text-muted-foreground mt-1">{d.note}</div>}
-              </a>
-            ))}
-            {extras.map((d, i) => (
-              <a
-                key={`extra-${i}`}
-                href={d.url}
-                target="_blank"
-                rel="noreferrer"
-                className="block p-2 rounded border border-dashed border-border hover:border-blue-500/40 transition"
-              >
-                <div className="flex items-center gap-2 font-medium">
-                  <ExternalLink className="h-4 w-4" /> {d.title}
-                </div>
-              </a>
-            ))}
-            <div className="flex gap-2 pt-2">
-              <input
-                placeholder="Title"
-                value={newDocTitle}
-                onChange={(e) => setNewDocTitle(e.target.value)}
-                className="flex-1 bg-background border border-border rounded px-2 py-1 text-sm"
-              />
-              <input
-                placeholder="URL"
-                value={newDocUrl}
-                onChange={(e) => setNewDocUrl(e.target.value)}
-                className="flex-1 bg-background border border-border rounded px-2 py-1 text-sm"
-              />
-              <Button
-                size="sm"
-                onClick={() => {
-                  onAddDoc(newDocTitle, newDocUrl);
-                  setNewDocTitle("");
-                  setNewDocUrl("");
-                }}
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">📝 Festival notes</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </button>
+        </CardHeader>
+        {showNotes && (
+          <CardContent className="space-y-3">
+            {/* Read-only formatted preview */}
+            {note && (
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+                {note.split("\n").map((line, i) => {
+                  const trimmed = line.trim();
+                  // Highlight section headers (all-caps lines or lines with emojis)
+                  if (
+                    trimmed.length > 0 &&
+                    (trimmed === trimmed.toUpperCase() || /^[🔥🎪🎸🎵🎤🏖️⛵🎶🎈🎉🍺📋]/.test(trimmed))
+                  ) {
+                    return (
+                      <div key={i} className="font-semibold text-foreground mt-2 first:mt-0">
+                        {line}
+                      </div>
+                    );
+                  }
+                  // Highlight missing items
+                  if (/missing|mangler/i.test(trimmed)) {
+                    return (
+                      <div key={i} className="text-amber-400 font-medium">
+                        {line}
+                      </div>
+                    );
+                  }
+                  // Bullet items
+                  if (trimmed.startsWith("-") || trimmed.startsWith("•")) {
+                    return (
+                      <div key={i} className="pl-4">
+                        {line}
+                      </div>
+                    );
+                  }
+                  return <div key={i}>{line || "\u00A0"}</div>;
+                })}
+              </div>
+            )}
+            {/* Editable textarea */}
             <Textarea
-              rows={8}
-              placeholder="Anything to remember for this festival…"
+              rows={6}
+              placeholder="Add notes for this festival..."
               value={note}
               onChange={(e) => onNoteChange(e.target.value)}
+              className="text-sm"
             />
           </CardContent>
-        </Card>
-      </div>
+        )}
+      </Card>
     </div>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function DocLink({ doc }: { doc: { title: string; driveId: string; type: "doc" | "sheet" | "folder"; note?: string } }) {
+  return (
+    <a
+      href={driveUrl(doc.driveId, doc.type)}
+      target="_blank"
+      rel="noreferrer"
+      className="block p-2 rounded border border-border hover:border-blue-500/40 transition"
+    >
+      <div className="flex items-center gap-2 text-sm font-medium">
+        {docTypeIcon(doc.type)} {doc.title}
+      </div>
+      {doc.note && (
+        <div className="text-xs text-muted-foreground mt-1 pl-6">{doc.note}</div>
+      )}
+    </a>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
 function KanbanColumn({
   title,
