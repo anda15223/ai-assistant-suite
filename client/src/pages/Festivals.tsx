@@ -33,13 +33,23 @@ import {
   PackageX,
   ChevronDown,
   ChevronUp,
+  Zap,
+  Droplets,
+  Shield,
+  Home,
+  Snowflake,
 } from "lucide-react";
 import {
   FESTIVALS,
   ACTIVE_FESTIVALS,
+  DEFAULT_SETUP_CHECKLIST,
+  DEFAULT_COST_CATEGORIES,
   type Festival,
   type FestivalTask,
   type TaskStatus,
+  type SetupChecklistItem,
+  type ContractInfo,
+  type CostEstimate,
 } from "@/data/festivals";
 
 // Local persistence key for task overrides + notes + extra docs
@@ -49,12 +59,16 @@ interface PersistedState {
   taskOverrides: Record<string, { status?: TaskStatus; notes?: string }>;
   festivalNotes: Record<string, string>;
   extraDocs: Record<string, { title: string; url: string }[]>;
+  checklistOverrides: Record<string, boolean>;
+  costOverrides: Record<string, { estimated?: number; actual?: number; notes?: string }>;
 }
 
 const emptyState: PersistedState = {
   taskOverrides: {},
   festivalNotes: {},
   extraDocs: {},
+  checklistOverrides: {},
+  costOverrides: {},
 };
 
 function loadState(): PersistedState {
@@ -205,6 +219,29 @@ export default function Festivals() {
     }));
   };
 
+  const toggleChecklistItem = (key: string) => {
+    setState((s) => ({
+      ...s,
+      checklistOverrides: {
+        ...s.checklistOverrides,
+        [key]: !s.checklistOverrides[key],
+      },
+    }));
+  };
+
+  const updateCostOverride = (
+    key: string,
+    patch: { estimated?: number; actual?: number; notes?: string }
+  ) => {
+    setState((s) => ({
+      ...s,
+      costOverrides: {
+        ...s.costOverrides,
+        [key]: { ...s.costOverrides[key], ...patch },
+      },
+    }));
+  };
+
   const globalStats = useMemo(() => {
     const all = FESTIVALS.flatMap((f) => f.tasks);
     const done = all.filter(
@@ -300,6 +337,8 @@ export default function Festivals() {
               onNoteChange={(v) => setFestivalNote(festival.slug, v)}
               onAddDoc={(t, u) => addExtraDoc(festival.slug, t, u)}
               onDraft={openDraft}
+              onToggleChecklist={toggleChecklistItem}
+              onUpdateCost={updateCostOverride}
             />
           </TabsContent>
         ))}
@@ -411,6 +450,8 @@ function FestivalView({
   onNoteChange,
   onAddDoc,
   onDraft,
+  onToggleChecklist,
+  onUpdateCost,
 }: {
   festival: Festival;
   state: PersistedState;
@@ -419,6 +460,8 @@ function FestivalView({
   onNoteChange: (v: string) => void;
   onAddDoc: (title: string, url: string) => void;
   onDraft: (task: FestivalTask) => void;
+  onToggleChecklist: (key: string) => void;
+  onUpdateCost: (key: string, patch: { estimated?: number; actual?: number; notes?: string }) => void;
 }) {
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocUrl, setNewDocUrl] = useState("");
@@ -672,6 +715,23 @@ function FestivalView({
         />
       </div>
 
+      {/* ─── Setup Checklist (collapsible) ─── */}
+      <SetupChecklistCard
+        festival={festival}
+        state={state}
+        onToggleItem={onToggleChecklist}
+      />
+
+      {/* ─── Contracts Tracker (collapsible) ─── */}
+      <ContractsTrackerCard festival={festival} />
+
+      {/* ─── Costs Table (collapsible) ─── */}
+      <CostsTableCard
+        festival={festival}
+        state={state}
+        onUpdateCost={onUpdateCost}
+      />
+
       {/* ─── Notes (collapsible) ─── */}
       <Card>
         <CardHeader className="pb-2">
@@ -855,6 +915,417 @@ function KanbanColumn({
           </div>
         ))}
       </CardContent>
+    </Card>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function SetupChecklistCard({
+  festival,
+  state,
+  onToggleItem,
+}: {
+  festival: Festival;
+  state: PersistedState;
+  onToggleItem: (key: string) => void;
+}) {
+  const [showChecklist, setShowChecklist] = useState(true);
+
+  const checklist = festival.setupChecklist || DEFAULT_SETUP_CHECKLIST.map((item, i) => ({
+    ...item,
+    id: `${festival.slug}-default-${i}`,
+  }));
+
+  const categories: Array<SetupChecklistItem['category']> = [
+    'electricity',
+    'tent',
+    'cooling',
+    'gas_safety',
+    'pos',
+    'food_delivery',
+    'staff',
+    'accommodation',
+  ];
+
+  const categoryInfo: Record<SetupChecklistItem['category'], { icon: any; color: string; label: string }> = {
+    electricity: { icon: Zap, color: 'text-yellow-400', label: 'Electricity' },
+    tent: { icon: Home, color: 'text-blue-400', label: 'Tent' },
+    cooling: { icon: Snowflake, color: 'text-cyan-400', label: 'Cooling' },
+    gas_safety: { icon: Shield, color: 'text-red-400', label: 'Gas Safety' },
+    pos: { icon: FileText, color: 'text-green-400', label: 'POS' },
+    food_delivery: { icon: PackageCheck, color: 'text-orange-400', label: 'Food' },
+    staff: { icon: Users, color: 'text-purple-400', label: 'Staff' },
+    accommodation: { icon: MapPin, color: 'text-pink-400', label: 'Accommodation' },
+  };
+
+  const groupedItems: Record<SetupChecklistItem['category'], SetupChecklistItem[]> = {} as any;
+  for (const cat of categories) {
+    groupedItems[cat] = checklist.filter((item) => item.category === cat);
+  }
+
+  const totalItems = checklist.length;
+  const checkedItems = checklist.filter((item) => {
+    const key = `${festival.slug}-${item.id}`;
+    return state.checklistOverrides[key];
+  }).length;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <button
+          className="flex items-center gap-2 w-full text-left"
+          onClick={() => setShowChecklist(!showChecklist)}
+        >
+          <CardTitle className="text-base flex items-center gap-2 flex-1">
+            ✅ Setup Checklist
+            {totalItems > 0 && (
+              <Badge variant="outline" className="text-xs">
+                {checkedItems}/{totalItems}
+              </Badge>
+            )}
+          </CardTitle>
+          {showChecklist ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+      </CardHeader>
+      {showChecklist && (
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {categories.map((cat) => {
+              const items = groupedItems[cat];
+              const info = categoryInfo[cat];
+              const Icon = info.icon;
+
+              return (
+                <div key={cat} className="space-y-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className={`h-4 w-4 ${info.color}`} />
+                    <span className="text-xs font-semibold text-muted-foreground">{info.label}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {items.map((item) => {
+                      const key = `${festival.slug}-${item.id}`;
+                      const isChecked = state.checklistOverrides[key];
+
+                      const statusColor =
+                        item.status === 'critical'
+                          ? 'bg-red-500/10 border-red-500/30'
+                          : item.status === 'warning'
+                          ? 'bg-amber-500/10 border-amber-500/30'
+                          : item.status === 'na'
+                          ? 'bg-slate-500/10 border-slate-500/30'
+                          : 'bg-slate-500/5 border-slate-500/20';
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`p-2 rounded border text-xs space-y-1 ${statusColor}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={() => onToggleItem(key)}
+                              className="mt-0.5"
+                              disabled={item.status === 'na'}
+                            />
+                            <span
+                              className={`flex-1 leading-snug ${
+                                isChecked ? 'line-through text-muted-foreground' : ''
+                              } ${item.status === 'na' ? 'line-through text-muted-foreground' : ''}`}
+                            >
+                              {item.label}
+                            </span>
+                          </div>
+                          {item.status === 'critical' && (
+                            <div className="text-red-400 text-xs font-medium pl-6">CRITICAL</div>
+                          )}
+                          {item.status === 'warning' && (
+                            <div className="text-amber-400 text-xs font-medium pl-6">⚠ Warning</div>
+                          )}
+                          {item.status === 'na' && (
+                            <div className="text-slate-400 text-xs font-medium pl-6">N/A</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function ContractsTrackerCard({ festival }: { festival: Festival }) {
+  const [showContract, setShowContract] = useState(true);
+  const contract = festival.contract;
+
+  if (!contract) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <button
+            className="flex items-center gap-2 w-full text-left"
+            onClick={() => setShowContract(!showContract)}
+          >
+            <CardTitle className="text-base flex items-center gap-2 flex-1">
+              📋 Contracts Tracker
+            </CardTitle>
+            {showContract ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+        </CardHeader>
+        {showContract && (
+          <CardContent>
+            <p className="text-xs text-muted-foreground italic">No contract data added yet</p>
+          </CardContent>
+        )}
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <button
+          className="flex items-center gap-2 w-full text-left"
+          onClick={() => setShowContract(!showContract)}
+        >
+          <CardTitle className="text-base flex items-center gap-2 flex-1">
+            📋 Contracts Tracker
+            {contract.signed ? (
+              <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Signed</Badge>
+            ) : (
+              <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30">
+                Not signed
+              </Badge>
+            )}
+          </CardTitle>
+          {showContract ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+      </CardHeader>
+      {showContract && (
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Commission</label>
+                <p className="text-sm">
+                  {contract.commissionPct ? `${contract.commissionPct}%` : 'Not specified'}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Exclusivity</label>
+                <p className="text-sm">{contract.exclusivity || 'None'}</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Power Included</label>
+                <p className="text-sm">{contract.powerIncluded ? 'Yes' : 'No'}</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Power Cost</label>
+                <p className="text-sm">
+                  {contract.powerCost ? `${contract.powerCost} DKK` : 'Included or not specified'}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Gas Check Required</label>
+                <p className="text-sm">{contract.gasCheckRequired ? 'Yes' : 'No'}</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Organic Required</label>
+                {contract.organicRequired ? (
+                  <p className="text-sm bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1 text-amber-400">
+                    Yes {contract.organicPct && `— ${contract.organicPct}% minimum`}
+                  </p>
+                ) : (
+                  <p className="text-sm">No</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Stand Location</label>
+                <p className="text-sm">{contract.standLocation || 'Not specified'}</p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Payment Terms</label>
+                <p className="text-sm">{contract.paymentTerms || 'Not specified'}</p>
+              </div>
+            </div>
+          </div>
+
+          {contract.notes && (
+            <div className="mt-4 pt-4 border-t border-border space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Notes</label>
+              <p className="text-sm text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded p-2">
+                {contract.notes}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function CostsTableCard({
+  festival,
+  state,
+  onUpdateCost,
+}: {
+  festival: Festival;
+  state: PersistedState;
+  onUpdateCost: (key: string, patch: { estimated?: number; actual?: number; notes?: string }) => void;
+}) {
+  const [showCosts, setShowCosts] = useState(true);
+
+  const costs = festival.costEstimates || DEFAULT_COST_CATEGORIES.map((cat, i) => ({
+    ...cat,
+    actual: undefined,
+  }));
+
+  const totals = {
+    estimated: costs.reduce((sum, c) => {
+      const key = `${festival.slug}-${c.category}`;
+      const override = state.costOverrides[key];
+      return sum + (override?.estimated ?? c.estimated ?? 0);
+    }, 0),
+    actual: costs.reduce((sum, c) => {
+      const key = `${festival.slug}-${c.category}`;
+      const override = state.costOverrides[key];
+      return sum + (override?.actual ?? c.actual ?? 0);
+    }, 0),
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <button
+          className="flex items-center gap-2 w-full text-left"
+          onClick={() => setShowCosts(!showCosts)}
+        >
+          <CardTitle className="text-base flex items-center gap-2 flex-1">
+            💰 Costs Table
+            {totals.estimated > 0 && (
+              <Badge variant="outline" className="text-xs">
+                Est. {totals.estimated} DKK
+              </Badge>
+            )}
+          </CardTitle>
+          {showCosts ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+      </CardHeader>
+      {showCosts && (
+        <CardContent className="space-y-3">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Category</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">Estimated (DKK)</th>
+                  <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">Actual (DKK)</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="space-y-1">
+                {costs.map((cost) => {
+                  const key = `${festival.slug}-${cost.category}`;
+                  const override = state.costOverrides[key];
+                  const estimated = override?.estimated ?? cost.estimated;
+                  const actual = override?.actual ?? cost.actual;
+
+                  const variance = estimated && actual ? actual - estimated : null;
+                  const rowColor =
+                    variance === null || variance === 0
+                      ? ''
+                      : variance < 0
+                      ? 'bg-green-500/10'
+                      : 'bg-red-500/10';
+
+                  return (
+                    <tr key={cost.category} className={`border-b border-border/50 ${rowColor}`}>
+                      <td className="py-2 px-2 font-medium text-xs">{cost.category}</td>
+                      <td className="py-2 px-2 text-right">
+                        <input
+                          type="number"
+                          value={estimated ?? ''}
+                          onChange={(e) =>
+                            onUpdateCost(key, { estimated: e.target.value ? parseFloat(e.target.value) : undefined })
+                          }
+                          className="w-24 bg-background border border-border rounded px-1 py-0.5 text-right text-xs"
+                          placeholder="—"
+                        />
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <input
+                          type="number"
+                          value={actual ?? ''}
+                          onChange={(e) =>
+                            onUpdateCost(key, { actual: e.target.value ? parseFloat(e.target.value) : undefined })
+                          }
+                          className="w-24 bg-background border border-border rounded px-1 py-0.5 text-right text-xs"
+                          placeholder="—"
+                        />
+                      </td>
+                      <td className="py-2 px-2 text-left">
+                        <input
+                          type="text"
+                          value={override?.notes ?? cost.notes ?? ''}
+                          onChange={(e) => onUpdateCost(key, { notes: e.target.value })}
+                          className="flex-1 bg-background border border-border rounded px-1 py-0.5 text-xs"
+                          placeholder="Notes..."
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="border-t-2 border-t-border font-semibold bg-slate-500/5">
+                  <td className="py-2 px-2">Total</td>
+                  <td className="py-2 px-2 text-right">{totals.estimated > 0 ? totals.estimated : '—'} DKK</td>
+                  <td className={`py-2 px-2 text-right ${
+                    totals.actual > 0 && totals.estimated > 0
+                      ? totals.actual < totals.estimated
+                        ? 'text-green-400'
+                        : 'text-red-400'
+                      : ''
+                  }`}>
+                    {totals.actual > 0 ? totals.actual : '—'} DKK
+                  </td>
+                  <td className="py-2 px-2 text-right text-xs text-muted-foreground">
+                    {totals.actual > 0 && totals.estimated > 0
+                      ? `${totals.actual < totals.estimated ? '+' : ''}${(totals.actual - totals.estimated).toFixed(0)}`
+                      : '—'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      )}
     </Card>
   );
 }

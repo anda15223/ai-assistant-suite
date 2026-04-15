@@ -27,6 +27,35 @@ export interface FestivalDoc {
   note?: string;
 }
 
+export interface SetupChecklistItem {
+  id: string;
+  category: 'electricity' | 'tent' | 'cooling' | 'gas_safety' | 'pos' | 'food_delivery' | 'staff' | 'accommodation';
+  label: string;
+  detail?: string;
+  status: 'pending' | 'done' | 'warning' | 'critical' | 'na';
+}
+
+export interface ContractInfo {
+  signed: boolean;
+  commissionPct?: number;
+  exclusivity?: string;
+  powerIncluded: boolean;
+  powerCost?: number;
+  gasCheckRequired: boolean;
+  organicRequired: boolean;
+  organicPct?: number;
+  standLocation?: string;
+  paymentTerms?: string;
+  notes?: string;
+}
+
+export interface CostEstimate {
+  category: string;
+  estimated?: number;
+  actual?: number;
+  notes?: string;
+}
+
 export interface Festival {
   number: number;
   slug: string;
@@ -43,6 +72,9 @@ export interface Festival {
   contacts: { name: string; role?: string; email?: string }[];
   docs: FestivalDoc[];
   tasks: FestivalTask[];
+  setupChecklist?: SetupChecklistItem[];
+  contract?: ContractInfo;
+  costEstimates?: CostEstimate[];
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -119,6 +151,38 @@ export const SHARED_TASK_TEMPLATE: Omit<FestivalTask, "id">[] = [
   },
 ];
 
+export const DEFAULT_SETUP_CHECKLIST: Omit<SetupChecklistItem, 'id'>[] = [
+  { category: 'electricity', label: 'Confirm amperage & on/off times', status: 'pending' },
+  { category: 'electricity', label: 'Get power cost estimate', status: 'pending' },
+  { category: 'tent', label: 'Confirm tent sizes & positions', status: 'pending' },
+  { category: 'tent', label: 'Flame-retardant certification', status: 'pending' },
+  { category: 'cooling', label: 'Order cooling container', status: 'pending' },
+  { category: 'cooling', label: 'Confirm delivery/pickup times', status: 'pending' },
+  { category: 'gas_safety', label: 'Book gas check appointment', status: 'pending' },
+  { category: 'gas_safety', label: 'Fire extinguisher & safety kit', status: 'pending' },
+  { category: 'pos', label: 'Setup SumUp terminals', status: 'pending' },
+  { category: 'pos', label: 'Submit POS/sortiment template', status: 'pending' },
+  { category: 'food_delivery', label: 'Order groceries & ingredients', status: 'pending' },
+  { category: 'food_delivery', label: 'Coordinate BC-Catering pickup', status: 'pending' },
+  { category: 'staff', label: 'Finalize employee contracts', status: 'pending' },
+  { category: 'staff', label: 'Submit accreditation (photo + ID)', status: 'pending' },
+  { category: 'staff', label: 'Recruit volunteers', status: 'pending' },
+  { category: 'accommodation', label: 'Book accommodation', status: 'pending' },
+  { category: 'accommodation', label: 'Confirm check-in/out times', status: 'pending' },
+];
+
+export const DEFAULT_COST_CATEGORIES: Omit<CostEstimate, 'actual'>[] = [
+  { category: 'Stand fee / commission', notes: '' },
+  { category: 'Electricity', notes: '' },
+  { category: 'Accommodation', notes: '' },
+  { category: 'Tent rental (Fidibus)', notes: '' },
+  { category: 'Cooling containers', notes: '' },
+  { category: 'Staff wages + travel', notes: '' },
+  { category: 'Food / ingredients', notes: '' },
+  { category: 'Equipment rental', notes: '' },
+  { category: 'Insurance', notes: '' },
+];
+
 function withIds(prefix: string, tasks: Omit<FestivalTask, "id">[]): FestivalTask[] {
   return tasks.map((t, i) => ({ ...t, id: `${prefix}-${i + 1}` }));
 }
@@ -159,6 +223,16 @@ export const FESTIVALS: Festival[] = [
         note: "Fish 119/149/125, Gyros 109/149, Crepes 95/55/50.",
       },
     ],
+    setupChecklist: [
+      ...DEFAULT_SETUP_CHECKLIST.map((item, i) => ({ ...item, id: `jelling-checklist-${i}` })),
+    ].map((item) =>
+      item.label === 'Confirm tent sizes & positions' ? { ...item, label: '2x 6x6m (NOT 12x6m!), Fish+Gyros festival area, Chicken+Pancake camping', status: 'warning' as const } :
+      item.label === 'Order cooling container' ? { ...item, label: '2 containers, arrive Tue 19 May 07-18h', status: 'pending' as const } :
+      item.label === 'Submit POS/sortiment template' ? { ...item, label: 'POS template deadline PASSED (Apr 15)', status: 'critical' as const } :
+      item.label === 'Recruit volunteers' ? { ...item, label: '20 volunteers needed, 20 persons total', status: 'pending' as const } :
+      item.label === 'Book accommodation' ? { ...item, label: '10 rooms x 2-person, Cabin Vejle (cabinn.com)', status: 'pending' as const } :
+      item
+    ),
     tasks: withIds("jelling", [
       {
         title: "🔴 DEADLINE 15 April — Submit POS sortiment template",
@@ -296,6 +370,12 @@ export const FESTIVALS: Festival[] = [
       { title: "PRODUCTION ORDERS folder", driveId: "1AjtEIDedOVaCVJUU30cxgcj25xcOwG7N", type: "folder" },
       { title: "CONTRACTS folder", driveId: "138HlMnsePmVL-OXOHqV0WQFj_J44N-Zb", type: "folder" },
     ],
+    setupChecklist: [
+      ...DEFAULT_SETUP_CHECKLIST.map((item, i) => ({ ...item, id: `tinderbox-checklist-${i}` })),
+    ].map((item) =>
+      item.label === 'Flame-retardant certification' ? { ...item, label: 'Fire-safety flame-retardant cert REQUIRED!', status: 'warning' as const } :
+      item
+    ),
     tasks: withIds("tinderbox", [
       {
         title: "Rename veggie gyros → 'Fried Croquettes' on POS",
@@ -407,6 +487,13 @@ export const FESTIVALS: Festival[] = [
         note: "Cooling container Tue 11 Aug 07-18. Days 13/14/15.",
       },
     ],
+    setupChecklist: [
+      ...DEFAULT_SETUP_CHECKLIST.map((item, i) => ({ ...item, id: `syd-checklist-${i}` })),
+    ].map((item) =>
+      item.label === 'Confirm amperage & on/off times' ? { ...item, label: '125A power, cost 23,200 DKK!', status: 'warning' as const } :
+      item.label === 'Book gas check appointment' ? { ...item, label: 'NOT NEEDED — fully electric!', status: 'na' as const } :
+      item
+    ),
     tasks: withIds("syd", SHARED_TASK_TEMPLATE),
   },
 
@@ -429,6 +516,14 @@ export const FESTIVALS: Festival[] = [
         note: "Two days, addresses missing.",
       },
     ],
+    contract: {
+      signed: false,
+      powerIncluded: true,
+      gasCheckRequired: true,
+      organicRequired: true,
+      organicPct: 50,
+      notes: '50% organic (økologisk) requirement!',
+    },
     tasks: withIds("suset", SHARED_TASK_TEMPLATE),
   },
 
