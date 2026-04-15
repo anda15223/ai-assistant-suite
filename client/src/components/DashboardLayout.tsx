@@ -20,7 +20,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Mail, CheckSquare, Settings, Home, MessageCircle, Users, Cpu, Flame, FileText, Tent, Sparkles } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Mail, CheckSquare, Settings, Home, MessageCircle, Users, Cpu, Flame, FileText, Tent, Sparkles, Command } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -34,6 +34,7 @@ const menuItems = [
   { icon: CheckSquare, label: "Task Board", path: "/tasks" },
   { icon: FileText, label: "Invoices", path: "/invoices" },
   { icon: Tent, label: "Festivals", path: "/festivals" },
+  { icon: Command, label: "Command Centre", path: "/festival-command-centre" },
   { icon: Flame, label: "Priority Matrix", path: "/priority" },
   { icon: Sparkles, label: "AI Chat", path: "/chat" },
   { icon: Settings, label: "Settings", path: "/settings" },

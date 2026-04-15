@@ -20,6 +20,7 @@ import PriorityView from "./pages/PriorityView";
 import Invoices from "./pages/Invoices";
 import Festivals from "./pages/Festivals";
 import Chat from "./pages/Chat";
+import FestivalCommandCentre from "./pages/FestivalCommandCentre";
 
 function Router() {
   return (
@@ -81,6 +82,9 @@ function Router() {
         <DashboardLayout>
           <Chat />
         </DashboardLayout>
+      </Route>
+      <Route path={"/festival-command-centre"}>
+        <FestivalCommandCentre />
       </Route>
       <Route path={"/settings"}>
         <DashboardLayout>
