@@ -75,6 +75,7 @@ interface FestivalData {
   emails?: FestivalEmail[];
   contracts: { signed: boolean; critical: boolean };
   setupChecklist: Record<string, SetupChecklistItem>;
+  contractDetails?: ContractDetails;
 }
 
 interface MenuItem {
@@ -88,6 +89,48 @@ interface TodoItem {
   priority: "CRITICAL" | "URGENT";
   deadline: string;
   festival: string;
+}
+
+interface FestivalContact {
+  name: string;
+  role: string;
+  phone?: string;
+  email?: string;
+}
+
+interface ConceptContract {
+  conceptName: string;
+  entity: string;
+  cvr: string;
+  tentSize: string;
+  location: string;
+  commissionTiers: { threshold: string; rate: string }[];
+  fixedFee: string;
+  maxStaff: number;
+  leaderPasses: number;
+  regularPasses: number;
+  minWorkHours: number;
+  sortiment: string;
+  waterAccess: boolean;
+  campingVogn: boolean;
+  depositum?: string;
+  openingHours?: string;
+  power?: string;
+}
+
+interface ContractDetails {
+  signedDate?: string;
+  festivalOrganizer: string;
+  organizerCvr: string;
+  festivalAddress: string;
+  contactsFestival: FestivalContact[];
+  contactsInternal: FestivalContact[];
+  concepts: ConceptContract[];
+  deadlines: { date: string; description: string; status: "passed" | "upcoming" | "done" }[];
+  specialRules: string[];
+  paymentTerms: string;
+  cashless: boolean;
+  posProvider: string;
 }
 
 // ── Data ─────────────────────────────────────────────────────────────────
@@ -183,6 +226,133 @@ const festivalsData: FestivalData[] = [
       staffAccred: { status: "confirmed", details: "4 accreditation logins received Apr 14 from jellingmusikfestival.dk. Register staff at accreditation portal." },
       accommodation: { status: "pending", details: "20-person rooms at Cabinn Vejle mentioned — not confirmed" },
     },
+    contractDetails: {
+      signedDate: "13.03.2026",
+      festivalOrganizer: "Festivalfonden af 2006",
+      organizerCvr: "29413770",
+      festivalAddress: "Møllvangvej 66B, 7300 Jelling",
+      contactsFestival: [
+        { name: "Bettina Køsch", role: "Contract", phone: "7587 2888", email: "bettina@jellingmusikfestival.dk" },
+        { name: "Jonas Kring", role: "Praktik", phone: "2296 9161", email: "jonas@skevents.dk" },
+      ],
+      contactsInternal: [
+        { name: "Alexandra Artimon", role: "Primary contact", phone: "42787738", email: "aa@thefishproject.dk" },
+      ],
+      cashless: true,
+      posProvider: "EventPos",
+      paymentTerms: "Revenue minus commission transferred within 2 weeks after festival. 1,500kr+moms per extra POS terminal.",
+      specialRules: [
+        "BR18 facade legislation — new requirement 2026",
+        "Tent cost deducted from settlement by FF",
+        "Plastic floor included in tent",
+        "1 camping wagon allowed (leader camp)",
+        "1 vehicle pass (deliveries before 10:00)",
+        "3m depth behind stall as back area",
+        "May sell Egekilde water only (no other drinks)",
+        "Water request deadline: 15 March",
+      ],
+      concepts: [
+        {
+          conceptName: "The Fish Project",
+          entity: "The Fish Project ApS",
+          cvr: "39236931",
+          tentSize: "12m facade x 9m depth, shared w/ Gyros By Gaia",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "<160,000 kr", rate: "15%" },
+            { threshold: "160,000-200,000 kr", rate: "17%" },
+            { threshold: ">200,000 kr", rate: "20%" },
+            { threshold: "Drinks", rate: "30%" },
+          ],
+          fixedFee: "3,000 kr + moms",
+          maxStaff: 10,
+          leaderPasses: 6,
+          regularPasses: 4,
+          minWorkHours: 25,
+          sortiment: "Fresh Fish & Chips + fish burger. Min 1 vegetarian option, gluten/lactose options.",
+          waterAccess: false,
+          campingVogn: true,
+          power: "7 x 16 Amp",
+        },
+        {
+          conceptName: "Gyros By Gaia",
+          entity: "The Fish Project ApS / Gyros By Gaia",
+          cvr: "39236931",
+          tentSize: "12m x 9m shared w/ Fish Project",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "<160,000 kr", rate: "15%" },
+            { threshold: "160,000-200,000 kr", rate: "17%" },
+            { threshold: ">200,000 kr", rate: "20%" },
+            { threshold: "Drinks", rate: "30%" },
+          ],
+          fixedFee: "3,000 kr + moms",
+          maxStaff: 10,
+          leaderPasses: 6,
+          regularPasses: 4,
+          minWorkHours: 25,
+          sortiment: "Chicken Gyros with fries. Min 1 vegetarian option.",
+          waterAccess: false,
+          campingVogn: false,
+          power: "2 x 32 Amp + 5 x 16 Amp",
+        },
+        {
+          conceptName: "La Creperie",
+          entity: "The Fish Project ApS / La Creperie",
+          cvr: "39236931",
+          tentSize: "12m facade x 6m depth, shared w/ Chicks & Buns",
+          location: "Markedspladsen/Campen",
+          commissionTiers: [
+            { threshold: "<160,000 kr", rate: "15%" },
+            { threshold: "160,000-200,000 kr", rate: "17%" },
+            { threshold: ">200,000 kr", rate: "20%" },
+            { threshold: "Drinks", rate: "30%" },
+          ],
+          fixedFee: "3,000 kr + moms",
+          maxStaff: 12,
+          leaderPasses: 4,
+          regularPasses: 8,
+          minWorkHours: 25,
+          sortiment: "Pancakes: salty, sweet & breakfast crepes with egg & bacon",
+          waterAccess: false,
+          campingVogn: false,
+          openingHours: "Day 1 (Thu) 12:00-03:00, Days 2-4 (Fri/Sat/Sun) 07:00-03:00",
+          power: "7 x 230V",
+        },
+        {
+          conceptName: "Chicks & Buns",
+          entity: "The Fish Project ApS / Chicks & Buns",
+          cvr: "39236931",
+          tentSize: "12m x 6m shared w/ La Creperie",
+          location: "Markedspladsen/Campen",
+          commissionTiers: [
+            { threshold: "<160,000 kr", rate: "15%" },
+            { threshold: "160,000-200,000 kr", rate: "17%" },
+            { threshold: ">200,000 kr", rate: "20%" },
+            { threshold: "Drinks", rate: "30%" },
+          ],
+          fixedFee: "3,000 kr + moms",
+          maxStaff: 12,
+          leaderPasses: 4,
+          regularPasses: 8,
+          minWorkHours: 25,
+          sortiment: "Quality fried chicken: Chicken-box, chicken burger & chicken bowls + gourmet jumbo fries",
+          waterAccess: false,
+          campingVogn: false,
+          openingHours: "Day 1 (Thu) 12:00-03:00, Days 2-4 07:00-03:00",
+          power: "8 x 16/3A",
+        },
+      ],
+      deadlines: [
+        { date: "15 Mar", description: "Extra power purchase", status: "passed" },
+        { date: "15 Mar", description: "Gas consumption report", status: "passed" },
+        { date: "15 Mar", description: "Back area drawing", status: "passed" },
+        { date: "15 Apr", description: "Extra POS terminals order", status: "passed" },
+        { date: "15 Apr", description: "POS sortiment + prices setup", status: "passed" },
+        { date: "15 Apr", description: "Camping wagon booking", status: "passed" },
+        { date: "20 May 09:00", description: "Gas & fire inspection", status: "upcoming" },
+      ],
+    },
   },
   {
     id: 2, name: "Nordside", dates: "CANCELLED", daysAway: null, status: "CANCELLED",
@@ -240,6 +410,62 @@ const festivalsData: FestivalData[] = [
       staffAccred: { status: "warning", details: "Photo deadlines passed" },
       accommodation: { status: "pending", details: "Check-in/check-out MISSING from plan" },
     },
+    contractDetails: {
+      signedDate: undefined,
+      festivalOrganizer: "I/S Heartland Festival c/o Live Nation",
+      organizerCvr: "37074446",
+      festivalAddress: "Egeskov Gade 20, 5772 Kværndrup",
+      contactsFestival: [
+        { name: "Dagny Hoppe", role: "Festival contact", phone: "+45 26719680", email: "dagny.hoppe@livenation.dk" },
+      ],
+      contactsInternal: [
+        { name: "Alexandra Artimon", role: "Primary contact", phone: "42787738", email: "aa@thefishproject.dk" },
+      ],
+      cashless: true,
+      posProvider: "Live Nation POS",
+      paymentTerms: "Settlement after festival. Depositum 20,000 kr.",
+      specialRules: [
+        "Local ingredients required: fish from Jeka, fries from Flensted, all vegetables from Fyn",
+        "50% organic raw materials required",
+        "Bio-degradable packaging mandatory",
+        "Organic accounting docs + claims deadline 01 Jul",
+      ],
+      concepts: [
+        {
+          conceptName: "The Fish Project + Gyros",
+          entity: "The Fish Project ApS",
+          cvr: "40747745",
+          tentSize: "TBD",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "All revenue", rate: "18.5%" },
+          ],
+          fixedFee: "N/A",
+          maxStaff: 20,
+          leaderPasses: 0,
+          regularPasses: 0,
+          minWorkHours: 0,
+          sortiment: "Fish & chips, mixed fried fish + shellfish + fries AND Gyros with chicken + falafel",
+          waterAccess: true,
+          campingVogn: false,
+          depositum: "20,000 kr",
+        },
+      ],
+      deadlines: [
+        { date: "17 Feb", description: "Material order", status: "passed" },
+        { date: "01 Mar", description: "Floor plan", status: "passed" },
+        { date: "10 Apr", description: "Crew count + schedule + overnighters", status: "passed" },
+        { date: "10 Apr", description: "Price/sortiment approval", status: "passed" },
+        { date: "01 May", description: "Final placement", status: "upcoming" },
+        { date: "15 Jun", description: "Staff registration", status: "upcoming" },
+        { date: "16 Jun 08:00", description: "Setup access", status: "upcoming" },
+        { date: "17 Jun 08:00", description: "Tech/authority inspection", status: "upcoming" },
+        { date: "18 Jun 10:00", description: "Setup complete, 12:00 doors open", status: "upcoming" },
+        { date: "21 Jun", description: "Site returned", status: "upcoming" },
+        { date: "01 Jul", description: "Organic accounting docs + claims deadline", status: "upcoming" },
+        { date: "03 Jul", description: "Final settlement", status: "upcoming" },
+      ],
+    },
   },
   {
     id: 4, name: "Copenhell", dates: "13-21 Jun 2026", daysAway: 58, status: "ON TRACK",
@@ -281,6 +507,63 @@ const festivalsData: FestivalData[] = [
       staffAccred: { status: "pending", details: "Check in at festival on arrival" },
       accommodation: { status: "pending", details: "Check-in/check-out MISSING from plan" },
     },
+    contractDetails: {
+      signedDate: "Digitally signed via Addo Sign",
+      festivalOrganizer: "Live Nation Denmark ApS c/o COPENHELL",
+      organizerCvr: "15897309",
+      festivalAddress: "Refshalevej, Copenhagen",
+      contactsFestival: [
+        { name: "Bitten Nielsen", role: "Festival contact", phone: "22306010", email: "bitten.nielsen@livenation.dk" },
+      ],
+      contactsInternal: [
+        { name: "Alexandra Artimon", role: "Primary contact", phone: "42787738", email: "aa@thefishproject.dk" },
+      ],
+      cashless: true,
+      posProvider: "COPENHELL POS",
+      paymentTerms: "Settlement after festival. Depositum 18,000 kr.",
+      specialRules: [
+        "50% organic raw materials required (by weight or cost)",
+        "Bio-degradable packaging mandatory",
+        "Must provide crew meals to COPENHELL volunteers (46.80 kr ex.moms per meal)",
+        "No own music during opening hours",
+        "Gas: KosangasBioMix40 only (10kg/11kg), no own gas bottles",
+        "Capacity 250 meals/hour required",
+        "Festival dates: 24-27 June 2026",
+      ],
+      concepts: [
+        {
+          conceptName: "The Fish Project",
+          entity: "Aegean ApS",
+          cvr: "43619888",
+          tentSize: "TBD",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "All revenue", rate: "19%" },
+          ],
+          fixedFee: "N/A",
+          maxStaff: 20,
+          leaderPasses: 0,
+          regularPasses: 20,
+          minWorkHours: 0,
+          sortiment: "The Fish Project - fish'n'chips. Capacity 250 meals/hour.",
+          waterAccess: true,
+          campingVogn: false,
+          depositum: "18,000 kr",
+        },
+      ],
+      deadlines: [
+        { date: "01 Mar", description: "Material order", status: "passed" },
+        { date: "15 Apr", description: "Floor plan", status: "passed" },
+        { date: "15 Apr", description: "Price/sortiment approval", status: "passed" },
+        { date: "01 May", description: "Final placement", status: "upcoming" },
+        { date: "15 Jun", description: "Staff registration", status: "upcoming" },
+        { date: "20 Jun 10:00", description: "Setup access starts", status: "upcoming" },
+        { date: "22 Jun 09:00", description: "Power/water ready", status: "upcoming" },
+        { date: "23 Jun 12:00", description: "Setup must be complete", status: "upcoming" },
+        { date: "28 Jun 07:00", description: "Checkout possible", status: "upcoming" },
+        { date: "28 Jun 14:00", description: "Site returned clean", status: "upcoming" },
+      ],
+    },
   },
   {
     id: 5, name: "Tinderbox", dates: "22-28 Jun 2026", daysAway: 67, status: "ON TRACK",
@@ -320,6 +603,82 @@ const festivalsData: FestivalData[] = [
       foodDelivery: { status: "pending", details: "Earliest groceries Wed 24 Jun 12:00" },
       staffAccred: { status: "pending", details: "Check in at festival on arrival" },
       accommodation: { status: "pending", details: "Check-in/check-out MISSING from plan" },
+    },
+    contractDetails: {
+      festivalOrganizer: "Tinderbox (DTD Group)",
+      organizerCvr: "DTD Group",
+      festivalAddress: "Falen 177, 5250 Odense",
+      contactsFestival: [
+        { name: "Lisbet Foged", role: "Food Manager", email: "lisbet@dtdcrew.dk" },
+      ],
+      contactsInternal: [
+        { name: "Alexandra Artimon", role: "Primary contact", phone: "42787738", email: "aa@thefishproject.dk" },
+      ],
+      cashless: true,
+      posProvider: "Festival POS",
+      paymentTerms: "20% of revenue ex.moms (+ moms on the commission)",
+      specialRules: [
+        "Opening hours: Thu 13:00-02:00, Fri-Sat 12:30-02:00",
+        "Staff registration in Ruby system by 18 May",
+        "Volunteers: 14-16 hours for partout, must be 18+ by 15 Jun",
+        "No alcohol/drugs for volunteers",
+        "Facade: decorated wood panels, 1m height top sign, no banners/flags",
+        "Fire-retardant tent certification required",
+        "Volunteer Lounge access (no food there for external volunteers)",
+        "No 'veggie/vegetarian' naming allowed — use alternative names",
+      ],
+      concepts: [
+        {
+          conceptName: "The Fish Project / Gaia",
+          entity: "Blue Fish ApS",
+          cvr: "40747745",
+          tentSize: "TBD (fire-retardant cert required)",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "All revenue ex.moms", rate: "20% + moms" },
+          ],
+          fixedFee: "N/A",
+          maxStaff: 0,
+          leaderPasses: 0,
+          regularPasses: 0,
+          minWorkHours: 14,
+          sortiment: "Fish & Chips, Gyros (Fried Croquettes for veggie option)",
+          waterAccess: true,
+          campingVogn: false,
+        },
+        {
+          conceptName: "Gyropolis - Greek Gyros",
+          entity: "Blue Fish ApS",
+          cvr: "40747745",
+          tentSize: "TBD",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "All revenue ex.moms", rate: "20% + moms" },
+          ],
+          fixedFee: "N/A",
+          maxStaff: 0,
+          leaderPasses: 0,
+          regularPasses: 0,
+          minWorkHours: 14,
+          sortiment: "Greek Gyros",
+          waterAccess: true,
+          campingVogn: false,
+        },
+      ],
+      deadlines: [
+        { date: "26 Jan", description: "Signed contract with product form", status: "passed" },
+        { date: "30 Jan", description: "Own tent specs / cooling wagon approval", status: "passed" },
+        { date: "06-20 Feb", description: "Material ordering window", status: "passed" },
+        { date: "20 Feb", description: "Gas order via Kosangas", status: "passed" },
+        { date: "09 Mar", description: "Facade design approval", status: "passed" },
+        { date: "10 Apr", description: "Construction drawings for large structures", status: "passed" },
+        { date: "18 May", description: "All staff registered in Ruby", status: "upcoming" },
+        { date: "01 Jun", description: "Waste handling guidelines received", status: "upcoming" },
+        { date: "22 Jun 08:00", description: "Tent frames ready, sales desks by 16:00", status: "upcoming" },
+        { date: "24 Jun 08:00", description: "Booth ready for power/water hookup", status: "upcoming" },
+        { date: "24 Jun 12:00", description: "Deliveries can begin", status: "upcoming" },
+        { date: "25 Jun 07:00", description: "Power/water expected ready", status: "upcoming" },
+      ],
     },
   },
   {
@@ -396,6 +755,67 @@ const festivalsData: FestivalData[] = [
       foodDelivery: { status: "pending", details: "Grocery delivery MISSING, BC-Catering pickup TBD" },
       staffAccred: { status: "pending", details: "No info" },
       accommodation: { status: "pending", details: "Check-in/check-out MISSING" },
+    },
+    contractDetails: {
+      festivalOrganizer: "Foreningen Vig Festival",
+      organizerCvr: "21074845",
+      festivalAddress: "Holbækvej 16B, 4560 Vig",
+      contactsFestival: [],
+      contactsInternal: [
+        { name: "Alexandra Artimon", role: "Primary contact", phone: "42787738", email: "aa@thefishproject.dk" },
+      ],
+      cashless: true,
+      posProvider: "OnlinePOS",
+      paymentTerms: "15% of revenue incl.moms. Cancellation after 01 Jul: 10,000 kr + moms fee.",
+      specialRules: [
+        "No alcohol sales allowed (festival-only)",
+        "Min 18 hours work for wristband",
+        "Cancellation after 01 Jul: 10,000 kr + moms fee",
+      ],
+      concepts: [
+        {
+          conceptName: "Fish N Chips",
+          entity: "MCA Trading ApS",
+          cvr: "39313707",
+          tentSize: "6x6m / 6x9m",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "All revenue incl.moms", rate: "15%" },
+          ],
+          fixedFee: "N/A",
+          maxStaff: 21,
+          leaderPasses: 4,
+          regularPasses: 17,
+          minWorkHours: 18,
+          sortiment: "Fish N Chips 139kr, Fries 49kr, Fish Burger 109kr/135kr with fries",
+          waterAccess: true,
+          campingVogn: false,
+          power: "16A per 6m included",
+        },
+        {
+          conceptName: "La Creperie",
+          entity: "MCA Trading ApS",
+          cvr: "39313707",
+          tentSize: "6x6m / 6x9m",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "All revenue incl.moms", rate: "15%" },
+          ],
+          fixedFee: "N/A",
+          maxStaff: 21,
+          leaderPasses: 4,
+          regularPasses: 17,
+          minWorkHours: 18,
+          sortiment: "Crepes",
+          waterAccess: true,
+          campingVogn: false,
+          power: "16A per 6m included",
+        },
+      ],
+      deadlines: [
+        { date: "05 Jul", description: "Last day to order extra wristbands", status: "upcoming" },
+        { date: "Sun week 28 12:00", description: "Site cleared", status: "upcoming" },
+      ],
     },
   },
   {
@@ -476,6 +896,44 @@ const festivalsData: FestivalData[] = [
       staffAccred: { status: "pending", details: "No info" },
       accommodation: { status: "pending", details: "Check-in/check-out MISSING" },
     },
+    contractDetails: {
+      festivalOrganizer: "Smash!Bang!Pow! ApS (SBP)",
+      organizerCvr: "33072635",
+      festivalAddress: "Knabrostr 3A 4.sal, 1210 KBH K",
+      contactsFestival: [],
+      contactsInternal: [
+        { name: "Alexandra Artimon", role: "Primary contact", phone: "42787738", email: "aa@thefishproject.dk" },
+      ],
+      cashless: false,
+      posProvider: "TBD",
+      paymentTerms: "Commission 20% (from Bilag 1 appendiks). No exclusivity clause. Cancellation: each party bears own costs.",
+      specialRules: [
+        "No exclusivity clause",
+        "Cancellation: each party bears own costs",
+        "Commission 20% from Bilag 1 appendiks",
+      ],
+      concepts: [
+        {
+          conceptName: "The Fish Project",
+          entity: "The Fish Project ApS",
+          cvr: "39236931",
+          tentSize: "TBD",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "All revenue", rate: "20%" },
+          ],
+          fixedFee: "N/A",
+          maxStaff: 0,
+          leaderPasses: 0,
+          regularPasses: 0,
+          minWorkHours: 0,
+          sortiment: "Fish & Chips",
+          waterAccess: false,
+          campingVogn: false,
+        },
+      ],
+      deadlines: [],
+    },
   },
   {
     id: 10, name: "Suset", dates: "17-25 Aug 2026", daysAway: 130, status: "URGENT",
@@ -516,6 +974,50 @@ const festivalsData: FestivalData[] = [
       foodDelivery: { status: "critical", details: "ORGANIC SOURCING — 50% requirement! Supplier coordination MISSING." },
       staffAccred: { status: "pending", details: "No info" },
       accommodation: { status: "pending", details: "Check-in/check-out MISSING" },
+    },
+    contractDetails: {
+      signedDate: "18.03.2026",
+      festivalOrganizer: "SUSET c/o Live Nation",
+      organizerCvr: "37074446",
+      festivalAddress: "Østre Forhavnskaj, Esbjerg",
+      contactsFestival: [
+        { name: "Tobias Kippenberger", role: "Festival contact", phone: "+45 31252466", email: "tobias@livenation.dk" },
+      ],
+      contactsInternal: [
+        { name: "Alexandra Artimon", role: "Primary contact", phone: "42787738", email: "aa@thefishproject.dk" },
+      ],
+      cashless: true,
+      posProvider: "Live Nation POS",
+      paymentTerms: "Settlement after festival. Contract valid until 31.08.2026. Capacity: 16,000 daily / 32,000 total.",
+      specialRules: [
+        "Multiple commission tiers by product category",
+        "Extensive legal framework (Bilag A through E)",
+        "Festival dates: 21-22 August 2026 (2 days only, Fri-Sat)",
+        "Capacity: 16,000 daily / 32,000 total",
+      ],
+      concepts: [
+        {
+          conceptName: "Gyropolis",
+          entity: "The Fish Project",
+          cvr: "39236931",
+          tentSize: "TBD",
+          location: "Festival",
+          commissionTiers: [
+            { threshold: "Meals", rate: "18%" },
+            { threshold: "Snacks & Sides", rate: "25%" },
+            { threshold: "Dips & Extras", rate: "18%" },
+          ],
+          fixedFee: "N/A",
+          maxStaff: 0,
+          leaderPasses: 0,
+          regularPasses: 0,
+          minWorkHours: 0,
+          sortiment: "Gyropolis - Greek Gyros",
+          waterAccess: false,
+          campingVogn: false,
+        },
+      ],
+      deadlines: [],
     },
   },
   {
@@ -1090,70 +1592,281 @@ function DocumentsTab() {
 }
 
 function ContractsTab() {
-  const eligible = festivalsData.filter((f) => f.status !== "PLANNING");
+  const eligible = festivalsData.filter((f) => f.status !== "CANCELLED");
+  const [expandedFestival, setExpandedFestival] = useState<number | null>(null);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {eligible.map((f) => (
-        <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-white font-bold text-lg">{f.name}</h3>
-            {f.contracts.signed ? (
-              <div className="flex items-center gap-1 text-green-400">
-                <Check className="h-5 w-5" />
-                <span className="text-sm font-medium">Signed</span>
+    <div className="space-y-4">
+      {eligible.map((f) => {
+        const cd = f.contractDetails;
+        const isExpanded = expandedFestival === f.id;
+
+        return (
+          <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+            {/* Header - always visible */}
+            <button
+              onClick={() => setExpandedFestival(isExpanded ? null : f.id)}
+              className="w-full p-5 flex items-center justify-between hover:bg-slate-750 transition-colors text-left"
+            >
+              <div className="flex items-center gap-4">
+                <h3 className="text-white font-bold text-lg">{f.name}</h3>
+                {f.contracts.signed ? (
+                  <span className="flex items-center gap-1 text-green-400 text-sm">
+                    <Check className="h-4 w-4" /> Signed
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-red-400 text-sm">
+                    <X className="h-4 w-4" /> Not signed
+                  </span>
+                )}
+                {cd && (
+                  <span className="text-slate-500 text-sm">
+                    {cd.concepts.length} concept{cd.concepts.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+                {f.contracts.critical && (
+                  <span className="flex items-center gap-1 text-red-400 text-xs">
+                    <AlertCircle className="h-3.5 w-3.5" /> Critical
+                  </span>
+                )}
               </div>
-            ) : (
-              <div className="flex items-center gap-1 text-red-400">
-                <X className="h-5 w-5" />
-                <span className="text-sm font-medium">Not signed</span>
+              <div className="flex items-center gap-3">
+                {cd && <span className="text-slate-400 text-sm">{cd.festivalOrganizer}</span>}
+                {isExpanded ? (
+                  <ChevronUp className="h-5 w-5 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-slate-400" />
+                )}
+              </div>
+            </button>
+
+            {/* Expanded content */}
+            {isExpanded && cd && (
+              <div className="border-t border-slate-700 p-5 space-y-6">
+                {/* Organizer info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="bg-slate-900/50 rounded-lg p-4">
+                    <h4 className="text-slate-400 text-xs uppercase tracking-wider mb-2">Organizer</h4>
+                    <p className="text-white font-medium">{cd.festivalOrganizer}</p>
+                    <p className="text-slate-400 text-sm">CVR: {cd.organizerCvr}</p>
+                    <p className="text-slate-400 text-sm">{cd.festivalAddress}</p>
+                    {cd.signedDate && (
+                      <p className="text-slate-500 text-xs mt-1">Signed: {cd.signedDate}</p>
+                    )}
+                  </div>
+
+                  <div className="bg-slate-900/50 rounded-lg p-4">
+                    <h4 className="text-slate-400 text-xs uppercase tracking-wider mb-2">Payment & POS</h4>
+                    <p className="text-white text-sm">{cd.paymentTerms}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${cd.cashless ? "bg-green-600/20 text-green-400 border border-green-600/30" : "bg-slate-600/20 text-slate-400 border border-slate-600/30"}`}>
+                        {cd.cashless ? "Cashless" : "Cash allowed"}
+                      </span>
+                      <span className="text-slate-500 text-xs">POS: {cd.posProvider}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/50 rounded-lg p-4">
+                    <h4 className="text-slate-400 text-xs uppercase tracking-wider mb-2">Contacts</h4>
+                    {cd.contactsFestival.map((c, i) => (
+                      <div key={`fest-${i}`} className="mb-2">
+                        <p className="text-white text-sm font-medium">{c.name} <span className="text-slate-500 text-xs">({c.role})</span></p>
+                        {c.phone && <p className="text-slate-400 text-xs">{c.phone}</p>}
+                        {c.email && <p className="text-blue-400 text-xs">{c.email}</p>}
+                      </div>
+                    ))}
+                    {cd.contactsInternal.map((c, i) => (
+                      <div key={`int-${i}`} className="mb-2">
+                        <p className="text-white text-sm font-medium">{c.name} <span className="text-purple-400 text-xs">(Internal)</span></p>
+                        {c.phone && <p className="text-slate-400 text-xs">{c.phone}</p>}
+                        {c.email && <p className="text-blue-400 text-xs">{c.email}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Concept cards */}
+                <div>
+                  <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                    <UtensilsCrossed className="h-4 w-4 text-blue-400" />
+                    Concepts ({cd.concepts.length})
+                  </h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {cd.concepts.map((concept, i) => (
+                      <div key={i} className="bg-slate-900/60 border border-slate-700/50 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h5 className="text-white font-bold">{concept.conceptName}</h5>
+                            <p className="text-slate-400 text-xs">{concept.entity} | CVR: {concept.cvr}</p>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${concept.location === "Festival" ? "bg-blue-600/20 text-blue-400 border border-blue-600/30" : "bg-purple-600/20 text-purple-400 border border-purple-600/30"}`}>
+                            {concept.location}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-slate-500 text-xs uppercase">Sortiment</span>
+                            <p className="text-slate-300">{concept.sortiment}</p>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-slate-500 text-xs uppercase">Tent</span>
+                              <p className="text-slate-300 text-xs">{concept.tentSize}</p>
+                            </div>
+                            {concept.power && (
+                              <div>
+                                <span className="text-slate-500 text-xs uppercase">Power</span>
+                                <p className="text-yellow-400 text-xs">{concept.power}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Commission tiers */}
+                          <div>
+                            <span className="text-slate-500 text-xs uppercase">Commission</span>
+                            <div className="mt-1 space-y-0.5">
+                              {concept.commissionTiers.map((tier, ti) => (
+                                <div key={ti} className="flex justify-between text-xs">
+                                  <span className="text-slate-400">{tier.threshold}</span>
+                                  <span className="text-orange-400 font-medium">{tier.rate}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {concept.fixedFee !== "N/A" && (
+                              <p className="text-xs text-slate-400 mt-1">Fixed fee: {concept.fixedFee}</p>
+                            )}
+                          </div>
+
+                          {/* Staff allocation */}
+                          <div className="flex items-center gap-3 pt-1">
+                            <Users className="h-3.5 w-3.5 text-purple-400" />
+                            <span className="text-xs text-slate-300">
+                              {concept.maxStaff > 0 ? `Max ${concept.maxStaff} staff` : "Staff TBD"}
+                              {concept.leaderPasses > 0 && ` (${concept.leaderPasses} leader, ${concept.regularPasses} regular)`}
+                            </span>
+                            {concept.minWorkHours > 0 && (
+                              <span className="text-xs text-slate-500">Min {concept.minWorkHours}h</span>
+                            )}
+                          </div>
+
+                          {concept.openingHours && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-3.5 w-3.5 text-blue-400" />
+                              <span className="text-xs text-slate-300">{concept.openingHours}</span>
+                            </div>
+                          )}
+
+                          {concept.depositum && (
+                            <p className="text-xs text-amber-400">Depositum: {concept.depositum}</p>
+                          )}
+
+                          <div className="flex gap-2 pt-1">
+                            {concept.waterAccess && (
+                              <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/30">Water</span>
+                            )}
+                            {concept.campingVogn && (
+                              <span className="px-1.5 py-0.5 rounded text-xs bg-green-600/20 text-green-400 border border-green-600/30">Camping wagon</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Deadline timeline */}
+                {cd.deadlines.length > 0 && (
+                  <div>
+                    <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-blue-400" />
+                      Deadlines
+                    </h4>
+                    <div className="bg-slate-900/50 rounded-lg p-4">
+                      <div className="space-y-2">
+                        {cd.deadlines.map((dl, i) => (
+                          <div key={i} className="flex items-center gap-3 text-sm">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              dl.status === "passed" ? "bg-slate-500" :
+                              dl.status === "done" ? "bg-green-500" :
+                              "bg-amber-500 animate-pulse"
+                            }`} />
+                            <span className={`font-mono text-xs min-w-[110px] ${
+                              dl.status === "passed" ? "text-slate-500" :
+                              dl.status === "done" ? "text-green-400" :
+                              "text-amber-400"
+                            }`}>
+                              {dl.date}
+                            </span>
+                            <span className={
+                              dl.status === "passed" ? "text-slate-500 line-through" :
+                              dl.status === "done" ? "text-green-400" :
+                              "text-white"
+                            }>
+                              {dl.description}
+                            </span>
+                            <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded ${
+                              dl.status === "passed" ? "bg-slate-700/50 text-slate-400" :
+                              dl.status === "done" ? "bg-green-600/20 text-green-400" :
+                              "bg-amber-600/20 text-amber-400"
+                            }`}>
+                              {dl.status.toUpperCase()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Special rules */}
+                {cd.specialRules.length > 0 && (
+                  <div>
+                    <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-400" />
+                      Special Rules & Requirements
+                    </h4>
+                    <div className="bg-amber-950/20 border border-amber-900/30 rounded-lg p-4">
+                      <ul className="space-y-1.5">
+                        {cd.specialRules.map((rule, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm">
+                            <span className="text-amber-400 mt-0.5 flex-shrink-0">--</span>
+                            <span className="text-amber-200/80">{rule}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Collapsed: show without contract details */}
+            {isExpanded && !cd && (
+              <div className="border-t border-slate-700 p-5">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Commission</span>
+                    <span className="text-white">{f.commission > 0 ? `${f.commission}%` : "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Exclusivity</span>
+                    <span className="text-white">{f.exclusivity}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Organic Requirement</span>
+                    <span className={f.organicRequired ? "text-green-400 font-medium" : "text-slate-400"}>
+                      {f.organicRequired ? "Yes - 50%" : "No"}
+                    </span>
+                  </div>
+                  <p className="text-slate-500 text-sm italic mt-3">No detailed contract data available yet.</p>
+                </div>
               </div>
             )}
           </div>
-
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Contract Status</span>
-              <span className={f.contracts.signed ? "text-green-400" : "text-red-400"}>
-                {f.contracts.signed ? "Signed" : "Pending"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Commission</span>
-              <span className="text-white">{f.commission > 0 ? `${f.commission}%` : "N/A"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Exclusivity</span>
-              <span className="text-white">{f.exclusivity}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Organic Requirement</span>
-              <span className={f.organicRequired ? "text-green-400 font-medium" : "text-slate-400"}>
-                {f.organicRequired ? "Yes - 50%" : "No"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Gas Check Required</span>
-              <span className={f.gasRequired ? "text-red-400" : "text-slate-400"}>
-                {f.gasRequired ? "Yes" : "No"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Power Included</span>
-              <span className="text-white">
-                {f.powerIncluded ? "Yes" : f.powerCost > 0 ? `No — ${f.powerCost.toLocaleString()} DKK` : "No — TBD"}
-              </span>
-            </div>
-          </div>
-
-          {f.contracts.critical && (
-            <div className="mt-4 bg-red-950/40 border border-red-800/50 rounded-lg p-3 flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-red-300">Critical contract — requires immediate attention</p>
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
