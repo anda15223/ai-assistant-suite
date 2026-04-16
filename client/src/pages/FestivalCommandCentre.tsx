@@ -1,31 +1,23 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   ChevronDown,
   ChevronUp,
-  Check,
-  X,
   AlertCircle,
   Clock,
-  DollarSign,
-  Users,
-  Zap,
-  Box,
-  Droplets,
-  Shield,
-  MapPin,
   Calendar,
-  Filter,
   Search,
-  LayoutGrid,
-  ListChecks,
-  ClipboardList,
   FileText,
-  UtensilsCrossed,
-  FolderOpen,
-  Mail,
-  ExternalLink,
   AlertTriangle,
   ArrowLeft,
+  Calculator,
+  Link,
+  Phone,
+  Mail,
+  Building2,
+  Circle,
+  CheckCircle2,
+  Ban,
+  Loader2,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -33,6 +25,7 @@ import { useLocation } from "wouter";
 
 type ChecklistStatus = "pending" | "confirmed" | "complete" | "warning" | "critical";
 type FestivalStatus = "CRITICAL" | "URGENT" | "ON TRACK" | "PLANNING" | "CANCELLED";
+type PhaseStatus = "complete" | "in-progress" | "not-started" | "blocked";
 
 interface SetupChecklistItem {
   status: ChecklistStatus;
@@ -54,41 +47,6 @@ interface FestivalEmail {
   summary: string;
   direction: "inbox" | "sent";
   hasAttachments?: boolean;
-}
-
-interface FestivalData {
-  id: number;
-  name: string;
-  dates: string;
-  daysAway: number | null;
-  status: FestivalStatus;
-  notes: string;
-  commission: number;
-  exclusivity: string;
-  powerIncluded: boolean;
-  powerCost: number;
-  gasRequired: boolean;
-  organicRequired: boolean;
-  standLocation: string;
-  accommodation: string;
-  documents?: DriveDoc[];
-  emails?: FestivalEmail[];
-  contracts: { signed: boolean; critical: boolean };
-  setupChecklist: Record<string, SetupChecklistItem>;
-  contractDetails?: ContractDetails;
-}
-
-interface MenuItem {
-  name: string;
-  price: number;
-}
-
-interface TodoItem {
-  id: string;
-  text: string;
-  priority: "CRITICAL" | "URGENT";
-  deadline: string;
-  festival: string;
 }
 
 interface FestivalContact {
@@ -131,6 +89,55 @@ interface ContractDetails {
   paymentTerms: string;
   cashless: boolean;
   posProvider: string;
+}
+
+interface PhaseStep {
+  title: string;
+  status: PhaseStatus;
+  details?: string;
+  actionNeeded?: string;
+  link?: string;
+  linkLabel?: string;
+}
+
+interface FestivalPhase {
+  status: PhaseStatus;
+  steps: PhaseStep[];
+}
+
+interface MenuItem {
+  name: string;
+  price: number;
+}
+
+interface TodoItem {
+  id: string;
+  text: string;
+  priority: "CRITICAL" | "URGENT";
+  deadline: string;
+  festival: string;
+}
+
+interface FestivalData {
+  id: number;
+  name: string;
+  dates: string;
+  daysAway: number | null;
+  status: FestivalStatus;
+  notes: string;
+  commission: number;
+  exclusivity: string;
+  powerIncluded: boolean;
+  powerCost: number;
+  gasRequired: boolean;
+  organicRequired: boolean;
+  standLocation: string;
+  accommodation: string;
+  documents?: DriveDoc[];
+  emails?: FestivalEmail[];
+  contracts: { signed: boolean; critical: boolean };
+  setupChecklist: Record<string, SetupChecklistItem>;
+  contractDetails?: ContractDetails;
 }
 
 // ── Data ─────────────────────────────────────────────────────────────────
@@ -1099,18 +1106,6 @@ const menuData: Record<string, MenuItem[]> = {
   ],
 };
 
-const costCategories = [
-  { name: "Stand Fee / Commission", key: "commission" },
-  { name: "Electricity", key: "electricity" },
-  { name: "Accommodation", key: "accommodation" },
-  { name: "Tent Rental (Fidibus)", key: "tent" },
-  { name: "Cooling Containers", key: "cooling" },
-  { name: "Staff Wages + Travel", key: "staff" },
-  { name: "Food / Ingredients", key: "food" },
-  { name: "Equipment Rental", key: "equipment" },
-  { name: "Insurance", key: "insurance" },
-];
-
 const todoItems: TodoItem[] = [
   { id: "t1", text: "Jelling — Finalize POS template", priority: "CRITICAL", deadline: "Deadline PASSED", festival: "Jelling" },
   { id: "t2", text: "Jelling — Confirm tent facade + flame-retardant cert", priority: "CRITICAL", deadline: "Deadline PASSED", festival: "Jelling" },
@@ -1122,29 +1117,241 @@ const todoItems: TodoItem[] = [
   { id: "t8", text: "Aarhus Festuge — Request festival information + dates", priority: "URGENT", deadline: "ASAP", festival: "Aarhus Festuge" },
 ];
 
-const CHECKLIST_CATEGORIES: { key: string; label: string; icon: typeof Zap; color: string }[] = [
-  { key: "electricity", label: "Electricity", icon: Zap, color: "text-yellow-400" },
-  { key: "tent", label: "Tent", icon: Box, color: "text-blue-400" },
-  { key: "cooling", label: "Cooling", icon: Droplets, color: "text-cyan-400" },
-  { key: "gasSafety", label: "Gas & Safety", icon: Shield, color: "text-red-400" },
-  { key: "pos", label: "POS / Cash", icon: DollarSign, color: "text-green-400" },
-  { key: "foodDelivery", label: "Food Delivery", icon: Box, color: "text-orange-400" },
-  { key: "staffAccred", label: "Staff / Accreditation", icon: Users, color: "text-purple-400" },
-  { key: "accommodation", label: "Accommodation", icon: MapPin, color: "text-pink-400" },
+// ── Phase Configuration ─────────────────────────────────────────────────
+
+const PHASE_CONFIG: { number: number; title: string; color: string }[] = [
+  { number: 1, title: "Research & Initial Decision", color: "#185FA5" },
+  { number: 2, title: "Application & Contract", color: "#0F6E56" },
+  { number: 3, title: "Pre-production Planning", color: "#854F0B" },
+  { number: 4, title: "Staff & Accreditation", color: "#534AB7" },
+  { number: 5, title: "Logistics & Transport", color: "#993C1D" },
+  { number: 6, title: "On-site Setup", color: "#185FA5" },
+  { number: 7, title: "Live Operations", color: "#3B6D11" },
+  { number: 8, title: "Teardown & Departure", color: "#555555" },
+  { number: 9, title: "Financial Close", color: "#A32D2D" },
 ];
 
-type TabId = "overview" | "timeline" | "todo" | "setup" | "contracts" | "costs" | "menu" | "documents";
+// ── Phase Builder ───────────────────────────────────────────────────────
 
-const TABS: { id: TabId; label: string; icon: typeof LayoutGrid }[] = [
-  { id: "overview", label: "Overview", icon: LayoutGrid },
-  { id: "timeline", label: "Timeline", icon: Calendar },
-  { id: "documents", label: "Documents", icon: FolderOpen },
-  { id: "todo", label: "To-Do", icon: ListChecks },
-  { id: "setup", label: "Setup", icon: ClipboardList },
-  { id: "contracts", label: "Contracts", icon: FileText },
-  { id: "costs", label: "Costs", icon: DollarSign },
-  { id: "menu", label: "Menu", icon: UtensilsCrossed },
-];
+function driveUrl(id: string, type: string): string {
+  if (type === "folder") return `https://drive.google.com/drive/folders/${id}`;
+  if (type === "sheet") return `https://docs.google.com/spreadsheets/d/${id}/edit`;
+  return `https://docs.google.com/document/d/${id}/edit`;
+}
+
+function buildPhases(f: FestivalData): Record<number, FestivalPhase> {
+  const cd = f.contractDetails;
+  const prodPlan = f.documents?.find(d => d.title.toLowerCase().includes("production plan"));
+  const menuDoc = f.documents?.find(d => d.title.toLowerCase().includes("menu"));
+  const menuSentEmail = f.emails?.find(e => e.direction === "sent" && (e.subject.toLowerCase().includes("menu") || e.subject.toLowerCase().includes("sortiment")));
+  const menuReceivedEmail = f.emails?.find(e => e.direction === "inbox" && (e.subject.toLowerCase().includes("sortiment") || e.subject.toLowerCase().includes("menu")));
+
+  // Phase 1 - Research: Complete for all non-cancelled
+  const phase1: FestivalPhase = {
+    status: f.status === "CANCELLED" ? "not-started" : "complete",
+    steps: [
+      { title: "Research festival opportunity", status: f.status === "CANCELLED" ? "not-started" : "complete", details: f.status === "CANCELLED" ? "Festival cancelled" : "Festival researched and evaluated" },
+      { title: "Go / No-go decision", status: f.status === "CANCELLED" ? "not-started" : "complete", details: f.status === "CANCELLED" ? "Cancelled" : "Decision: GO" },
+      { title: "First contact with organizer", status: f.status === "CANCELLED" ? "not-started" : "complete", details: cd ? `Contact: ${cd.festivalOrganizer}` : "Initial contact made" },
+    ],
+  };
+
+  // Phase 2 - Contract
+  const contractSigned = f.contracts.signed;
+  const hasContractDetails = !!cd;
+  const phase2Status: PhaseStatus = contractSigned && hasContractDetails ? "complete" : contractSigned ? "complete" : f.status === "CANCELLED" ? "not-started" : "in-progress";
+
+  const phase2Steps: PhaseStep[] = [
+    {
+      title: "Submit application",
+      status: f.status === "CANCELLED" ? "not-started" : "complete",
+      details: f.status === "CANCELLED" ? "Festival cancelled" : "Application submitted",
+    },
+    {
+      title: "Contract signed",
+      status: contractSigned ? "complete" : f.status === "PLANNING" ? "in-progress" : "not-started",
+      details: contractSigned
+        ? `Signed${cd?.signedDate ? ` on ${cd.signedDate}` : ""}${cd ? ` with ${cd.festivalOrganizer} (CVR: ${cd.organizerCvr})` : ""}`
+        : f.status === "PLANNING" ? "Awaiting contract" : "Not yet signed",
+      actionNeeded: !contractSigned && f.status !== "CANCELLED" ? "Contract needs to be signed" : undefined,
+    },
+  ];
+
+  if (cd && cd.deadlines.length > 0) {
+    const passedCount = cd.deadlines.filter(d => d.status === "passed").length;
+    const upcomingCount = cd.deadlines.filter(d => d.status === "upcoming").length;
+    phase2Steps.push({
+      title: "Contract deadlines",
+      status: upcomingCount > 0 ? "in-progress" : "complete",
+      details: `${passedCount} passed, ${upcomingCount} upcoming`,
+      actionNeeded: upcomingCount > 0 ? `${upcomingCount} upcoming deadline${upcomingCount > 1 ? "s" : ""} to track` : undefined,
+    });
+  }
+
+  phase2Steps.push({
+    title: "Insurance submitted",
+    status: contractSigned ? "in-progress" : "not-started",
+    details: contractSigned ? "Verify insurance submission" : "Pending contract",
+    actionNeeded: contractSigned ? "Confirm insurance is submitted" : undefined,
+  });
+
+  const phase2: FestivalPhase = { status: phase2Status, steps: phase2Steps };
+
+  // Phase 3 - Pre-production
+  const hasProdPlan = !!prodPlan;
+  const missingCount = prodPlan?.missingItems?.length ?? 0;
+  const hasMenu = !!menuDoc;
+  const menuSubmitted = !!menuSentEmail || !!menuReceivedEmail;
+  const accomStatus = f.setupChecklist.accommodation;
+
+  const phase3Steps: PhaseStep[] = [
+    {
+      title: "Production plan",
+      status: hasProdPlan ? (missingCount > 0 ? "in-progress" : "complete") : "not-started",
+      details: hasProdPlan
+        ? `${prodPlan!.title}${missingCount > 0 ? ` — ${missingCount} missing items` : ""}`
+        : "No production plan created yet",
+      actionNeeded: hasProdPlan && missingCount > 0 ? `Fill in ${missingCount} missing items` : !hasProdPlan ? "Create production plan" : undefined,
+      link: hasProdPlan ? driveUrl(prodPlan!.driveId, prodPlan!.type) : undefined,
+      linkLabel: hasProdPlan ? "Open in Drive" : undefined,
+    },
+    {
+      title: "Brief Fidibus (build team)",
+      status: hasProdPlan ? "in-progress" : "not-started",
+      details: hasProdPlan ? "Production plan exists — brief Fidibus on tent/setup requirements" : "Waiting for production plan",
+      actionNeeded: hasProdPlan ? "Schedule Fidibus briefing" : undefined,
+    },
+    {
+      title: "Menu finalized",
+      status: hasMenu ? "complete" : "not-started",
+      details: hasMenu ? menuDoc!.summary?.substring(0, 120) + "..." : "No menu document found",
+      actionNeeded: !hasMenu ? "Create and finalize menu" : undefined,
+      link: hasMenu ? driveUrl(menuDoc!.driveId, menuDoc!.type) : undefined,
+      linkLabel: hasMenu ? "Open Menu Doc" : undefined,
+    },
+    {
+      title: "Menu submitted to festival",
+      status: menuSubmitted ? "complete" : hasMenu ? "in-progress" : "not-started",
+      details: menuSubmitted ? "Menu/sortiment communicated to organizer" : hasMenu ? "Menu ready but not yet submitted" : "Menu not yet finalized",
+      actionNeeded: hasMenu && !menuSubmitted ? "Submit menu to festival organizer" : undefined,
+    },
+    {
+      title: "Sales forecast calculated",
+      status: "not-started",
+      details: "No forecast created yet",
+      actionNeeded: "Build sales forecast based on historical data and capacity",
+    },
+    {
+      title: "Food orders placed",
+      status: "not-started",
+      details: "Not yet — pending menu finalization and forecast",
+      actionNeeded: "Place food orders with suppliers",
+    },
+    {
+      title: "Accommodation booked",
+      status: accomStatus ? (accomStatus.status === "confirmed" || accomStatus.status === "complete" ? "complete" : "in-progress") : "not-started",
+      details: accomStatus ? accomStatus.details : f.accommodation || "No accommodation info",
+      actionNeeded: accomStatus && accomStatus.status === "pending" ? "Confirm accommodation booking" : undefined,
+    },
+  ];
+
+  const phase3HasProgress = hasProdPlan || hasMenu || menuSubmitted;
+  const phase3AllDone = phase3Steps.every(s => s.status === "complete");
+  const phase3: FestivalPhase = {
+    status: f.status === "CANCELLED" ? "not-started" : phase3AllDone ? "complete" : phase3HasProgress ? "in-progress" : "not-started",
+    steps: phase3Steps,
+  };
+
+  // Phase 4 - Staff & Accreditation
+  const phase4: FestivalPhase = {
+    status: "not-started",
+    steps: [
+      { title: "Finalize staff roster", status: "not-started", details: "Assign team members to festival" },
+      { title: "Send staff info letters", status: "not-started", details: "Brief all staff on logistics and roles" },
+      { title: "Submit headcount to organizer", status: "not-started", details: "Report final staff numbers" },
+      { title: "Collect wristbands / accreditation", status: "not-started", details: f.setupChecklist.staffAccred?.details || "Accreditation process TBD" },
+    ],
+  };
+
+  // Phase 5 - Logistics
+  const phase5: FestivalPhase = {
+    status: "not-started",
+    steps: [
+      { title: "Create load list", status: "not-started", details: "Itemize everything to transport" },
+      { title: "Arrange transport", status: "not-started", details: "Book vehicles and plan routes" },
+      { title: "Confirm cooling delivery", status: "not-started", details: f.setupChecklist.cooling?.details || "Cooling logistics TBD" },
+      { title: "Confirm gas supply", status: "not-started", details: f.gasRequired ? (f.setupChecklist.gasSafety?.details || "Gas required — details TBD") : "No gas required" },
+    ],
+  };
+
+  // Phase 6 - On-site Setup
+  const phase6: FestivalPhase = {
+    status: "not-started",
+    steps: [
+      { title: "Fidibus builds stand", status: "not-started", details: "Tent and structure assembly" },
+      { title: "Electricity check", status: "not-started", details: f.setupChecklist.electricity?.details || "Electricity TBD" },
+      { title: "Cooling temperature check", status: "not-started", details: "Verify cooling units reach safe temp" },
+      { title: "Gas safety inspection", status: "not-started", details: f.setupChecklist.gasSafety?.details || "Gas safety TBD" },
+      { title: "Goods delivery received", status: "not-started", details: f.setupChecklist.foodDelivery?.details || "Food delivery TBD" },
+      { title: "Equipment test", status: "not-started", details: "Test all kitchen and POS equipment" },
+    ],
+  };
+
+  // Phase 7 - Live Operations
+  const phase7: FestivalPhase = {
+    status: "not-started",
+    steps: [
+      { title: "Daily opening checks", status: "not-started", details: "Temp logs, hygiene check, stock count" },
+      { title: "Sales tracking", status: "not-started", details: "Monitor POS data throughout the day" },
+      { title: "Stock management", status: "not-started", details: "Track inventory and reorder if needed" },
+      { title: "Cash reconciliation", status: "not-started", details: "End-of-day cash vs. POS reconciliation" },
+      { title: "Daily close procedure", status: "not-started", details: "Cleaning, securing equipment, prep for next day" },
+    ],
+  };
+
+  // Phase 8 - Teardown
+  const phase8: FestivalPhase = {
+    status: "not-started",
+    steps: [
+      { title: "Pack down kitchen", status: "not-started", details: "Clean and pack all kitchen equipment" },
+      { title: "Fidibus dismantles stand", status: "not-started", details: "Tent and structure takedown" },
+      { title: "Cooling pickup", status: "not-started", details: f.setupChecklist.cooling?.details || "Cooling pickup TBD" },
+      { title: "Final checkout with organizer", status: "not-started", details: "Site inspection and handover" },
+    ],
+  };
+
+  // Phase 9 - Financial Close
+  const phase9: FestivalPhase = {
+    status: "not-started",
+    steps: [
+      { title: "Receive sales report from organizer", status: "not-started", details: "Get final POS/sales data" },
+      { title: "Receive payment / settlement", status: "not-started", details: cd?.paymentTerms || "Payment terms TBD" },
+      { title: "Calculate P&L", status: "not-started", details: "Full profit & loss calculation" },
+      { title: "Post-festival debrief", status: "not-started", details: "Team retrospective and learnings" },
+    ],
+  };
+
+  return {
+    1: phase1,
+    2: phase2,
+    3: phase3,
+    4: phase4,
+    5: phase5,
+    6: phase6,
+    7: phase7,
+    8: phase8,
+    9: phase9,
+  };
+}
+
+function getCurrentPhase(phases: Record<number, FestivalPhase>): number {
+  for (let i = 9; i >= 1; i--) {
+    if (phases[i].status === "complete" || phases[i].status === "in-progress") {
+      return phases[i].status === "complete" && i < 9 ? i + 1 : i;
+    }
+  }
+  return 1;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -1157,433 +1364,171 @@ function statusBadge(status: FestivalStatus) {
     CANCELLED: "bg-slate-600/80 text-slate-300",
   };
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${colors[status]}`}>
+    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${colors[status]}`}>
       {status}
     </span>
   );
 }
 
-function checklistStatusBadge(status: ChecklistStatus) {
-  const styles: Record<ChecklistStatus, string> = {
-    complete: "bg-green-600/20 text-green-400 border border-green-600/30",
-    confirmed: "bg-green-600/20 text-green-400 border border-green-600/30",
-    critical: "bg-red-600/20 text-red-400 border border-red-600/30",
-    warning: "bg-yellow-600/20 text-yellow-400 border border-yellow-600/30",
-    pending: "bg-slate-600/20 text-slate-400 border border-slate-600/30",
-  };
+function phaseStatusIcon(status: PhaseStatus) {
+  switch (status) {
+    case "complete":
+      return <CheckCircle2 className="h-4 w-4 text-green-400" />;
+    case "in-progress":
+      return <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />;
+    case "blocked":
+      return <Ban className="h-4 w-4 text-red-400" />;
+    default:
+      return <Circle className="h-4 w-4 text-slate-600" />;
+  }
+}
+
+function stepStatusIcon(status: PhaseStatus) {
+  switch (status) {
+    case "complete":
+      return <span className="text-green-400 flex-shrink-0">&#10003;</span>;
+    case "in-progress":
+      return <span className="text-amber-400 flex-shrink-0">&#x1F504;</span>;
+    case "blocked":
+      return <span className="text-red-400 flex-shrink-0">&#x1F6AB;</span>;
+    default:
+      return <span className="text-slate-600 flex-shrink-0">&#x2B1C;</span>;
+  }
+}
+
+// ── Phase Dots (for selector) ───────────────────────────────────────────
+
+function PhaseDots({ phases }: { phases: Record<number, FestivalPhase> }) {
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium ${styles[status]}`}>
-      {status.toUpperCase()}
-    </span>
-  );
-}
-
-function cardBg(f: FestivalData): string {
-  if (f.status === "CRITICAL") return "bg-red-950/40 border-red-800/50";
-  if (f.status === "URGENT") return "bg-orange-950/40 border-orange-800/50";
-  if (f.daysAway !== null && f.daysAway < 45) return "bg-red-950/30 border-red-900/40";
-  if (f.daysAway !== null && f.daysAway < 90) return "bg-amber-950/20 border-amber-900/30";
-  return "bg-slate-800 border-slate-700";
-}
-
-function progressColor(days: number): string {
-  if (days < 45) return "bg-red-500";
-  if (days < 90) return "bg-yellow-500";
-  return "bg-green-500";
-}
-
-// ── Tab Components ───────────────────────────────────────────────────────
-
-function OverviewTab({
-  festivals,
-  expandedFestival,
-  setExpandedFestival,
-}: {
-  festivals: FestivalData[];
-  expandedFestival: number | null;
-  setExpandedFestival: (id: number | null) => void;
-}) {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {festivals.map((f) => (
-        <div
-          key={f.id}
-          className={`rounded-xl border p-5 cursor-pointer transition-all hover:ring-1 hover:ring-slate-500 ${cardBg(f)}`}
-          onClick={() => setExpandedFestival(expandedFestival === f.id ? null : f.id)}
-        >
-          <div className="flex items-start justify-between mb-2">
-            <div>
-              <h3 className="text-lg font-bold text-white">{f.name}</h3>
-              <p className="text-sm text-slate-400">{f.dates}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {statusBadge(f.status)}
-              {f.daysAway !== null && (
-                <span className="text-sm font-mono text-slate-400">{f.daysAway}d</span>
-              )}
-              {expandedFestival === f.id ? (
-                <ChevronUp className="h-4 w-4 text-slate-400" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-slate-400" />
-              )}
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div className="border-l-2 border-yellow-500/60 pl-3 py-1 mb-3">
-            <p className="text-sm text-yellow-200/80">{f.notes}</p>
-          </div>
-
-          {/* Tags */}
-          <div className="flex flex-wrap gap-2 text-xs">
-            {f.commission > 0 && (
-              <span className="bg-slate-700/60 text-slate-300 px-2 py-0.5 rounded">
-                {f.commission}% commission
-              </span>
-            )}
-            {f.powerCost > 0 && (
-              <span className="bg-slate-700/60 text-slate-300 px-2 py-0.5 rounded">
-                Power: {f.powerCost.toLocaleString()} DKK
-              </span>
-            )}
-            {f.organicRequired && (
-              <span className="bg-green-800/40 text-green-300 px-2 py-0.5 rounded">
-                Organic required
-              </span>
-            )}
-          </div>
-
-          {/* Expanded */}
-          {expandedFestival === f.id && f.status !== "CANCELLED" && (
-            <div className="mt-4 pt-4 border-t border-slate-700/50 grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-slate-500">Commission:</span>{" "}
-                <span className="text-white">{f.commission}%</span>
-              </div>
-              <div>
-                <span className="text-slate-500">Exclusivity:</span>{" "}
-                <span className="text-white">{f.exclusivity}</span>
-              </div>
-              <div>
-                <span className="text-slate-500">Location:</span>{" "}
-                <span className="text-white">{f.standLocation}</span>
-              </div>
-              <div>
-                <span className="text-slate-500">Gas required:</span>{" "}
-                <span className={f.gasRequired ? "text-red-400" : "text-green-400"}>
-                  {f.gasRequired ? "Yes" : "No"}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500">Power:</span>{" "}
-                <span className="text-white">
-                  {f.powerIncluded ? "Included" : f.powerCost > 0 ? `${f.powerCost.toLocaleString()} DKK` : "TBD"}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-500">Accommodation:</span>{" "}
-                <span className="text-white">{f.accommodation}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TimelineTab() {
-  const sorted = festivalsData
-    .filter((f) => f.status !== "CANCELLED" && f.daysAway !== null)
-    .sort((a, b) => (a.daysAway ?? 999) - (b.daysAway ?? 999));
-
-  const maxDays = Math.max(...sorted.map((f) => f.daysAway ?? 0), 1);
-
-  return (
-    <div className="space-y-3">
-      {sorted.map((f, i) => (
-        <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-sm font-bold text-white">
-                {i + 1}
-              </div>
-              <div>
-                <h3 className="text-white font-bold text-lg">{f.name}</h3>
-                <p className="text-sm text-slate-400">{f.dates}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-3xl font-bold text-white font-mono">{f.daysAway}</span>
-              <span className="text-sm text-slate-400">days</span>
-              {statusBadge(f.status)}
-            </div>
-          </div>
-          <div className="w-full bg-slate-700 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all ${progressColor(f.daysAway ?? 0)}`}
-              style={{ width: `${Math.max(5, 100 - ((f.daysAway ?? 0) / maxDays) * 100)}%` }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TodoTab({
-  checkedTodos,
-  setCheckedTodos,
-}: {
-  checkedTodos: Record<string, boolean>;
-  setCheckedTodos: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-}) {
-  return (
-    <div className="space-y-2">
-      {todoItems.map((item) => {
-        const checked = checkedTodos[item.id] ?? false;
+    <div className="flex items-center gap-0.5">
+      {PHASE_CONFIG.map((p) => {
+        const phase = phases[p.number];
+        const isComplete = phase?.status === "complete";
+        const isInProgress = phase?.status === "in-progress";
         return (
           <div
-            key={item.id}
-            className={`bg-slate-800 border border-slate-700 rounded-lg p-4 flex items-start gap-4 transition-opacity ${
-              checked ? "opacity-60" : ""
-            }`}
-          >
-            <button
-              onClick={() => setCheckedTodos((prev) => ({ ...prev, [item.id]: !checked }))}
-              className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                checked
-                  ? "bg-green-600 border-green-600"
-                  : "border-slate-500 hover:border-slate-300"
-              }`}
-            >
-              {checked && <Check className="h-3 w-3 text-white" />}
-            </button>
-            <div className="flex-1">
-              <p className={`text-white font-medium ${checked ? "line-through" : ""}`}>
-                {item.text}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <span
-                  className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                    item.priority === "CRITICAL"
-                      ? "bg-red-600/30 text-red-300"
-                      : "bg-orange-600/30 text-orange-300"
-                  }`}
-                >
-                  {item.priority}
-                </span>
-                <span className="text-xs text-slate-400">
-                  <Clock className="h-3 w-3 inline mr-1" />
-                  {item.deadline}
-                </span>
-              </div>
-            </div>
-          </div>
+            key={p.number}
+            className="w-2 h-2 rounded-full"
+            style={{
+              backgroundColor: isComplete ? p.color : isInProgress ? p.color : "#334155",
+              opacity: isInProgress ? 0.6 : 1,
+            }}
+            title={`Phase ${p.number}: ${p.title} — ${phase?.status || "not-started"}`}
+          />
         );
       })}
     </div>
   );
 }
 
-function SetupTab({
-  expandedSetup,
-  setExpandedSetup,
-  setupChecked,
-  setSetupChecked,
-}: {
-  expandedSetup: number | null;
-  setExpandedSetup: (id: number | null) => void;
-  setupChecked: Record<string, boolean>;
-  setSetupChecked: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-}) {
-  const eligible = festivalsData.filter(
-    (f) => f.status !== "CANCELLED" && f.status !== "PLANNING" && Object.keys(f.setupChecklist).length > 0
-  );
+// ── Contract Summary Card ───────────────────────────────────────────────
+
+function ContractSummaryCard({ cd }: { cd: ContractDetails }) {
+  const totalLeader = cd.concepts.reduce((s, c) => s + c.leaderPasses, 0);
+  const totalRegular = cd.concepts.reduce((s, c) => s + c.regularPasses, 0);
 
   return (
-    <div className="space-y-3">
-      {eligible.map((f) => (
-        <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-          <button
-            onClick={() => setExpandedSetup(expandedSetup === f.id ? null : f.id)}
-            className="w-full flex items-center justify-between p-4 hover:bg-slate-750 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <h3 className="text-white font-bold">{f.name}</h3>
-              {statusBadge(f.status)}
-              <span className="text-sm text-slate-400">{f.dates}</span>
-            </div>
-            {expandedSetup === f.id ? (
-              <ChevronUp className="h-5 w-5 text-slate-400" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-slate-400" />
-            )}
-          </button>
+    <div className="bg-slate-700/40 border border-slate-600/50 rounded-lg p-4 mt-3 space-y-4">
+      <h5 className="text-white font-semibold text-sm flex items-center gap-2">
+        <FileText className="h-4 w-4 text-green-400" />
+        Contract Summary
+      </h5>
 
-          {expandedSetup === f.id && (
-            <div className="border-t border-slate-700 p-4 space-y-3">
-              {CHECKLIST_CATEGORIES.map((cat) => {
-                const item = f.setupChecklist[cat.key];
-                if (!item) return null;
-                const checkKey = `${f.id}-${cat.key}`;
-                const checked = setupChecked[checkKey] ?? false;
-                const Icon = cat.icon;
-                return (
-                  <div key={cat.key} className="flex items-start gap-3">
-                    <button
-                      onClick={() =>
-                        setSetupChecked((prev) => ({ ...prev, [checkKey]: !checked }))
-                      }
-                      className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                        checked
-                          ? "bg-green-600 border-green-600"
-                          : "border-slate-500 hover:border-slate-300"
-                      }`}
-                    >
-                      {checked && <Check className="h-3 w-3 text-white" />}
-                    </button>
-                    <Icon className={`h-4 w-4 mt-0.5 ${cat.color}`} />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium ${checked ? "line-through text-slate-500" : "text-white"}`}>
-                          {cat.label}
-                        </span>
-                        {checklistStatusBadge(item.status)}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5">{item.details}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      {/* Organizer */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+        <div>
+          <span className="text-slate-400 text-xs uppercase tracking-wider">Organizer</span>
+          <p className="text-white font-medium">{cd.festivalOrganizer}</p>
+          <p className="text-slate-400 text-xs">CVR: {cd.organizerCvr}</p>
+          <p className="text-slate-400 text-xs">{cd.festivalAddress}</p>
         </div>
-      ))}
-    </div>
-  );
-}
-
-function DocumentsTab() {
-  const festivalsWithDocs = festivalsData.filter(
-    (f) => f.status !== "CANCELLED" && ((f.documents && f.documents.length > 0) || (f.emails && f.emails.length > 0))
-  );
-
-  function driveUrl(id: string, type: string): string {
-    if (type === "folder") return `https://drive.google.com/drive/folders/${id}`;
-    if (type === "sheet") return `https://docs.google.com/spreadsheets/d/${id}/edit`;
-    return `https://docs.google.com/document/d/${id}/edit`;
-  }
-
-  return (
-    <div className="space-y-6">
-      {festivalsWithDocs.map((f) => (
-        <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-          <div className="p-5 border-b border-slate-700 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h3 className="text-white font-bold text-lg">{f.name}</h3>
-              {statusBadge(f.status)}
-            </div>
-            <span className="text-sm text-slate-400">
-              {(f.documents?.length || 0)} docs · {(f.emails?.length || 0)} emails
+        <div>
+          <span className="text-slate-400 text-xs uppercase tracking-wider">Payment</span>
+          <p className="text-slate-300 text-xs">{cd.paymentTerms}</p>
+          <div className="flex gap-2 mt-1">
+            <span className={`px-1.5 py-0.5 rounded text-xs ${cd.cashless ? "bg-green-900/30 text-green-400" : "bg-slate-700 text-slate-400"}`}>
+              {cd.cashless ? "Cashless" : "Cash"}
+            </span>
+            <span className="px-1.5 py-0.5 rounded text-xs bg-slate-700 text-slate-400">
+              POS: {cd.posProvider}
             </span>
           </div>
-
-          {/* Drive Documents */}
-          {f.documents && f.documents.length > 0 && (
-            <div className="p-5 border-b border-slate-700/50">
-              <h4 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
-                <FolderOpen className="h-4 w-4" /> Google Drive Documents
-              </h4>
-              <div className="space-y-3">
-                {f.documents.map((doc, i) => (
-                  <div key={i} className="bg-slate-900/50 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-slate-400" />
-                        <span className="text-white font-medium">{doc.title}</span>
-                        <span className="text-xs bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">
-                          {doc.type}
-                        </span>
-                      </div>
-                      <a
-                        href={driveUrl(doc.driveId, doc.type)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 flex items-center gap-1 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Open <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                    {doc.summary && (
-                      <p className="text-sm text-slate-300 mb-2">{doc.summary}</p>
-                    )}
-                    {doc.missingItems && doc.missingItems.length > 0 && (
-                      <div className="mt-2 bg-red-950/30 border border-red-800/40 rounded-lg p-3">
-                        <p className="text-xs font-semibold text-red-400 mb-1 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" /> {doc.missingItems.length} MISSING items:
-                        </p>
-                        <div className="grid grid-cols-2 gap-1">
-                          {doc.missingItems.map((item, j) => (
-                            <span key={j} className="text-xs text-red-300/80">• {item}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Emails */}
-          {f.emails && f.emails.length > 0 && (
-            <div className="p-5">
-              <h4 className="text-sm font-semibold text-amber-400 mb-3 flex items-center gap-2">
-                <Mail className="h-4 w-4" /> Related Emails
-              </h4>
-              <div className="space-y-2">
-                {f.emails.map((email, i) => (
-                  <div key={i} className="flex items-start gap-3 bg-slate-900/50 rounded-lg p-3">
-                    <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${
-                      email.direction === "sent" ? "bg-green-500" : "bg-blue-500"
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs text-slate-500 font-mono">{email.date}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${
-                          email.direction === "sent"
-                            ? "bg-green-900/30 text-green-400"
-                            : "bg-blue-900/30 text-blue-400"
-                        }`}>
-                          {email.direction}
-                        </span>
-                      </div>
-                      <p className="text-sm text-white font-medium truncate">{email.subject}</p>
-                      <p className="text-xs text-slate-400">{email.from}</p>
-                      <p className="text-xs text-slate-300 mt-1">{email.summary}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
-      ))}
+      </div>
 
-      {/* Festivals without docs */}
-      {festivalsData.filter(f => f.status !== "CANCELLED" && !f.documents?.length && !f.emails?.length).length > 0 && (
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <h4 className="text-white font-semibold mb-2">Festivals awaiting document upload</h4>
-          <div className="flex flex-wrap gap-2">
-            {festivalsData
-              .filter(f => f.status !== "CANCELLED" && !f.documents?.length && !f.emails?.length)
-              .map(f => (
-                <span key={f.id} className="bg-slate-700/60 text-slate-300 px-3 py-1 rounded-lg text-sm">
-                  {f.name}
-                </span>
+      {/* Concepts */}
+      <div>
+        <span className="text-slate-400 text-xs uppercase tracking-wider">Concepts</span>
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {cd.concepts.map((c, i) => (
+            <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-blue-900/40 text-blue-300 border border-blue-700/40">
+              {c.conceptName}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Commission + Tent + Staff in compact grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+        <div>
+          <span className="text-slate-400 text-xs uppercase tracking-wider">Commission</span>
+          {cd.concepts.map((c, i) => (
+            <div key={i} className="mt-0.5">
+              {c.commissionTiers.map((t, ti) => (
+                <p key={ti} className="text-xs text-slate-300">
+                  <span className="text-orange-400 font-medium">{t.rate}</span> {t.threshold}
+                </p>
               ))}
+            </div>
+          ))}
+        </div>
+        <div>
+          <span className="text-slate-400 text-xs uppercase tracking-wider">Tent</span>
+          {cd.concepts.map((c, i) => (
+            <p key={i} className="text-xs text-slate-300 mt-0.5">{c.conceptName}: {c.tentSize}</p>
+          ))}
+        </div>
+        <div>
+          <span className="text-slate-400 text-xs uppercase tracking-wider">Staff passes</span>
+          <p className="text-xs text-slate-300 mt-0.5">
+            {totalLeader > 0 || totalRegular > 0
+              ? `${totalLeader} leader + ${totalRegular} regular = ${totalLeader + totalRegular} total`
+              : "TBD"}
+          </p>
+        </div>
+      </div>
+
+      {/* Contacts */}
+      {cd.contactsFestival.length > 0 && (
+        <div>
+          <span className="text-slate-400 text-xs uppercase tracking-wider">Key Contacts</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+            {cd.contactsFestival.map((c, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                <Building2 className="h-3 w-3 text-slate-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="text-white font-medium">{c.name}</span>
+                  <span className="text-slate-500"> ({c.role})</span>
+                  {c.phone && <p className="text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5" />{c.phone}</p>}
+                  {c.email && <p className="text-blue-400 flex items-center gap-1"><Mail className="h-2.5 w-2.5" />{c.email}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Special Rules */}
+      {cd.specialRules.length > 0 && (
+        <div>
+          <span className="text-slate-400 text-xs uppercase tracking-wider">Special Rules</span>
+          <div className="mt-1 bg-amber-950/20 border border-amber-900/30 rounded p-2">
+            {cd.specialRules.map((rule, i) => (
+              <p key={i} className="text-xs text-amber-200/80 flex items-start gap-1.5">
+                <AlertTriangle className="h-3 w-3 text-amber-400 mt-0.5 flex-shrink-0" />
+                {rule}
+              </p>
+            ))}
           </div>
         </div>
       )}
@@ -1591,387 +1536,455 @@ function DocumentsTab() {
   );
 }
 
-function ContractsTab() {
-  const eligible = festivalsData.filter((f) => f.status !== "CANCELLED");
-  const [expandedFestival, setExpandedFestival] = useState<number | null>(null);
+// ── Deadline List (for Phase 2) ─────────────────────────────────────────
 
+function DeadlineList({ deadlines }: { deadlines: ContractDetails["deadlines"] }) {
+  if (!deadlines.length) return null;
   return (
-    <div className="space-y-4">
-      {eligible.map((f) => {
-        const cd = f.contractDetails;
-        const isExpanded = expandedFestival === f.id;
-
-        return (
-          <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-            {/* Header - always visible */}
-            <button
-              onClick={() => setExpandedFestival(isExpanded ? null : f.id)}
-              className="w-full p-5 flex items-center justify-between hover:bg-slate-750 transition-colors text-left"
-            >
-              <div className="flex items-center gap-4">
-                <h3 className="text-white font-bold text-lg">{f.name}</h3>
-                {f.contracts.signed ? (
-                  <span className="flex items-center gap-1 text-green-400 text-sm">
-                    <Check className="h-4 w-4" /> Signed
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-red-400 text-sm">
-                    <X className="h-4 w-4" /> Not signed
-                  </span>
-                )}
-                {cd && (
-                  <span className="text-slate-500 text-sm">
-                    {cd.concepts.length} concept{cd.concepts.length !== 1 ? "s" : ""}
-                  </span>
-                )}
-                {f.contracts.critical && (
-                  <span className="flex items-center gap-1 text-red-400 text-xs">
-                    <AlertCircle className="h-3.5 w-3.5" /> Critical
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                {cd && <span className="text-slate-400 text-sm">{cd.festivalOrganizer}</span>}
-                {isExpanded ? (
-                  <ChevronUp className="h-5 w-5 text-slate-400" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-slate-400" />
-                )}
-              </div>
-            </button>
-
-            {/* Expanded content */}
-            {isExpanded && cd && (
-              <div className="border-t border-slate-700 p-5 space-y-6">
-                {/* Organizer info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="bg-slate-900/50 rounded-lg p-4">
-                    <h4 className="text-slate-400 text-xs uppercase tracking-wider mb-2">Organizer</h4>
-                    <p className="text-white font-medium">{cd.festivalOrganizer}</p>
-                    <p className="text-slate-400 text-sm">CVR: {cd.organizerCvr}</p>
-                    <p className="text-slate-400 text-sm">{cd.festivalAddress}</p>
-                    {cd.signedDate && (
-                      <p className="text-slate-500 text-xs mt-1">Signed: {cd.signedDate}</p>
-                    )}
-                  </div>
-
-                  <div className="bg-slate-900/50 rounded-lg p-4">
-                    <h4 className="text-slate-400 text-xs uppercase tracking-wider mb-2">Payment & POS</h4>
-                    <p className="text-white text-sm">{cd.paymentTerms}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${cd.cashless ? "bg-green-600/20 text-green-400 border border-green-600/30" : "bg-slate-600/20 text-slate-400 border border-slate-600/30"}`}>
-                        {cd.cashless ? "Cashless" : "Cash allowed"}
-                      </span>
-                      <span className="text-slate-500 text-xs">POS: {cd.posProvider}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-900/50 rounded-lg p-4">
-                    <h4 className="text-slate-400 text-xs uppercase tracking-wider mb-2">Contacts</h4>
-                    {cd.contactsFestival.map((c, i) => (
-                      <div key={`fest-${i}`} className="mb-2">
-                        <p className="text-white text-sm font-medium">{c.name} <span className="text-slate-500 text-xs">({c.role})</span></p>
-                        {c.phone && <p className="text-slate-400 text-xs">{c.phone}</p>}
-                        {c.email && <p className="text-blue-400 text-xs">{c.email}</p>}
-                      </div>
-                    ))}
-                    {cd.contactsInternal.map((c, i) => (
-                      <div key={`int-${i}`} className="mb-2">
-                        <p className="text-white text-sm font-medium">{c.name} <span className="text-purple-400 text-xs">(Internal)</span></p>
-                        {c.phone && <p className="text-slate-400 text-xs">{c.phone}</p>}
-                        {c.email && <p className="text-blue-400 text-xs">{c.email}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Concept cards */}
-                <div>
-                  <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                    <UtensilsCrossed className="h-4 w-4 text-blue-400" />
-                    Concepts ({cd.concepts.length})
-                  </h4>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {cd.concepts.map((concept, i) => (
-                      <div key={i} className="bg-slate-900/60 border border-slate-700/50 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h5 className="text-white font-bold">{concept.conceptName}</h5>
-                            <p className="text-slate-400 text-xs">{concept.entity} | CVR: {concept.cvr}</p>
-                          </div>
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${concept.location === "Festival" ? "bg-blue-600/20 text-blue-400 border border-blue-600/30" : "bg-purple-600/20 text-purple-400 border border-purple-600/30"}`}>
-                            {concept.location}
-                          </span>
-                        </div>
-
-                        <div className="space-y-2 text-sm">
-                          <div>
-                            <span className="text-slate-500 text-xs uppercase">Sortiment</span>
-                            <p className="text-slate-300">{concept.sortiment}</p>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <span className="text-slate-500 text-xs uppercase">Tent</span>
-                              <p className="text-slate-300 text-xs">{concept.tentSize}</p>
-                            </div>
-                            {concept.power && (
-                              <div>
-                                <span className="text-slate-500 text-xs uppercase">Power</span>
-                                <p className="text-yellow-400 text-xs">{concept.power}</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Commission tiers */}
-                          <div>
-                            <span className="text-slate-500 text-xs uppercase">Commission</span>
-                            <div className="mt-1 space-y-0.5">
-                              {concept.commissionTiers.map((tier, ti) => (
-                                <div key={ti} className="flex justify-between text-xs">
-                                  <span className="text-slate-400">{tier.threshold}</span>
-                                  <span className="text-orange-400 font-medium">{tier.rate}</span>
-                                </div>
-                              ))}
-                            </div>
-                            {concept.fixedFee !== "N/A" && (
-                              <p className="text-xs text-slate-400 mt-1">Fixed fee: {concept.fixedFee}</p>
-                            )}
-                          </div>
-
-                          {/* Staff allocation */}
-                          <div className="flex items-center gap-3 pt-1">
-                            <Users className="h-3.5 w-3.5 text-purple-400" />
-                            <span className="text-xs text-slate-300">
-                              {concept.maxStaff > 0 ? `Max ${concept.maxStaff} staff` : "Staff TBD"}
-                              {concept.leaderPasses > 0 && ` (${concept.leaderPasses} leader, ${concept.regularPasses} regular)`}
-                            </span>
-                            {concept.minWorkHours > 0 && (
-                              <span className="text-xs text-slate-500">Min {concept.minWorkHours}h</span>
-                            )}
-                          </div>
-
-                          {concept.openingHours && (
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-3.5 w-3.5 text-blue-400" />
-                              <span className="text-xs text-slate-300">{concept.openingHours}</span>
-                            </div>
-                          )}
-
-                          {concept.depositum && (
-                            <p className="text-xs text-amber-400">Depositum: {concept.depositum}</p>
-                          )}
-
-                          <div className="flex gap-2 pt-1">
-                            {concept.waterAccess && (
-                              <span className="px-1.5 py-0.5 rounded text-xs bg-cyan-600/20 text-cyan-400 border border-cyan-600/30">Water</span>
-                            )}
-                            {concept.campingVogn && (
-                              <span className="px-1.5 py-0.5 rounded text-xs bg-green-600/20 text-green-400 border border-green-600/30">Camping wagon</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Deadline timeline */}
-                {cd.deadlines.length > 0 && (
-                  <div>
-                    <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-blue-400" />
-                      Deadlines
-                    </h4>
-                    <div className="bg-slate-900/50 rounded-lg p-4">
-                      <div className="space-y-2">
-                        {cd.deadlines.map((dl, i) => (
-                          <div key={i} className="flex items-center gap-3 text-sm">
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                              dl.status === "passed" ? "bg-slate-500" :
-                              dl.status === "done" ? "bg-green-500" :
-                              "bg-amber-500 animate-pulse"
-                            }`} />
-                            <span className={`font-mono text-xs min-w-[110px] ${
-                              dl.status === "passed" ? "text-slate-500" :
-                              dl.status === "done" ? "text-green-400" :
-                              "text-amber-400"
-                            }`}>
-                              {dl.date}
-                            </span>
-                            <span className={
-                              dl.status === "passed" ? "text-slate-500 line-through" :
-                              dl.status === "done" ? "text-green-400" :
-                              "text-white"
-                            }>
-                              {dl.description}
-                            </span>
-                            <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded ${
-                              dl.status === "passed" ? "bg-slate-700/50 text-slate-400" :
-                              dl.status === "done" ? "bg-green-600/20 text-green-400" :
-                              "bg-amber-600/20 text-amber-400"
-                            }`}>
-                              {dl.status.toUpperCase()}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Special rules */}
-                {cd.specialRules.length > 0 && (
-                  <div>
-                    <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-400" />
-                      Special Rules & Requirements
-                    </h4>
-                    <div className="bg-amber-950/20 border border-amber-900/30 rounded-lg p-4">
-                      <ul className="space-y-1.5">
-                        {cd.specialRules.map((rule, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <span className="text-amber-400 mt-0.5 flex-shrink-0">--</span>
-                            <span className="text-amber-200/80">{rule}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Collapsed: show without contract details */}
-            {isExpanded && !cd && (
-              <div className="border-t border-slate-700 p-5">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Commission</span>
-                    <span className="text-white">{f.commission > 0 ? `${f.commission}%` : "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Exclusivity</span>
-                    <span className="text-white">{f.exclusivity}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Organic Requirement</span>
-                    <span className={f.organicRequired ? "text-green-400 font-medium" : "text-slate-400"}>
-                      {f.organicRequired ? "Yes - 50%" : "No"}
-                    </span>
-                  </div>
-                  <p className="text-slate-500 text-sm italic mt-3">No detailed contract data available yet.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function CostsTab() {
-  const eligible = festivalsData.filter((f) => f.status !== "CANCELLED");
-  const totalElectricity = eligible.reduce((sum, f) => sum + f.powerCost, 0);
-
-  return (
-    <div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        {eligible.map((f) => (
-          <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-            <h3 className="text-white font-bold mb-3">{f.name}</h3>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Commission</span>
-                <span className="text-white">{f.commission > 0 ? `${f.commission}%` : "TBD"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Electricity</span>
-                <span className="text-white">
-                  {f.powerCost > 0 ? `${f.powerCost.toLocaleString()} DKK` : "TBD"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Accommodation</span>
-                <span className="text-slate-500">TBD</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Tent</span>
-                <span className="text-slate-500">TBD</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Cooling</span>
-                <span className="text-slate-500">TBD</span>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-slate-700 flex justify-between text-sm font-medium">
-              <span className="text-yellow-400">Visible Costs</span>
-              <span className="text-yellow-400">
-                {f.powerCost > 0 ? `${f.powerCost.toLocaleString()} DKK` : "—"}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Total breakdown */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h3 className="text-white font-bold text-lg mb-4">
-          Total Visible Costs (Electricity Only)
-        </h3>
-        <div className="space-y-2">
-          {eligible
-            .filter((f) => f.powerCost > 0)
-            .map((f) => (
-              <div key={f.id} className="flex justify-between text-sm">
-                <span className="text-slate-300">{f.name}</span>
-                <span className="text-white font-mono">{f.powerCost.toLocaleString()} DKK</span>
-              </div>
-            ))}
-          <div className="pt-3 mt-3 border-t border-slate-600 flex justify-between text-lg font-bold">
-            <span className="text-yellow-400">Grand Total</span>
-            <span className="text-yellow-400">{totalElectricity.toLocaleString()} DKK</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Notes */}
-      <div className="mt-6 bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-        <h4 className="text-white font-semibold mb-2">Cost Notes</h4>
-        <ul className="space-y-1 text-sm text-slate-400 list-disc list-inside">
-          <li>Commission rates range 8-12% depending on festival</li>
-          <li>Syd For Solen: 23,200 DKK for 125A x2 stands (fully electric, no gas)</li>
-          <li>Suset: Organic requirement adds +10-15% to food costs</li>
-          <li>All other cost categories (accommodation, tent, cooling, staff, food, equipment, insurance) pending quotes</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function MenuTab() {
-  const sections: { title: string; key: string; color: string }[] = [
-    { title: "Fish & Sides", key: "fish", color: "text-blue-400" },
-    { title: "Gyros", key: "gyros", color: "text-orange-400" },
-    { title: "Crepes", key: "crepes", color: "text-pink-400" },
-  ];
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {sections.map((s) => (
-        <div key={s.key} className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-          <h3 className={`text-lg font-bold mb-4 ${s.color}`}>{s.title}</h3>
-          <div className="space-y-3">
-            {menuData[s.key].map((item) => (
-              <div key={item.name} className="flex justify-between items-center">
-                <span className="text-white">{item.name}</span>
-                <span className="text-yellow-400 font-mono font-bold">{item.price} kr</span>
-              </div>
-            ))}
-          </div>
+    <div className="mt-2 bg-slate-900/40 rounded p-3 space-y-1">
+      {deadlines.map((dl, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+            dl.status === "passed" ? "bg-slate-500" : dl.status === "done" ? "bg-green-500" : "bg-amber-500 animate-pulse"
+          }`} />
+          <span className={`font-mono min-w-[90px] ${
+            dl.status === "passed" ? "text-slate-500" : dl.status === "done" ? "text-green-400" : "text-amber-400"
+          }`}>{dl.date}</span>
+          <span className={dl.status === "passed" ? "text-slate-500 line-through" : "text-slate-300"}>
+            {dl.description}
+          </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Breakeven Calculator ────────────────────────────────────────────────
+
+function BreakevenCalculator({ festival }: { festival: FestivalData }) {
+  const cd = festival.contractDetails;
+  const firstCommission = cd?.concepts[0]?.commissionTiers[0];
+  const defaultCommission = firstCommission ? parseFloat(firstCommission.rate) || festival.commission : festival.commission;
+
+  // Try to extract festival days from dates string
+  const datesMatch = festival.dates.match(/(\d+)-(\d+)/);
+  const defaultDays = datesMatch ? Math.max(1, parseInt(datesMatch[1]) > parseInt(datesMatch[0]) ? 4 : 4) : 4;
+
+  const [inputs, setInputs] = useState({
+    dailyCovers: 300,
+    festivalDays: defaultDays,
+    avgSpend: 120,
+    commissionPct: defaultCommission,
+    setupCost: 5000,
+    tentCost: 15000,
+    coolingCost: 8000,
+    accommodationCost: 10000,
+    fixedFee: 3000,
+    insuranceCost: 3000,
+    foodCostPct: 30,
+    staffCount: 8,
+    staffHours: 12,
+    staffRate: 160,
+    packagingCost: 5000,
+  });
+
+  const update = (key: keyof typeof inputs, val: string) => {
+    setInputs(prev => ({ ...prev, [key]: parseFloat(val) || 0 }));
+  };
+
+  const grossSales = inputs.dailyCovers * inputs.festivalDays * inputs.avgSpend;
+  const commission = grossSales * (inputs.commissionPct / 100);
+  const netSales = grossSales - commission;
+  const foodCost = grossSales * (inputs.foodCostPct / 100);
+  const staffCost = inputs.staffCount * inputs.staffHours * inputs.festivalDays * inputs.staffRate;
+  const fixedCosts = inputs.setupCost + inputs.tentCost + inputs.coolingCost + inputs.accommodationCost + inputs.fixedFee + inputs.insuranceCost;
+  const variableCosts = foodCost + staffCost + inputs.packagingCost;
+  const totalCosts = fixedCosts + variableCosts;
+  const netProfit = netSales - totalCosts;
+  const margin = grossSales > 0 ? (netProfit / grossSales * 100) : 0;
+  const breakevenCovers = inputs.avgSpend > 0 && inputs.festivalDays > 0
+    ? Math.ceil(totalCosts / ((inputs.avgSpend * (1 - inputs.commissionPct / 100)) - (inputs.avgSpend * inputs.foodCostPct / 100) - ((inputs.staffCount * inputs.staffHours * inputs.staffRate + inputs.packagingCost / inputs.festivalDays) / inputs.dailyCovers || 1)) / inputs.festivalDays)
+    : 0;
+  // Simplified breakeven: covers needed per day to break even
+  const revenuePerCover = inputs.avgSpend;
+  const costPerCover = revenuePerCover * (inputs.commissionPct / 100) + revenuePerCover * (inputs.foodCostPct / 100);
+  const contributionPerCover = revenuePerCover - costPerCover;
+  const staffCostPerDay = inputs.staffCount * inputs.staffHours * inputs.staffRate;
+  const fixedPerDay = (fixedCosts + inputs.packagingCost) / inputs.festivalDays + staffCostPerDay;
+  const breakevenDaily = contributionPerCover > 0 ? Math.ceil(fixedPerDay / contributionPerCover) : 0;
+
+  const inputClass = "w-full bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500";
+  const labelClass = "text-xs text-slate-400 mb-0.5 block";
+
+  return (
+    <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+      <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+        <Calculator className="h-5 w-5 text-blue-400" />
+        Breakeven Calculator — {festival.name}
+      </h3>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        <div><label className={labelClass}>Daily covers</label><input type="number" className={inputClass} value={inputs.dailyCovers} onChange={e => update("dailyCovers", e.target.value)} /></div>
+        <div><label className={labelClass}>Festival days</label><input type="number" className={inputClass} value={inputs.festivalDays} onChange={e => update("festivalDays", e.target.value)} /></div>
+        <div><label className={labelClass}>Avg spend (kr)</label><input type="number" className={inputClass} value={inputs.avgSpend} onChange={e => update("avgSpend", e.target.value)} /></div>
+        <div><label className={labelClass}>Commission %</label><input type="number" className={inputClass} value={inputs.commissionPct} onChange={e => update("commissionPct", e.target.value)} /></div>
+        <div><label className={labelClass}>Food cost %</label><input type="number" className={inputClass} value={inputs.foodCostPct} onChange={e => update("foodCostPct", e.target.value)} /></div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div><label className={labelClass}>Setup (kr)</label><input type="number" className={inputClass} value={inputs.setupCost} onChange={e => update("setupCost", e.target.value)} /></div>
+        <div><label className={labelClass}>Tent (kr)</label><input type="number" className={inputClass} value={inputs.tentCost} onChange={e => update("tentCost", e.target.value)} /></div>
+        <div><label className={labelClass}>Cooling (kr)</label><input type="number" className={inputClass} value={inputs.coolingCost} onChange={e => update("coolingCost", e.target.value)} /></div>
+        <div><label className={labelClass}>Accomm. (kr)</label><input type="number" className={inputClass} value={inputs.accommodationCost} onChange={e => update("accommodationCost", e.target.value)} /></div>
+        <div><label className={labelClass}>Fixed fee (kr)</label><input type="number" className={inputClass} value={inputs.fixedFee} onChange={e => update("fixedFee", e.target.value)} /></div>
+        <div><label className={labelClass}>Insurance (kr)</label><input type="number" className={inputClass} value={inputs.insuranceCost} onChange={e => update("insuranceCost", e.target.value)} /></div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div><label className={labelClass}>Staff count</label><input type="number" className={inputClass} value={inputs.staffCount} onChange={e => update("staffCount", e.target.value)} /></div>
+        <div><label className={labelClass}>Hours/day</label><input type="number" className={inputClass} value={inputs.staffHours} onChange={e => update("staffHours", e.target.value)} /></div>
+        <div><label className={labelClass}>Rate (kr/hr)</label><input type="number" className={inputClass} value={inputs.staffRate} onChange={e => update("staffRate", e.target.value)} /></div>
+        <div><label className={labelClass}>Packaging (kr)</label><input type="number" className={inputClass} value={inputs.packagingCost} onChange={e => update("packagingCost", e.target.value)} /></div>
+      </div>
+
+      {/* Results */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-slate-900/60 rounded-lg p-3">
+          <p className="text-xs text-slate-400">Gross Sales</p>
+          <p className="text-lg font-bold text-white">{grossSales.toLocaleString()} kr</p>
+        </div>
+        <div className="bg-slate-900/60 rounded-lg p-3">
+          <p className="text-xs text-slate-400">Commission</p>
+          <p className="text-lg font-bold text-orange-400">-{commission.toLocaleString()} kr</p>
+        </div>
+        <div className="bg-slate-900/60 rounded-lg p-3">
+          <p className="text-xs text-slate-400">Total Costs</p>
+          <p className="text-lg font-bold text-red-400">-{totalCosts.toLocaleString()} kr</p>
+        </div>
+        <div className={`rounded-lg p-3 ${netProfit >= 0 ? "bg-green-900/30 border border-green-700/40" : "bg-red-900/30 border border-red-700/40"}`}>
+          <p className="text-xs text-slate-400">Net Profit</p>
+          <p className={`text-lg font-bold ${netProfit >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {netProfit >= 0 ? "+" : ""}{netProfit.toLocaleString()} kr
+          </p>
+          <p className="text-xs text-slate-500">{margin.toFixed(1)}% margin</p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 text-sm">
+        <Calculator className="h-4 w-4 text-amber-400" />
+        <span className="text-amber-300">Breakeven: <strong>{breakevenDaily}</strong> covers/day</span>
+        <span className="text-slate-500">({(breakevenDaily * inputs.festivalDays).toLocaleString()} total)</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Phase Accordion ─────────────────────────────────────────────────────
+
+function PhaseAccordion({
+  festival,
+  phaseNumber,
+  phase,
+  isOpen,
+  onToggle,
+}: {
+  festival: FestivalData;
+  phaseNumber: number;
+  phase: FestivalPhase;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  const config = PHASE_CONFIG.find(p => p.number === phaseNumber)!;
+  const cd = festival.contractDetails;
+
+  return (
+    <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden" style={{ borderLeftColor: config.color, borderLeftWidth: "3px" }}>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 p-4 hover:bg-slate-750 transition-colors text-left"
+      >
+        <div
+          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+          style={{ backgroundColor: config.color }}
+        >
+          {phaseNumber}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-white font-semibold text-sm">{config.title}</span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {phaseStatusIcon(phase.status)}
+          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+            phase.status === "complete" ? "bg-green-900/30 text-green-400" :
+            phase.status === "in-progress" ? "bg-amber-900/30 text-amber-400" :
+            phase.status === "blocked" ? "bg-red-900/30 text-red-400" :
+            "bg-slate-700/50 text-slate-500"
+          }`}>
+            {phase.status === "complete" ? "COMPLETE" : phase.status === "in-progress" ? "IN PROGRESS" : phase.status === "blocked" ? "BLOCKED" : "NOT STARTED"}
+          </span>
+          {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="border-t border-slate-700 p-4 space-y-2">
+          {phase.steps.map((step, i) => (
+            <div key={i} className="flex items-start gap-3 py-1.5 pl-2">
+              <div className="mt-0.5">{stepStatusIcon(step.status)}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-sm font-medium ${
+                    step.status === "complete" ? "text-green-300" :
+                    step.status === "in-progress" ? "text-white" :
+                    "text-slate-500"
+                  }`}>
+                    {step.title}
+                  </span>
+                  {step.link && (
+                    <a
+                      href={step.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 bg-blue-900/20 px-2 py-0.5 rounded"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <Link className="h-3 w-3" />
+                      {step.linkLabel || "Open"}
+                    </a>
+                  )}
+                </div>
+                {step.details && (
+                  <p className="text-xs text-slate-400 mt-0.5">{step.details}</p>
+                )}
+                {step.actionNeeded && (
+                  <p className="text-xs text-amber-400 mt-0.5 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {step.actionNeeded}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Contract summary card inside Phase 2 */}
+          {phaseNumber === 2 && cd && (
+            <>
+              <ContractSummaryCard cd={cd} />
+              {cd.deadlines.length > 0 && (
+                <div className="mt-2">
+                  <h5 className="text-white text-xs font-semibold mb-1 flex items-center gap-1">
+                    <Calendar className="h-3 w-3 text-blue-400" /> Contract Deadlines
+                  </h5>
+                  <DeadlineList deadlines={cd.deadlines} />
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Missing items detail inside Phase 3 production plan step */}
+          {phaseNumber === 3 && (() => {
+            const prodPlan = festival.documents?.find(d => d.title.toLowerCase().includes("production plan"));
+            if (!prodPlan?.missingItems?.length) return null;
+            return (
+              <div className="mt-2 bg-red-950/20 border border-red-800/30 rounded-lg p-3 ml-7">
+                <p className="text-xs font-semibold text-red-400 mb-1 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> {prodPlan.missingItems.length} MISSING items in production plan:
+                </p>
+                <div className="grid grid-cols-2 gap-0.5">
+                  {prodPlan.missingItems.map((item, j) => (
+                    <span key={j} className="text-xs text-red-300/80">-- {item}</span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Festival Selector (Left Panel) ──────────────────────────────────────
+
+function FestivalSelector({
+  festivals,
+  selectedId,
+  onSelect,
+  searchTerm,
+  onSearchChange,
+}: {
+  festivals: FestivalData[];
+  selectedId: number;
+  onSelect: (id: number) => void;
+  searchTerm: string;
+  onSearchChange: (val: string) => void;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-3 border-b border-slate-700">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search festivals..."
+            value={searchTerm}
+            onChange={e => onSearchChange(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {festivals.map(f => {
+          const phases = buildPhases(f);
+          const currentPhase = getCurrentPhase(phases);
+          const isSelected = f.id === selectedId;
+          const conceptCount = f.contractDetails?.concepts.length ?? 0;
+
+          return (
+            <button
+              key={f.id}
+              onClick={() => onSelect(f.id)}
+              className={`w-full text-left p-3 border-b border-slate-700/50 transition-colors ${
+                isSelected
+                  ? "bg-blue-900/30 border-l-2 border-l-blue-500"
+                  : "hover:bg-slate-750 border-l-2 border-l-transparent"
+              }`}
+            >
+              <div className="mb-1">
+                <PhaseDots phases={phases} />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className={`font-semibold text-sm ${isSelected ? "text-white" : "text-slate-200"}`}>
+                  {f.name}
+                </span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {statusBadge(f.status)}
+                  {f.daysAway !== null && (
+                    <span className="text-xs font-mono text-slate-400">{f.daysAway}d</span>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {conceptCount > 0 && `${conceptCount} concept${conceptCount !== 1 ? "s" : ""} · `}
+                {f.contracts.signed ? "Contract signed" : f.status === "CANCELLED" ? "Cancelled" : "Contract pending"}
+                {f.status !== "CANCELLED" && ` · Phase ${currentPhase}`}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Festival Detail (Right Panel) ───────────────────────────────────────
+
+function FestivalDetail({ festival }: { festival: FestivalData }) {
+  const [openPhases, setOpenPhases] = useState<Record<number, boolean>>({});
+  const phases = useMemo(() => buildPhases(festival), [festival]);
+  const currentPhase = getCurrentPhase(phases);
+
+  const togglePhase = useCallback((n: number) => {
+    setOpenPhases(prev => ({ ...prev, [n]: !prev[n] }));
+  }, []);
+
+  // Auto-expand current phase
+  const getIsOpen = (n: number) => {
+    if (openPhases[n] !== undefined) return openPhases[n];
+    return n === currentPhase;
+  };
+
+  const todosForFestival = todoItems.filter(t => t.festival === festival.name);
+
+  return (
+    <div className="space-y-3">
+      {/* Festival header */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-white">{festival.name}</h2>
+            <p className="text-slate-400 text-sm">{festival.dates}{festival.standLocation !== "TBD" && festival.standLocation !== "N/A" ? ` · ${festival.standLocation}` : ""}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {statusBadge(festival.status)}
+            {festival.daysAway !== null && (
+              <span className="text-2xl font-bold text-white font-mono">{festival.daysAway}<span className="text-sm text-slate-400 ml-1">days</span></span>
+            )}
+          </div>
+        </div>
+        {festival.notes && (
+          <div className="mt-3 border-l-2 border-yellow-500/60 pl-3">
+            <p className="text-sm text-yellow-200/80">{festival.notes}</p>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2 mt-3 text-xs">
+          {festival.commission > 0 && (
+            <span className="bg-slate-700/60 text-slate-300 px-2 py-0.5 rounded">{festival.commission}% commission</span>
+          )}
+          {festival.contractDetails?.concepts.length && (
+            <span className="bg-slate-700/60 text-slate-300 px-2 py-0.5 rounded">
+              {festival.contractDetails.concepts.length} concept{festival.contractDetails.concepts.length !== 1 ? "s" : ""}
+            </span>
+          )}
+          {festival.organicRequired && (
+            <span className="bg-green-800/40 text-green-300 px-2 py-0.5 rounded">Organic required</span>
+          )}
+          {festival.gasRequired && (
+            <span className="bg-red-800/40 text-red-300 px-2 py-0.5 rounded">Gas required</span>
+          )}
+          {festival.powerCost > 0 && (
+            <span className="bg-slate-700/60 text-slate-300 px-2 py-0.5 rounded">Power: {festival.powerCost.toLocaleString()} DKK</span>
+          )}
+        </div>
+
+        {/* Phase progress bar */}
+        <div className="mt-4 flex items-center gap-1">
+          {PHASE_CONFIG.map(p => {
+            const ph = phases[p.number];
+            return (
+              <div key={p.number} className="flex-1 h-2 rounded-full" style={{
+                backgroundColor: ph.status === "complete" ? p.color : ph.status === "in-progress" ? p.color : "#1e293b",
+                opacity: ph.status === "in-progress" ? 0.6 : 1,
+              }} title={`Phase ${p.number}: ${p.title}`} />
+            );
+          })}
+        </div>
+        <p className="text-xs text-slate-500 mt-1">Currently at Phase {currentPhase}: {PHASE_CONFIG.find(p => p.number === currentPhase)?.title}</p>
+      </div>
+
+      {/* To-dos for this festival */}
+      {todosForFestival.length > 0 && (
+        <div className="bg-red-950/30 border border-red-800/40 rounded-xl p-4">
+          <h4 className="text-red-300 font-semibold text-sm mb-2 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Action Items ({todosForFestival.length})
+          </h4>
+          {todosForFestival.map(t => (
+            <div key={t.id} className="flex items-center gap-2 text-xs py-1">
+              <span className={`px-1.5 py-0.5 rounded font-semibold ${t.priority === "CRITICAL" ? "bg-red-600/30 text-red-300" : "bg-orange-600/30 text-orange-300"}`}>{t.priority}</span>
+              <span className="text-white">{t.text.replace(`${festival.name} — `, "")}</span>
+              <span className="text-slate-500 ml-auto flex-shrink-0"><Clock className="h-3 w-3 inline mr-0.5" />{t.deadline}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Phase accordions */}
+      {PHASE_CONFIG.map(p => (
+        <PhaseAccordion
+          key={p.number}
+          festival={festival}
+          phaseNumber={p.number}
+          phase={phases[p.number]}
+          isOpen={getIsOpen(p.number)}
+          onToggle={() => togglePhase(p.number)}
+        />
+      ))}
+
+      {/* Breakeven Calculator */}
+      {festival.status !== "CANCELLED" && (
+        <BreakevenCalculator festival={festival} />
+      )}
     </div>
   );
 }
@@ -1980,21 +1993,16 @@ function MenuTab() {
 
 export default function FestivalCommandCentre() {
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [expandedFestival, setExpandedFestival] = useState<number | null>(null);
+  const [selectedFestivalId, setSelectedFestivalId] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [checkedTodos, setCheckedTodos] = useState<Record<string, boolean>>({});
-  const [expandedSetup, setExpandedSetup] = useState<number | null>(null);
-  const [setupChecked, setSetupChecked] = useState<Record<string, boolean>>({});
+  const [mobileShowList, setMobileShowList] = useState(false);
 
   const filteredFestivals = useMemo(() => {
-    return festivalsData.filter((f) => {
-      if (searchTerm && !f.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-      if (statusFilter !== "all" && f.status !== statusFilter) return false;
-      return true;
-    });
-  }, [searchTerm, statusFilter]);
+    if (!searchTerm) return festivalsData;
+    return festivalsData.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [searchTerm]);
+
+  const selectedFestival = festivalsData.find(f => f.id === selectedFestivalId) || festivalsData[0];
 
   const today = new Date().toLocaleDateString("en-GB", {
     weekday: "long",
@@ -2003,12 +2011,12 @@ export default function FestivalCommandCentre() {
     day: "numeric",
   });
 
-  const activeFestivals = festivalsData.filter((f) => f.status !== "CANCELLED");
+  const activeFestivals = festivalsData.filter(f => f.status !== "CANCELLED");
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col">
       {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700 p-6 shadow-lg">
+      <div className="bg-slate-800 border-b border-slate-700 p-4 sm:p-6 shadow-lg flex-shrink-0">
         <div className="flex items-center gap-4 mb-2">
           <button
             onClick={() => setLocation("/dashboard")}
@@ -2017,97 +2025,51 @@ export default function FestivalCommandCentre() {
             <ArrowLeft className="h-4 w-4" />
             Dashboard
           </button>
+          {/* Mobile toggle */}
+          <button
+            onClick={() => setMobileShowList(!mobileShowList)}
+            className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-gray-300 hover:text-white text-sm transition-colors"
+          >
+            {mobileShowList ? "Show Detail" : "Festival List"}
+          </button>
         </div>
-        <h1 className="text-4xl font-bold">Festival Command Centre</h1>
-        <p className="text-gray-400 mt-1">The Fish Project / Fidibus — 13 Festivals 2026</p>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl sm:text-4xl font-bold">Festival Command Centre</h1>
+        <p className="text-gray-400 mt-1 text-sm sm:text-base">The Fish Project / Fidibus -- 13 Festivals 2026 -- 9 Phase Vendor Lifecycle</p>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1">
           Today: {today} | Active: {activeFestivals.length} festivals | Cancelled: 1
         </p>
       </div>
 
-      {/* Sticky Tab Bar */}
-      <div className="border-b border-slate-700 bg-slate-800 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex overflow-x-auto">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? "border-blue-500 text-blue-400"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
+      {/* Two-panel layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left panel - Festival Selector */}
+        <div className={`w-full lg:w-80 bg-slate-800 border-r border-slate-700 flex-shrink-0 overflow-hidden flex flex-col ${
+          mobileShowList ? "block" : "hidden lg:flex"
+        }`}>
+          <FestivalSelector
+            festivals={filteredFestivals}
+            selectedId={selectedFestivalId}
+            onSelect={(id) => {
+              setSelectedFestivalId(id);
+              setMobileShowList(false);
+            }}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+          />
+        </div>
+
+        {/* Right panel - Festival Detail */}
+        <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${
+          mobileShowList ? "hidden lg:block" : "block"
+        }`}>
+          <div className="max-w-4xl mx-auto">
+            <FestivalDetail festival={selectedFestival} />
+          </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-6 max-w-7xl mx-auto">
-        {/* Search & Filter (only on overview) */}
-        {activeTab === "overview" && (
-          <div className="flex flex-col sm:flex-row gap-3 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search festivals..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="pl-10 pr-8 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white appearance-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="all">All Statuses</option>
-                <option value="CRITICAL">Critical</option>
-                <option value="URGENT">Urgent</option>
-                <option value="ON TRACK">On Track</option>
-                <option value="PLANNING">Planning</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "overview" && (
-          <OverviewTab
-            festivals={filteredFestivals}
-            expandedFestival={expandedFestival}
-            setExpandedFestival={setExpandedFestival}
-          />
-        )}
-        {activeTab === "timeline" && <TimelineTab />}
-        {activeTab === "todo" && (
-          <TodoTab checkedTodos={checkedTodos} setCheckedTodos={setCheckedTodos} />
-        )}
-        {activeTab === "setup" && (
-          <SetupTab
-            expandedSetup={expandedSetup}
-            setExpandedSetup={setExpandedSetup}
-            setupChecked={setupChecked}
-            setSetupChecked={setSetupChecked}
-          />
-        )}
-        {activeTab === "documents" && <DocumentsTab />}
-        {activeTab === "contracts" && <ContractsTab />}
-        {activeTab === "costs" && <CostsTab />}
-        {activeTab === "menu" && <MenuTab />}
-      </div>
-
       {/* Footer */}
-      <div className="border-t border-slate-700 bg-slate-800 p-6 text-center text-gray-500 text-sm">
+      <div className="border-t border-slate-700 bg-slate-800 p-4 text-center text-gray-500 text-sm flex-shrink-0">
         Festival Command Centre | Updated {today}
       </div>
     </div>
