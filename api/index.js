@@ -11,6 +11,10 @@ var __export = (target, all) => {
 // drizzle/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
+  brainAgentLog: () => brainAgentLog,
+  brainChatMessages: () => brainChatMessages,
+  brainLessons: () => brainLessons,
+  brainPlaybooks: () => brainPlaybooks,
   draftReplies: () => draftReplies,
   emailAccounts: () => emailAccounts,
   emailAttachments: () => emailAttachments,
@@ -24,8 +28,8 @@ __export(schema_exports, {
   whatsappDraftReplies: () => whatsappDraftReplies,
   whatsappMessages: () => whatsappMessages
 });
-import { integer, serial, pgTable, text, timestamp, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
-var updatedNow, users, emailAccounts, emails, emailAttachments, tasks, draftReplies, whatsappMessages, whatsappDraftReplies, employees, invoiceDetails, supplierSettings, oauthTokens;
+import { integer, serial, pgTable, text, timestamp, varchar, boolean, jsonb, numeric } from "drizzle-orm/pg-core";
+var updatedNow, users, emailAccounts, emails, emailAttachments, tasks, draftReplies, whatsappMessages, whatsappDraftReplies, employees, invoiceDetails, supplierSettings, oauthTokens, brainLessons, brainAgentLog, brainChatMessages, brainPlaybooks;
 var init_schema = __esm({
   "drizzle/schema.ts"() {
     "use strict";
@@ -211,6 +215,69 @@ var init_schema = __esm({
       email: varchar("tokenEmail", { length: 320 }),
       createdAt: timestamp("oaCreatedAt").defaultNow().notNull(),
       updatedAt: timestamp("oaUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow)
+    });
+    brainLessons = pgTable("brain_lessons", {
+      id: serial("id").primaryKey(),
+      createdAt: timestamp("blCreatedAt").defaultNow().notNull(),
+      // Source context
+      festivalSlug: varchar("festivalSlug", { length: 100 }).notNull(),
+      concept: varchar("blConcept", { length: 100 }),
+      dayNumber: integer("dayNumber"),
+      source: text("blSource").$type().notNull(),
+      rawInput: text("rawInput").notNull(),
+      // The extracted rule
+      category: text("blCategory").$type().notNull(),
+      rule: text("blRule").notNull(),
+      ruleCondition: text("ruleCondition"),
+      confidence: integer("confidence").default(60).notNull(),
+      // Numbers
+      forecastValue: numeric("forecastValue"),
+      actualValue: numeric("actualValue"),
+      deviationPct: numeric("deviationPct"),
+      // Action
+      actionNextTime: text("actionNextTime").notNull(),
+      // Usage tracking
+      timesApplied: integer("timesApplied").default(0).notNull(),
+      timesCorrect: integer("timesCorrect").default(0).notNull(),
+      // Human override
+      humanOverridden: boolean("humanOverridden").default(false).notNull(),
+      overrideReason: text("overrideReason")
+    });
+    brainAgentLog = pgTable("brain_agent_log", {
+      id: serial("id").primaryKey(),
+      timestamp: timestamp("balTimestamp").defaultNow().notNull(),
+      agent: varchar("agent", { length: 100 }).notNull(),
+      model: varchar("balModel", { length: 100 }),
+      festivalSlug: varchar("balFestivalSlug", { length: 100 }),
+      action: text("balAction").notNull(),
+      inputSummary: text("inputSummary"),
+      outputSummary: text("outputSummary"),
+      lessonsUsed: jsonb("lessonsUsed").$type(),
+      tokensUsed: integer("tokensUsed"),
+      durationMs: integer("durationMs"),
+      success: boolean("balSuccess").default(true).notNull(),
+      humanApproved: boolean("humanApproved"),
+      humanChangedOutput: boolean("humanChangedOutput"),
+      changeReason: text("changeReason")
+    });
+    brainChatMessages = pgTable("brain_chat_messages", {
+      id: serial("id").primaryKey(),
+      userId: integer("bcmUserId").notNull(),
+      festivalSlug: varchar("bcmFestivalSlug", { length: 100 }).notNull(),
+      role: text("bcmRole").$type().notNull(),
+      content: text("bcmContent").notNull(),
+      lessonsExtracted: jsonb("lessonsExtracted").$type(),
+      createdAt: timestamp("bcmCreatedAt").defaultNow().notNull()
+    });
+    brainPlaybooks = pgTable("brain_playbooks", {
+      id: serial("id").primaryKey(),
+      sourceFestivalSlug: varchar("sourceFestivalSlug", { length: 100 }).notNull(),
+      targetFestivalSlug: varchar("targetFestivalSlug", { length: 100 }),
+      playbook: jsonb("playbook").notNull(),
+      lessonsCount: integer("lessonsCount").default(0).notNull(),
+      avgConfidence: integer("avgConfidence").default(0).notNull(),
+      createdAt: timestamp("bpCreatedAt").defaultNow().notNull(),
+      updatedAt: timestamp("bpUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow)
     });
   }
 });
@@ -901,6 +968,75 @@ async function deleteOAuthToken(userId, provider) {
   const database = await getDb();
   if (!database) return;
   await database.delete(oauthTokens).where(and(eq(oauthTokens.userId, userId), eq(oauthTokens.provider, provider)));
+}
+async function insertBrainLessons(lessons) {
+  const database = await getDb();
+  if (!database || lessons.length === 0) return [];
+  const result = await database.insert(brainLessons).values(lessons).returning({ id: brainLessons.id });
+  return result.map((r) => r.id);
+}
+async function getBrainLessons(festivalSlug, category, limit = 100) {
+  const database = await getDb();
+  if (!database) return [];
+  const conditions = [];
+  if (festivalSlug) conditions.push(eq(brainLessons.festivalSlug, festivalSlug));
+  if (category) conditions.push(eq(brainLessons.category, category));
+  return database.select().from(brainLessons).where(conditions.length > 0 ? and(...conditions) : void 0).orderBy(desc(brainLessons.createdAt)).limit(limit);
+}
+async function getBrainLessonsByConfidence(minConfidence, festivalSlug) {
+  const database = await getDb();
+  if (!database) return [];
+  const conditions = [sql`${brainLessons.confidence} >= ${minConfidence}`];
+  if (festivalSlug) conditions.push(eq(brainLessons.festivalSlug, festivalSlug));
+  return database.select().from(brainLessons).where(and(...conditions)).orderBy(desc(brainLessons.confidence));
+}
+async function overrideLesson(lessonId, reason) {
+  const database = await getDb();
+  if (!database) return;
+  await database.update(brainLessons).set({ humanOverridden: true, overrideReason: reason }).where(eq(brainLessons.id, lessonId));
+}
+async function insertBrainChatMessage(msg) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const result = await database.insert(brainChatMessages).values(msg).returning({ id: brainChatMessages.id });
+  return result[0].id;
+}
+async function getBrainChatHistory(festivalSlug, limit = 100) {
+  const database = await getDb();
+  if (!database) return [];
+  return database.select().from(brainChatMessages).where(eq(brainChatMessages.festivalSlug, festivalSlug)).orderBy(desc(brainChatMessages.createdAt)).limit(limit);
+}
+async function insertAgentLog(log) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const result = await database.insert(brainAgentLog).values(log).returning({ id: brainAgentLog.id });
+  return result[0].id;
+}
+async function getAgentLogs(festivalSlug, limit = 50) {
+  const database = await getDb();
+  if (!database) return [];
+  const conditions = festivalSlug ? eq(brainAgentLog.festivalSlug, festivalSlug) : void 0;
+  return database.select().from(brainAgentLog).where(conditions).orderBy(desc(brainAgentLog.timestamp)).limit(limit);
+}
+async function getBrainStats(festivalSlug) {
+  const database = await getDb();
+  if (!database) return { totalLessons: 0, byCategory: {}, avgConfidence: 0, highConfidence: 0 };
+  const conditions = festivalSlug ? eq(brainLessons.festivalSlug, festivalSlug) : void 0;
+  const allLessons = await database.select().from(brainLessons).where(conditions);
+  const byCategory = {};
+  let totalConfidence = 0;
+  let highConfidence = 0;
+  for (const l of allLessons) {
+    byCategory[l.category] = (byCategory[l.category] || 0) + 1;
+    totalConfidence += l.confidence;
+    if (l.confidence >= 80) highConfidence++;
+  }
+  return {
+    totalLessons: allLessons.length,
+    byCategory,
+    avgConfidence: allLessons.length > 0 ? Math.round(totalConfidence / allLessons.length) : 0,
+    highConfidence
+  };
 }
 
 // server/_core/env.ts
@@ -2828,6 +2964,144 @@ But ran out of time before generating a summary. Ask me "continue" or "summarize
   return summary;
 }
 
+// server/brainService.ts
+var LESSON_EXTRACTOR_PROMPT = `You are the memory system for The Fish Project \u2014 a Danish food vendor operating at music festivals across Denmark.
+
+The operator has sent this message during a festival:
+"{USER_MESSAGE}"
+
+Context:
+- Festival: {FESTIVAL_NAME} ({FESTIVAL_SLUG})
+- Concept: {CONCEPT}
+- Day: {DAY_INFO}
+- Sales so far: {SALES_SUMMARY}
+
+Extract 1-3 operational rules from this message. For each rule return a JSON object:
+{
+  "category": "order|staff|logistics|timing|finance|ops|safety|quality",
+  "rule": "one clear sentence \u2014 what to do",
+  "rule_condition": "when does this rule apply (be specific about festival size, concept, timing)",
+  "numbers": { "forecast": null, "actual": null, "deviation_pct": null },
+  "action_next_time": "specific action for next festival",
+  "confidence": 60
+}
+
+Category guide:
+- order: food quantities, ingredient sourcing, supplier coordination
+- staff: headcount, shifts, roles, volunteer management
+- logistics: transport, cooling, accommodation, equipment
+- timing: setup schedules, arrival times, deadlines, opening hours
+- finance: revenue, costs, commission, pricing, breakeven
+- ops: daily operations, POS, stock management, service flow
+- safety: gas checks, fire certs, inspections, health & safety
+- quality: food quality, presentation, customer feedback
+
+Rules:
+- Be specific with numbers when available. "Order 11.25kg fish per 10,000 attendance per day" is better than "Order enough fish"
+- Confidence starts at 60 for first observation. Only go higher if the message confirms a pattern.
+- If the message contains NO learnable rule (e.g. "ok", "thanks", "good"), return an empty array.
+
+Return ONLY a JSON array. No markdown, no explanation.`;
+async function extractLessons(userMessage, context) {
+  const prompt = LESSON_EXTRACTOR_PROMPT.replace("{USER_MESSAGE}", userMessage).replace("{FESTIVAL_NAME}", context.festivalName).replace("{FESTIVAL_SLUG}", context.festivalSlug).replace("{CONCEPT}", context.concept || "all concepts").replace("{DAY_INFO}", context.dayNumber ? `Day ${context.dayNumber} of ${context.totalDays || "?"}` : "Pre-festival / not specified").replace("{SALES_SUMMARY}", context.salesSummary || "No sales data yet");
+  const startTime = Date.now();
+  const response = await invokeLLM({
+    messages: [
+      { role: "system", content: prompt },
+      { role: "user", content: userMessage }
+    ],
+    maxTokens: 2048
+  });
+  const content = response.choices[0]?.message?.content ?? "[]";
+  let cleaned = content.trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+  }
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (l) => l.category && l.rule && l.action_next_time
+    ).map((l) => ({
+      category: l.category,
+      rule: l.rule,
+      rule_condition: l.rule_condition || "",
+      numbers: {
+        forecast: l.numbers?.forecast ?? null,
+        actual: l.numbers?.actual ?? null,
+        deviation_pct: l.numbers?.deviation_pct ?? null
+      },
+      action_next_time: l.action_next_time,
+      confidence: Math.min(100, Math.max(0, l.confidence ?? 60))
+    }));
+  } catch {
+    console.error("[brain] Failed to parse lesson extraction:", cleaned);
+    return [];
+  }
+}
+var BRAIN_RESPONSE_PROMPT = `You are the Festival Brain for The Fish Project \u2014 a Danish food vendor at music festivals.
+
+You just received a message from the operator and extracted {LESSON_COUNT} operational lessons from it.
+
+Extracted lessons:
+{LESSONS_JSON}
+
+Write a short, casual response (2-4 sentences max) that:
+1. Acknowledges what they said
+2. Confirms what you learned from it (the rule you extracted)
+3. Mentions how you'll apply it next time, if relevant
+
+Keep the tone like a smart colleague \u2014 not formal, not robotic. Use emojis sparingly (max 1).
+If no lessons were extracted, just acknowledge the message naturally.
+
+Respond in English. Be concise.`;
+async function generateBrainResponse(userMessage, lessons) {
+  const prompt = BRAIN_RESPONSE_PROMPT.replace("{LESSON_COUNT}", String(lessons.length)).replace("{LESSONS_JSON}", JSON.stringify(lessons, null, 2));
+  const response = await invokeLLM({
+    messages: [
+      { role: "system", content: prompt },
+      { role: "user", content: userMessage }
+    ],
+    maxTokens: 512
+  });
+  return response.choices[0]?.message?.content ?? "Got it. Noted.";
+}
+function generateDebriefQuestions(festivalName, dayNumber, salesData) {
+  const salesLine = salesData ? `\u{1F4CA} ${salesData.covers} covers \xB7 ${salesData.revenue.toLocaleString()} kr revenue
+${salesData.vsForecastPct > 0 ? "\u{1F4C8}" : "\u{1F4C9}"} ${Math.abs(salesData.vsForecastPct)}% vs forecast` : "\u{1F4CA} No sales data synced yet";
+  return `\u{1F9E0} Festival Brain \u2014 Day ${dayNumber} debrief (2 min)
+
+Today at ${festivalName}:
+${salesLine}
+
+5 quick questions:
+
+1/ What went BETTER than expected today?
+2/ What went WORSE or surprised you?
+3/ Did you run out of ANYTHING (even briefly)?
+4/ Any STAFF issues (too many, too few, wrong roles)?
+5/ One thing you'd do DIFFERENTLY tomorrow?
+
+Reply to each \u2014 even one word is enough.`;
+}
+function lessonsToInserts(lessons, context, source, rawInput) {
+  return lessons.map((l) => ({
+    festivalSlug: context.festivalSlug,
+    concept: context.concept || null,
+    dayNumber: context.dayNumber || null,
+    source,
+    rawInput,
+    category: l.category,
+    rule: l.rule,
+    ruleCondition: l.rule_condition,
+    confidence: l.confidence,
+    forecastValue: l.numbers.forecast?.toString() ?? null,
+    actualValue: l.numbers.actual?.toString() ?? null,
+    deviationPct: l.numbers.deviation_pct?.toString() ?? null,
+    actionNextTime: l.action_next_time
+  }));
+}
+
 // server/routers.ts
 var appRouter = router({
   system: systemRouter,
@@ -3730,6 +4004,167 @@ ${classification.taskData.description}` : classification.taskData.description,
       });
       console.log(`[Supplier] Upserted: ${input.supplierName} (configured: ${input.isConfigured})`);
       return { success: true };
+    })
+  }),
+  // ── Festival Brain ───────────────────────────────────────────
+  brain: router({
+    // Send a message to the brain — extracts lessons and responds
+    chat: protectedProcedure.input(z2.object({
+      festivalSlug: z2.string(),
+      festivalName: z2.string(),
+      message: z2.string().min(1),
+      concept: z2.string().optional(),
+      dayNumber: z2.number().optional(),
+      totalDays: z2.number().optional()
+    })).mutation(async ({ ctx, input }) => {
+      const userMsgId = await insertBrainChatMessage({
+        userId: ctx.user.id,
+        festivalSlug: input.festivalSlug,
+        role: "user",
+        content: input.message
+      });
+      const lessons = await extractLessons(input.message, {
+        festivalSlug: input.festivalSlug,
+        festivalName: input.festivalName,
+        concept: input.concept,
+        dayNumber: input.dayNumber,
+        totalDays: input.totalDays
+      });
+      let lessonIds = [];
+      if (lessons.length > 0) {
+        const inserts = lessonsToInserts(lessons, {
+          festivalSlug: input.festivalSlug,
+          festivalName: input.festivalName,
+          concept: input.concept,
+          dayNumber: input.dayNumber,
+          totalDays: input.totalDays
+        }, "you_said", input.message);
+        lessonIds = await insertBrainLessons(inserts);
+      }
+      const brainResponse = await generateBrainResponse(input.message, lessons);
+      await insertBrainChatMessage({
+        userId: ctx.user.id,
+        festivalSlug: input.festivalSlug,
+        role: "brain",
+        content: brainResponse,
+        lessonsExtracted: lessonIds
+      });
+      await insertAgentLog({
+        agent: "lessonExtractor",
+        model: "claude-sonnet",
+        festivalSlug: input.festivalSlug,
+        action: "extract_lessons_from_chat",
+        inputSummary: input.message.substring(0, 200),
+        outputSummary: `${lessons.length} lessons extracted`,
+        lessonsUsed: null,
+        success: true
+      });
+      return {
+        response: brainResponse,
+        lessonsExtracted: lessons.length,
+        lessonIds
+      };
+    }),
+    // Get chat history for a festival
+    chatHistory: protectedProcedure.input(z2.object({
+      festivalSlug: z2.string(),
+      limit: z2.number().optional().default(100)
+    })).query(async ({ input }) => {
+      const messages = await getBrainChatHistory(input.festivalSlug, input.limit);
+      return messages.reverse();
+    }),
+    // Get all lessons (optionally filtered)
+    lessons: protectedProcedure.input(z2.object({
+      festivalSlug: z2.string().optional(),
+      category: z2.string().optional(),
+      limit: z2.number().optional().default(100)
+    }).optional()).query(async ({ input }) => {
+      return getBrainLessons(input?.festivalSlug, input?.category, input?.limit);
+    }),
+    // Get lessons by minimum confidence
+    lessonsByConfidence: protectedProcedure.input(z2.object({
+      minConfidence: z2.number(),
+      festivalSlug: z2.string().optional()
+    })).query(async ({ input }) => {
+      return getBrainLessonsByConfidence(input.minConfidence, input.festivalSlug);
+    }),
+    // Override a lesson
+    overrideLesson: protectedProcedure.input(z2.object({
+      lessonId: z2.number(),
+      reason: z2.string()
+    })).mutation(async ({ input }) => {
+      await overrideLesson(input.lessonId, input.reason);
+      return { success: true };
+    }),
+    // Get brain stats
+    stats: protectedProcedure.input(z2.object({ festivalSlug: z2.string().optional() }).optional()).query(async ({ input }) => {
+      return getBrainStats(input?.festivalSlug);
+    }),
+    // Get agent logs
+    agentLogs: protectedProcedure.input(z2.object({
+      festivalSlug: z2.string().optional(),
+      limit: z2.number().optional().default(50)
+    }).optional()).query(async ({ input }) => {
+      return getAgentLogs(input?.festivalSlug, input?.limit);
+    }),
+    // Generate debrief questions for tonight
+    generateDebrief: protectedProcedure.input(z2.object({
+      festivalSlug: z2.string(),
+      festivalName: z2.string(),
+      dayNumber: z2.number(),
+      salesData: z2.object({
+        covers: z2.number(),
+        revenue: z2.number(),
+        vsForecastPct: z2.number()
+      }).optional()
+    })).query(({ input }) => {
+      return { questions: generateDebriefQuestions(input.festivalName, input.dayNumber, input.salesData) };
+    }),
+    // Submit debrief answers (processes through lesson extractor)
+    submitDebrief: protectedProcedure.input(z2.object({
+      festivalSlug: z2.string(),
+      festivalName: z2.string(),
+      dayNumber: z2.number(),
+      totalDays: z2.number(),
+      answers: z2.string()
+    })).mutation(async ({ ctx, input }) => {
+      await insertBrainChatMessage({
+        userId: ctx.user.id,
+        festivalSlug: input.festivalSlug,
+        role: "user",
+        content: `[DEBRIEF Day ${input.dayNumber}] ${input.answers}`
+      });
+      const lessons = await extractLessons(input.answers, {
+        festivalSlug: input.festivalSlug,
+        festivalName: input.festivalName,
+        dayNumber: input.dayNumber,
+        totalDays: input.totalDays
+      });
+      let lessonIds = [];
+      if (lessons.length > 0) {
+        const inserts = lessonsToInserts(lessons, {
+          festivalSlug: input.festivalSlug,
+          festivalName: input.festivalName,
+          dayNumber: input.dayNumber,
+          totalDays: input.totalDays
+        }, "debrief", input.answers);
+        lessonIds = await insertBrainLessons(inserts);
+      }
+      const brainResponse = await generateBrainResponse(
+        `Debrief day ${input.dayNumber}: ${input.answers}`,
+        lessons
+      );
+      await insertBrainChatMessage({
+        userId: ctx.user.id,
+        festivalSlug: input.festivalSlug,
+        role: "brain",
+        content: brainResponse,
+        lessonsExtracted: lessonIds
+      });
+      return {
+        response: brainResponse,
+        lessonsExtracted: lessons.length
+      };
     })
   })
 });
