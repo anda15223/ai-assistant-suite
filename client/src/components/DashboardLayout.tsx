@@ -20,11 +20,28 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Mail, CheckSquare, Settings, Home, MessageCircle, Users, Cpu, Flame, FileText, Tent, Sparkles, Command, Brain } from "lucide-react";
+import {
+  LayoutDashboard,
+  LogOut,
+  PanelLeft,
+  Mail,
+  CheckSquare,
+  Settings,
+  Home,
+  MessageCircle,
+  Users,
+  Flame,
+  FileText,
+  Tent,
+  Sparkles,
+  Command,
+  Brain,
+  Search,
+  Bell,
+} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
-import { Button } from "./ui/button";
+import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -62,33 +79,30 @@ export default function DashboardLayout({
   }, [sidebarWidth]);
 
   if (loading) {
-    return <DashboardLayoutSkeleton />
+    return <DashboardLayoutSkeleton />;
   }
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-[#f8f9fc]">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="w-14 h-14 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-            <Cpu className="w-7 h-7 text-amber-500" />
+          <div className="w-14 h-14 rounded-xl bg-[#eef2ff] border border-[#e5e7eb] flex items-center justify-center">
+            <LayoutDashboard className="w-7 h-7 text-[#6366f1]" />
           </div>
           <div className="flex flex-col items-center gap-4">
-            <h1 className="text-2xl font-semibold tracking-tight text-center text-foreground">
-              AI Assistant Suite
+            <h1 className="text-2xl font-semibold tracking-tight text-center text-[#111827]">
+              AI Suite
             </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Sign in to access your AI-powered email assistant, task management, and more.
+            <p className="text-sm text-[#6b7280] text-center max-w-sm">
+              Sign in to access your AI-powered festival management, email assistant, and more.
             </p>
           </div>
-          <Button
-            onClick={() => {
-              window.location.href = "/login";
-            }}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all bg-amber-500 hover:bg-amber-600 text-black"
+          <button
+            onClick={() => { window.location.href = "/login"; }}
+            className="w-full px-4 py-2.5 bg-[#6366f1] hover:bg-[#4f46e5] text-white rounded-lg font-medium transition-colors shadow-sm"
           >
             Sign in
-          </Button>
+          </button>
         </div>
       </div>
     );
@@ -124,7 +138,7 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => location.startsWith(item.path));
+  const activeMenuItem = menuItems.find((item) => location.startsWith(item.path));
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -160,20 +174,22 @@ function DashboardLayoutContent({
   return (
     <>
       <div className="relative" ref={sidebarRef}>
-        <Sidebar collapsible="icon" className="border-r-0" disableTransition={isResizing}>
-          <SidebarHeader className="h-16 justify-center">
+        <Sidebar collapsible="icon" className="border-r border-[#e5e7eb] bg-white" disableTransition={isResizing}>
+          <SidebarHeader className="h-16 justify-center border-b border-[#f3f4f6]">
             <div className="flex items-center gap-3 px-2 transition-all w-full">
               <button
                 onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                className="h-8 w-8 flex items-center justify-center hover:bg-[#f1f3f9] rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366f1] shrink-0"
                 aria-label="Toggle navigation"
               >
-                <PanelLeft className="h-4 w-4 text-muted-foreground" />
+                <PanelLeft className="h-4 w-4 text-[#6b7280]" />
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <Cpu className="h-5 w-5 text-amber-500 shrink-0" />
-                  <span className="font-semibold tracking-tight truncate">
+                  <div className="h-6 w-6 rounded-lg bg-[#6366f1] flex items-center justify-center shrink-0">
+                    <LayoutDashboard className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <span className="font-semibold tracking-tight text-[#111827] truncate">
                     AI Suite
                   </span>
                 </div>
@@ -181,9 +197,17 @@ function DashboardLayoutContent({
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0">
+          <SidebarContent className="gap-0 bg-white">
+            {/* Label */}
+            {!isCollapsed && (
+              <div className="px-4 pt-4 pb-2">
+                <span className="text-[11px] uppercase tracking-[0.05em] text-[#9ca3af] font-medium">
+                  Main Menu
+                </span>
+              </div>
+            )}
             <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
+              {menuItems.map((item) => {
                 const isActive = location.startsWith(item.path);
                 return (
                   <SidebarMenuItem key={item.path}>
@@ -191,9 +215,13 @@ function DashboardLayoutContent({
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className="h-10 transition-all font-normal"
+                      className={`h-9 transition-all font-normal text-[14px] rounded-lg ${
+                        isActive
+                          ? "bg-[#eef2ff] text-[#6366f1] font-medium border-l-[3px] border-[#6366f1]"
+                          : "text-[#6b7280] hover:bg-[#f1f3f9] hover:text-[#111827]"
+                      }`}
                     >
-                      <item.icon className={`h-4 w-4 ${isActive ? "text-amber-500" : ""}`} />
+                      <item.icon className={`h-4 w-4 ${isActive ? "text-[#6366f1]" : "text-[#9ca3af]"}`} />
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -201,35 +229,35 @@ function DashboardLayoutContent({
               })}
             </SidebarMenu>
 
-            {/* Back to landing page */}
-            <SidebarMenu className="px-2 mt-4 pt-4 border-t border-border">
+            {/* Back to Home */}
+            <SidebarMenu className="px-2 mt-4 pt-4 border-t border-[#f3f4f6]">
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setLocation("/")}
                   tooltip="Back to Home"
-                  className="h-10 transition-all font-normal"
+                  className="h-9 transition-all font-normal text-[14px] text-[#6b7280] hover:bg-[#f1f3f9] hover:text-[#111827] rounded-lg"
                 >
-                  <Home className="h-4 w-4" />
+                  <Home className="h-4 w-4 text-[#9ca3af]" />
                   <span>Back to Home</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
 
-          <SidebarFooter className="p-3">
+          <SidebarFooter className="p-3 bg-white border-t border-[#f3f4f6]">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium">
+                <button className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-[#f1f3f9] transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366f1]">
+                  <div className="h-8 w-8 rounded-full bg-[#eef2ff] flex items-center justify-center shrink-0">
+                    <span className="text-xs font-medium text-[#6366f1]">
                       {user?.name?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                    </span>
+                  </div>
                   <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">
+                    <p className="text-sm font-medium text-[#111827] truncate leading-none">
                       {user?.name || "-"}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1.5">
+                    <p className="text-xs text-[#9ca3af] truncate mt-1">
                       {user?.email || "-"}
                     </p>
                   </div>
@@ -238,7 +266,7 @@ function DashboardLayoutContent({
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem
                   onClick={logout}
-                  className="cursor-pointer text-destructive focus:text-destructive"
+                  className="cursor-pointer text-[#ef4444] focus:text-[#ef4444]"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign out</span>
@@ -248,7 +276,7 @@ function DashboardLayoutContent({
           </SidebarFooter>
         </Sidebar>
         <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors ${isCollapsed ? "hidden" : ""}`}
+          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-[#6366f1]/20 transition-colors ${isCollapsed ? "hidden" : ""}`}
           onMouseDown={() => {
             if (isCollapsed) return;
             setIsResizing(true);
@@ -258,21 +286,48 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset>
-        {isMobile && (
-          <div className="flex border-b h-14 items-center justify-between bg-background/95 px-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col gap-1">
-                  <span className="tracking-tight text-foreground">
-                    {activeMenuItem?.label ?? "Menu"}
-                  </span>
-                </div>
+        {/* Top bar */}
+        <div className="flex border-b border-[#e5e7eb] h-16 items-center justify-between bg-white px-4 md:px-8 sticky top-0 z-40">
+          <div className="flex items-center gap-3">
+            {isMobile && (
+              <SidebarTrigger className="h-9 w-9 rounded-lg text-[#6b7280] hover:bg-[#f1f3f9]" />
+            )}
+            <h2 className="text-[18px] font-semibold text-[#111827] tracking-tight">
+              {activeMenuItem?.label ?? "Menu"}
+            </h2>
+          </div>
+
+          {/* Search */}
+          <div className="hidden md:flex items-center max-w-md flex-1 mx-8">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9ca3af]" />
+              <input
+                type="text"
+                placeholder="Search anything..."
+                className="w-full pl-10 pr-12 py-2 text-sm bg-[#f8f9fc] border border-[#e5e7eb] rounded-lg text-[#111827] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#6366f1] focus:ring-1 focus:ring-[#6366f1]/20"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-[10px] text-[#9ca3af]">
+                <kbd className="px-1.5 py-0.5 bg-white border border-[#e5e7eb] rounded text-[10px]">⌘</kbd>
+                <kbd className="px-1.5 py-0.5 bg-white border border-[#e5e7eb] rounded text-[10px]">K</kbd>
               </div>
             </div>
           </div>
-        )}
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+
+          {/* Right side */}
+          <div className="flex items-center gap-3">
+            <button className="h-9 w-9 flex items-center justify-center rounded-lg hover:bg-[#f1f3f9] transition-colors relative">
+              <Bell className="h-4 w-4 text-[#6b7280]" />
+            </button>
+            <div className="h-8 w-8 rounded-full bg-[#eef2ff] flex items-center justify-center">
+              <span className="text-xs font-medium text-[#6366f1]">
+                {user?.name?.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <main className="flex-1 p-4 md:p-8 bg-[#f8f9fc]">{children}</main>
       </SidebarInset>
     </>
   );

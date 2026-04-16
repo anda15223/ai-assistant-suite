@@ -341,3 +341,84 @@ export const brainPlaybooks = pgTable("brain_playbooks", {
 
 export type BrainPlaybook = typeof brainPlaybooks.$inferSelect;
 export type InsertBrainPlaybook = typeof brainPlaybooks.$inferInsert;
+
+// ============================================================
+// Team & Task Management Tables
+// ============================================================
+
+export const orgTeam = pgTable("org_team", {
+  id: serial("id").primaryKey(),
+  email: varchar("otEmail", { length: 320 }).notNull().unique(),
+  name: varchar("otName", { length: 255 }).notNull(),
+  role: text("otRole").$type<"owner" | "manager" | "coordinator">().notNull(),
+  avatarUrl: text("avatarUrl"),
+  invitedBy: integer("invitedBy"),
+  invitedAt: timestamp("invitedAt"),
+  joinedAt: timestamp("joinedAt"),
+  lastActive: timestamp("lastActive"),
+  isActive: boolean("otIsActive").default(true).notNull(),
+  createdAt: timestamp("otCreatedAt").defaultNow().notNull(),
+});
+
+export type OrgTeam = typeof orgTeam.$inferSelect;
+export type InsertOrgTeam = typeof orgTeam.$inferInsert;
+
+export const orgTeamFestivals = pgTable("org_team_festivals", {
+  id: serial("id").primaryKey(),
+  teamMemberId: integer("teamMemberId").notNull(),
+  festivalSlug: varchar("otfFestivalSlug", { length: 100 }).notNull(),
+  assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+});
+
+export type OrgTeamFestival = typeof orgTeamFestivals.$inferSelect;
+export type InsertOrgTeamFestival = typeof orgTeamFestivals.$inferInsert;
+
+export const festivalTasks = pgTable("festival_tasks", {
+  id: serial("id").primaryKey(),
+  festivalSlug: varchar("ftFestivalSlug", { length: 100 }).notNull(),
+  conceptName: varchar("conceptName", { length: 100 }),
+  title: varchar("ftTitle", { length: 500 }).notNull(),
+  description: text("ftDescription"),
+  category: text("ftCategory").$type<"contracts" | "logistics" | "staff" | "orders" | "setup" | "ops" | "finance">(),
+  priority: text("ftPriority").$type<"critical" | "high" | "medium" | "low">().default("medium").notNull(),
+  status: text("ftStatus").$type<"todo" | "in_progress" | "done">().default("todo").notNull(),
+  assignedTo: integer("assignedTo"),
+  createdBy: integer("createdBy"),
+  dueDate: timestamp("ftDueDate"),
+  completedAt: timestamp("completedAt"),
+  phase: integer("phase"),
+  createdAt: timestamp("ftCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("ftUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type FestivalTask = typeof festivalTasks.$inferSelect;
+export type InsertFestivalTask = typeof festivalTasks.$inferInsert;
+
+export const taskActivity = pgTable("task_activity", {
+  id: serial("id").primaryKey(),
+  taskId: integer("taTaskId").notNull(),
+  userId: integer("taUserId").notNull(),
+  type: text("taType").$type<"comment" | "file_upload" | "status_change" | "assignment">().notNull(),
+  content: text("taContent"),
+  fileUrl: text("fileUrl"),
+  fileName: varchar("fileName", { length: 500 }),
+  createdAt: timestamp("taCreatedAt").defaultNow().notNull(),
+});
+
+export type TaskActivity = typeof taskActivity.$inferSelect;
+export type InsertTaskActivity = typeof taskActivity.$inferInsert;
+
+export const inviteTokens = pgTable("invite_tokens", {
+  id: serial("id").primaryKey(),
+  email: varchar("itEmail", { length: 320 }).notNull(),
+  role: text("itRole").$type<"manager" | "coordinator">().notNull(),
+  invitedBy: integer("itInvitedBy").notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  usedAt: timestamp("usedAt"),
+  festivalSlugs: jsonb("festivalSlugs").$type<string[]>(),
+  createdAt: timestamp("itCreatedAt").defaultNow().notNull(),
+});
+
+export type InviteToken = typeof inviteTokens.$inferSelect;
+export type InsertInviteToken = typeof inviteTokens.$inferInsert;

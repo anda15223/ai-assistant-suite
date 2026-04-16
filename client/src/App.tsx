@@ -22,6 +22,7 @@ import Festivals from "./pages/Festivals";
 import Chat from "./pages/Chat";
 import FestivalCommandCentre from "./pages/FestivalCommandCentre";
 import FestivalBrain from "./pages/FestivalBrain";
+import FestivalDashboard from "./pages/FestivalDashboard";
 
 function Router() {
   return (
@@ -90,6 +91,9 @@ function Router() {
       <Route path={"/festival-brain"}>
         <FestivalBrain />
       </Route>
+      <Route path={"/festivals/:slug"}>
+        {(params) => <FestivalDashboard slug={params.slug} />}
+      </Route>
       <Route path={"/settings"}>
         <DashboardLayout>
           <Settings />
@@ -104,7 +108,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <Router />

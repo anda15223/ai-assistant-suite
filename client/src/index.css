@@ -41,7 +41,18 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Custom Command Center colors */
+  /* Task Z design tokens */
+  --color-indigo: #6366f1;
+  --color-indigo-light: #eef2ff;
+  --color-indigo-hover: #4f46e5;
+  --color-success: #10b981;
+  --color-success-light: #d1fae5;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fef3c7;
+  --color-danger: #ef4444;
+  --color-danger-light: #fee2e2;
+
+  /* Command Centre still uses these (dark-themed standalone pages) */
   --color-amber: oklch(0.82 0.17 80);
   --color-amber-dim: oklch(0.82 0.17 80 / 0.15);
   --color-teal: oklch(0.75 0.14 180);
@@ -52,13 +63,50 @@
   --color-alert: oklch(0.63 0.24 25);
 
   /* Typography */
-  --font-heading: "Outfit", sans-serif;
+  --font-heading: "Inter", "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
-  --font-body: "DM Sans", sans-serif;
+  --font-body: "Inter", "DM Sans", sans-serif;
 }
 
+/* ── Light theme (default) ──────────────────────────────── */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
+  --background: #f8f9fc;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f3f9;
+  --secondary-foreground: #111827;
+  --muted: #f1f3f9;
+  --muted-foreground: #6b7280;
+  --accent: #eef2ff;
+  --accent-foreground: #6366f1;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #6366f1;
+  --chart-1: #6366f1;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #ef4444;
+  --chart-5: #8b5cf6;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111827;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef2ff;
+  --sidebar-accent-foreground: #6366f1;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #6366f1;
+}
+
+/* ── Dark theme (for Command Centre & Brain standalone pages) ── */
+.dark {
   --background: oklch(0.12 0.02 260);
   --foreground: oklch(0.92 0.01 260);
   --card: oklch(0.16 0.02 260);
@@ -100,9 +148,13 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
+    font-weight: 600;
+    color: var(--foreground);
   }
   code, pre, .font-mono {
     font-family: var(--font-mono);
@@ -148,27 +200,42 @@
       max-width: 1280px;
     }
   }
-}
 
-/* Scanline effect */
-@keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
-}
+  /* ── Task Z card style ──────────────────────────────── */
+  .tz-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
 
-.scanline-overlay::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    transparent 0%,
-    oklch(0.82 0.17 80 / 0.03) 50%,
-    transparent 100%
-  );
-  height: 4px;
-  animation: scanline 8s linear infinite;
-  pointer-events: none;
-  z-index: 1;
+  .tz-metric-card {
+    background: var(--secondary);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .tz-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+
+  .tz-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted-foreground);
+  }
+
+  /* ── Phase status indicators ────────────────────────── */
+  .phase-complete { color: #10b981; }
+  .phase-in-progress { color: #6366f1; font-weight: 500; }
+  .phase-not-started { color: #9ca3af; }
+  .phase-overdue { color: #ef4444; background: #fee2e2; }
+  .phase-blocked { color: #f59e0b; }
 }
 
 /* Blink animation for status dots */
@@ -183,15 +250,6 @@
 
 .status-blink-slow {
   animation: blink 3s ease-in-out infinite;
-}
-
-/* Glow effects */
-.glow-amber {
-  box-shadow: 0 0 20px oklch(0.82 0.17 80 / 0.2), 0 0 40px oklch(0.82 0.17 80 / 0.1);
-}
-
-.glow-teal {
-  box-shadow: 0 0 20px oklch(0.75 0.14 180 / 0.2), 0 0 40px oklch(0.75 0.14 180 / 0.1);
 }
 
 /* Smooth scrolling */

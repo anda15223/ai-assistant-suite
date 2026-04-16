@@ -20,16 +20,21 @@ __export(schema_exports, {
   emailAttachments: () => emailAttachments,
   emails: () => emails,
   employees: () => employees,
+  festivalTasks: () => festivalTasks,
+  inviteTokens: () => inviteTokens,
   invoiceDetails: () => invoiceDetails,
   oauthTokens: () => oauthTokens,
+  orgTeam: () => orgTeam,
+  orgTeamFestivals: () => orgTeamFestivals,
   supplierSettings: () => supplierSettings,
+  taskActivity: () => taskActivity,
   tasks: () => tasks,
   users: () => users,
   whatsappDraftReplies: () => whatsappDraftReplies,
   whatsappMessages: () => whatsappMessages
 });
 import { integer, serial, pgTable, text, timestamp, varchar, boolean, jsonb, numeric } from "drizzle-orm/pg-core";
-var updatedNow, users, emailAccounts, emails, emailAttachments, tasks, draftReplies, whatsappMessages, whatsappDraftReplies, employees, invoiceDetails, supplierSettings, oauthTokens, brainLessons, brainAgentLog, brainChatMessages, brainPlaybooks;
+var updatedNow, users, emailAccounts, emails, emailAttachments, tasks, draftReplies, whatsappMessages, whatsappDraftReplies, employees, invoiceDetails, supplierSettings, oauthTokens, brainLessons, brainAgentLog, brainChatMessages, brainPlaybooks, orgTeam, orgTeamFestivals, festivalTasks, taskActivity, inviteTokens;
 var init_schema = __esm({
   "drizzle/schema.ts"() {
     "use strict";
@@ -278,6 +283,63 @@ var init_schema = __esm({
       avgConfidence: integer("avgConfidence").default(0).notNull(),
       createdAt: timestamp("bpCreatedAt").defaultNow().notNull(),
       updatedAt: timestamp("bpUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow)
+    });
+    orgTeam = pgTable("org_team", {
+      id: serial("id").primaryKey(),
+      email: varchar("otEmail", { length: 320 }).notNull().unique(),
+      name: varchar("otName", { length: 255 }).notNull(),
+      role: text("otRole").$type().notNull(),
+      avatarUrl: text("avatarUrl"),
+      invitedBy: integer("invitedBy"),
+      invitedAt: timestamp("invitedAt"),
+      joinedAt: timestamp("joinedAt"),
+      lastActive: timestamp("lastActive"),
+      isActive: boolean("otIsActive").default(true).notNull(),
+      createdAt: timestamp("otCreatedAt").defaultNow().notNull()
+    });
+    orgTeamFestivals = pgTable("org_team_festivals", {
+      id: serial("id").primaryKey(),
+      teamMemberId: integer("teamMemberId").notNull(),
+      festivalSlug: varchar("otfFestivalSlug", { length: 100 }).notNull(),
+      assignedAt: timestamp("assignedAt").defaultNow().notNull()
+    });
+    festivalTasks = pgTable("festival_tasks", {
+      id: serial("id").primaryKey(),
+      festivalSlug: varchar("ftFestivalSlug", { length: 100 }).notNull(),
+      conceptName: varchar("conceptName", { length: 100 }),
+      title: varchar("ftTitle", { length: 500 }).notNull(),
+      description: text("ftDescription"),
+      category: text("ftCategory").$type(),
+      priority: text("ftPriority").$type().default("medium").notNull(),
+      status: text("ftStatus").$type().default("todo").notNull(),
+      assignedTo: integer("assignedTo"),
+      createdBy: integer("createdBy"),
+      dueDate: timestamp("ftDueDate"),
+      completedAt: timestamp("completedAt"),
+      phase: integer("phase"),
+      createdAt: timestamp("ftCreatedAt").defaultNow().notNull(),
+      updatedAt: timestamp("ftUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow)
+    });
+    taskActivity = pgTable("task_activity", {
+      id: serial("id").primaryKey(),
+      taskId: integer("taTaskId").notNull(),
+      userId: integer("taUserId").notNull(),
+      type: text("taType").$type().notNull(),
+      content: text("taContent"),
+      fileUrl: text("fileUrl"),
+      fileName: varchar("fileName", { length: 500 }),
+      createdAt: timestamp("taCreatedAt").defaultNow().notNull()
+    });
+    inviteTokens = pgTable("invite_tokens", {
+      id: serial("id").primaryKey(),
+      email: varchar("itEmail", { length: 320 }).notNull(),
+      role: text("itRole").$type().notNull(),
+      invitedBy: integer("itInvitedBy").notNull(),
+      token: varchar("token", { length: 255 }).notNull().unique(),
+      expiresAt: timestamp("expiresAt").notNull(),
+      usedAt: timestamp("usedAt"),
+      festivalSlugs: jsonb("festivalSlugs").$type(),
+      createdAt: timestamp("itCreatedAt").defaultNow().notNull()
     });
   }
 });
