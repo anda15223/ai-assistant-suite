@@ -226,7 +226,7 @@ const festivalsData: FestivalData[] = [
     setupChecklist: {
       electricity: { status: "pending", details: "Jonas sent power layout Mar 13 — need to confirm 32A fridge container + 230V per concept. REPLY NEEDED." },
       tent: { status: "warning", details: "2x 6×6m vs 12×6m discussion with Jonas (Feb 17). Awaiting confirmation. Flame-retardant cert needed." },
-      cooling: { status: "confirmed", details: "2x cooling containers: arrive Tue 19 May 07:00-18:00, pickup Mon 25 May 07:00-18:00" },
+      cooling: { status: "confirmed", details: "Godik #247741: 2x 20' cooling/freezer containers, 21-24 May, DKK 15,732 incl. moms. Payment due 12 May. Arrive Tue 19 May 07:00-18:00, pickup Mon 25 May." },
       gasSafety: { status: "pending", details: "Gas check required — no date set yet" },
       pos: { status: "critical", details: "POS sortiment template deadline 15 April — PASSED! Lea Haldrup needs filled xlsx with prices, bank account, POS-user emails." },
       foodDelivery: { status: "pending", details: "BC-Catering coordination needed. Leftover equipment pickup TBD." },
@@ -410,7 +410,7 @@ const festivalsData: FestivalData[] = [
     setupChecklist: {
       electricity: { status: "pending", details: "Electricity on/off times MISSING from production plan" },
       tent: { status: "pending", details: "Size/type TBD" },
-      cooling: { status: "confirmed", details: "Cooling container arrives Tue 16 Jun 07:00-18:00 (from production plan)" },
+      cooling: { status: "confirmed", details: "Godik #247805: 1x 20' cooling/freezer container, 18-20 Jun, DKK 9,089 incl. moms. Payment due 9 Jun. Delivery: Egeskov Gade 20, Kværndrup." },
       gasSafety: { status: "pending", details: "Gas check approval deadline Wed 17 Jun 08:00" },
       pos: { status: "warning", details: "Deadline passed - coordinate" },
       foodDelivery: { status: "pending", details: "Grocery delivery time MISSING from plan" },
@@ -633,6 +633,11 @@ const festivalsData: FestivalData[] = [
         "Fire-retardant tent certification required",
         "Volunteer Lounge access (no food there for external volunteers)",
         "No 'veggie/vegetarian' naming allowed — use alternative names",
+        "No MobilePay — fully cashless with festival POS only",
+        "Bagasse/sugarcane/FSC-cert packaging only, no bioplastic",
+        "Must have enough stock — never run out during festival (penalty possible)",
+        "Gas: max 1x 11kg per unit in tent. 22kg must be outside in non-combustible cabinet",
+        "Flee routes: min 1 exit per <10m facade, min 2 if >10m, each 1x2m",
       ],
       concepts: [
         {
@@ -679,7 +684,9 @@ const festivalsData: FestivalData[] = [
         { date: "20 Feb", description: "Gas order via Kosangas", status: "passed" },
         { date: "09 Mar", description: "Facade design approval", status: "passed" },
         { date: "10 Apr", description: "Construction drawings for large structures", status: "passed" },
-        { date: "18 May", description: "All staff registered in Ruby", status: "upcoming" },
+        { date: "05 May", description: "Gas usage anmeldelse to Lisbet + Per Beck (per@dtdgroup.dk). >100kg needs Odense Brandvæsen approval", status: "upcoming" },
+        { date: "05 May", description: "Tents >50m² or >50 people: submit to Odense Brandvæsen with drawings", status: "upcoming" },
+        { date: "18 May", description: "All staff registered in Ruby (volunteers + paid)", status: "upcoming" },
         { date: "01 Jun", description: "Waste handling guidelines received", status: "upcoming" },
         { date: "22 Jun 08:00", description: "Tent frames ready, sales desks by 16:00", status: "upcoming" },
         { date: "24 Jun 08:00", description: "Booth ready for power/water hookup", status: "upcoming" },
@@ -690,7 +697,7 @@ const festivalsData: FestivalData[] = [
   },
   {
     id: 6, name: "Cirkus Summarum", dates: "22-28 Jun 2026", daysAway: 67, status: "URGENT",
-    notes: "Production plan mostly EMPTY — dual location (CPH + Aarhus). Overlaps with Tinderbox.",
+    notes: "Production plan mostly EMPTY — dual location (CPH + Aarhus). Overlaps with Tinderbox. Prices confirmed with Jacob Paaske Harms (Muskelsvindfonden).",
     commission: 11, exclusivity: "Fish + Gyros", powerIncluded: false, powerCost: 4200,
     gasRequired: true, organicRequired: false, standLocation: "CPH: Kræmmerpladsen, Skovlunde / Aarhus: Tangkrogen",
     accommodation: "Local",
@@ -708,6 +715,15 @@ const festivalsData: FestivalData[] = [
           "Electricity on/off times",
           "Entire daily schedule",
         ],
+      },
+    ],
+    emails: [
+      {
+        date: "2026-03-17",
+        from: "Jacob Paaske Harms (jaha@muskelsvindfonden.dk)",
+        subject: "priser til CS26",
+        summary: "Price confirmation request — deadline before Easter (31 Mar). Pancakes: savory 100kr, sweet 45-60kr. Fish & Chips: 119kr / 75kr kids. Nuggets: 119kr / 75kr kids. Extra fries 45kr, dip 15kr.",
+        direction: "inbox",
       },
     ],
     setupChecklist: {
@@ -869,7 +885,7 @@ const festivalsData: FestivalData[] = [
     id: 9, name: "Syd For Solen", dates: "10-16 Aug 2026", daysAway: 116, status: "PLANNING",
     notes: "Production plan sparse. Cooling arrives Tue 11 Aug. First day Thu 13 Aug. 16 missing items.",
     commission: 10, exclusivity: "Fish + Gyros + Crepes", powerIncluded: false, powerCost: 23200,
-    gasRequired: false, organicRequired: false, standLocation: "Address: ??",
+    gasRequired: false, organicRequired: false, standLocation: "Tudsemindevej 39, 2450 KBH SV",
     accommodation: "Beach area accommodation",
     contracts: { signed: false, critical: false },
     documents: [
@@ -896,7 +912,7 @@ const festivalsData: FestivalData[] = [
     setupChecklist: {
       electricity: { status: "pending", details: "Electricity on/off MISSING" },
       tent: { status: "pending", details: "No tent info" },
-      cooling: { status: "confirmed", details: "Cooling container arrives Tue 11 Aug 07:00-18:00, pickup Sun 16 Aug 07:00-18:00" },
+      cooling: { status: "confirmed", details: "Godik #247806: 1x 20' cooling/freezer container, 13-15 Aug, DKK 6,939 incl. moms. Payment due 4 Aug. Delivery: Tudsemindevej 39, 2450 KBH SV." },
       gasSafety: { status: "pending", details: "Gas check MISSING" },
       pos: { status: "pending", details: "No POS info" },
       foodDelivery: { status: "pending", details: "Grocery delivery MISSING" },
@@ -944,9 +960,9 @@ const festivalsData: FestivalData[] = [
   },
   {
     id: 10, name: "Suset", dates: "17-25 Aug 2026", daysAway: 130, status: "URGENT",
-    notes: "Production plan nearly empty. 18 missing items! First day Fri 21 Aug, last day Sat 22 Aug. Contract urgency.",
+    notes: "Production plan nearly empty. 18 missing items! First day Fri 21 Aug, last day Sat 22 Aug. Gas plan due 30 May. Wind-resistant construction required (harbor).",
     commission: 8, exclusivity: "Fish-only + organic requirements", powerIncluded: false, powerCost: 4500,
-    gasRequired: true, organicRequired: true, standLocation: "Address: ???",
+    gasRequired: true, organicRequired: true, standLocation: "Østre Forhavnskaj, Esbjerg",
     accommodation: "Hotel - TBD",
     contracts: { signed: true, critical: true },
     documents: [
@@ -976,8 +992,8 @@ const festivalsData: FestivalData[] = [
       electricity: { status: "pending", details: "Electricity on/off MISSING" },
       tent: { status: "pending", details: "No tent info" },
       cooling: { status: "pending", details: "Cooling arrival/pickup MISSING" },
-      gasSafety: { status: "pending", details: "Gas check MISSING" },
-      pos: { status: "pending", details: "No POS info" },
+      gasSafety: { status: "warning", details: "Gas floor plan due 30.05.2026. No own gas — order through festival. Inspection 22.08 09:00-16:00." },
+      pos: { status: "pending", details: "Live Nation POS (cashless festival)" },
       foodDelivery: { status: "critical", details: "ORGANIC SOURCING — 50% requirement! Supplier coordination MISSING." },
       staffAccred: { status: "pending", details: "No info" },
       accommodation: { status: "pending", details: "Check-in/check-out MISSING" },
@@ -1001,6 +1017,11 @@ const festivalsData: FestivalData[] = [
         "Extensive legal framework (Bilag A through E)",
         "Festival dates: 21-22 August 2026 (2 days only, Fri-Sat)",
         "Capacity: 16,000 daily / 32,000 total",
+        "BILAG C: No own gas bottles — order through festival only",
+        "BILAG C: Gas inspection 22.08.2026 09:00-16:00. All costs for fixes borne by stall holder",
+        "BILAG C: Floor plan with gas appliances + kW ratings due by 30.05.2026",
+        "BILAG D: Stall design must match Suset industrial-harbor aesthetic. Wind-resistant construction required (Esbjerg harbor).",
+        "BILAG D: Design approval required before festival. All constructions >1m need building permit.",
       ],
       concepts: [
         {
@@ -1024,7 +1045,10 @@ const festivalsData: FestivalData[] = [
           campingVogn: false,
         },
       ],
-      deadlines: [],
+      deadlines: [
+        { date: "30.05.2026", description: "Gas floor plan with appliance list + kW ratings due (Bilag C)", status: "upcoming" },
+        { date: "22.08.2026", description: "Gas safety inspection day 09:00-16:00 (Bilag C)", status: "upcoming" },
+      ],
     },
   },
   {
@@ -1293,14 +1317,35 @@ function buildPhases(f: FestivalData): Record<number, FestivalPhase> {
   };
 
   // Phase 5 - Logistics
+  const coolingBooked = f.setupChecklist.cooling?.status === "confirmed" || f.setupChecklist.cooling?.status === "complete";
+  const coolingIsGodik = f.setupChecklist.cooling?.details?.toLowerCase().includes("godik") ?? false;
+  const gasDeadline = cd?.deadlines.find(d => d.description.toLowerCase().includes("gas") || d.description.toLowerCase().includes("inventaropstilling"));
+
+  const phase5Steps: PhaseStep[] = [
+    { title: "Create load list", status: "not-started", details: "Itemize everything to transport", actionNeeded: "Build load manifest for this festival" },
+    { title: "Arrange transport", status: "not-started", details: "Book vehicles and plan routes", actionNeeded: "Confirm vehicle availability and route" },
+    {
+      title: "Confirm cooling delivery",
+      status: coolingBooked ? "complete" : "not-started",
+      details: f.setupChecklist.cooling?.details || "Cooling logistics TBD",
+      actionNeeded: coolingBooked
+        ? (coolingIsGodik ? "Payment due — check date in Godik contract" : undefined)
+        : "Book cooling container (Godik or other)",
+    },
+    {
+      title: "Confirm gas supply",
+      status: f.gasRequired ? (gasDeadline ? "in-progress" : "not-started") : "complete",
+      details: f.gasRequired
+        ? (gasDeadline ? `Gas deadline: ${gasDeadline.date} — ${gasDeadline.description}` : f.setupChecklist.gasSafety?.details || "Gas required — details TBD")
+        : "No gas required",
+      actionNeeded: f.gasRequired && gasDeadline?.status === "upcoming" ? `Submit gas plan by ${gasDeadline.date}` : undefined,
+    },
+  ];
+
+  const phase5HasProgress = coolingBooked || (f.gasRequired && !!gasDeadline);
   const phase5: FestivalPhase = {
-    status: "not-started",
-    steps: [
-      { title: "Create load list", status: "not-started", details: "Itemize everything to transport" },
-      { title: "Arrange transport", status: "not-started", details: "Book vehicles and plan routes" },
-      { title: "Confirm cooling delivery", status: "not-started", details: f.setupChecklist.cooling?.details || "Cooling logistics TBD" },
-      { title: "Confirm gas supply", status: "not-started", details: f.gasRequired ? (f.setupChecklist.gasSafety?.details || "Gas required — details TBD") : "No gas required" },
-    ],
+    status: f.status === "CANCELLED" ? "not-started" : phase5HasProgress ? "in-progress" : "not-started",
+    steps: phase5Steps,
   };
 
   // Phase 6 - On-site Setup
