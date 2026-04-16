@@ -189,11 +189,25 @@ const festivalsData: FestivalData[] = [
     gasRequired: false, organicRequired: false, standLocation: "N/A",
     accommodation: "N/A",
     contracts: { signed: false, critical: false },
+    documents: [
+      {
+        title: "FLÆSKE SW — Ansøgningsskema NorthSide 2026",
+        type: "doc",
+        driveId: "1Ff8iIFAUTEI7tZsPelx6iS-_WtS1oGEIyWvM7bVvewE",
+        summary: "Application form for NorthSide (Flæskestegssandwich concept). Menu: Flæskestegssandwich (110-120kr), 100% organic. Firma: The Fish Project, CVR 39236931, Filip Færgeman.",
+      },
+      {
+        title: "FISH — Ansøgningsskema NorthSide 2026",
+        type: "doc",
+        driveId: "1Fi9uuu69Yg0-WaK62cI9fmRSxhgab_zhmQzref5-AGQ",
+        summary: "Application form for NorthSide (Fish concept). File too large to read via API.",
+      },
+    ],
     setupChecklist: {},
   },
   {
     id: 3, name: "Heartland", dates: "15-22 Jun 2026", daysAway: 60, status: "URGENT",
-    notes: "NO PLAN in Drive - POS/crew/photo deadlines (Apr 10 - PASSED)",
+    notes: "Has production plan. Address: Egeskov Gade 20, Kværndrup. 6 missing items.",
     commission: 10, exclusivity: "Standard", powerIncluded: false, powerCost: 0,
     gasRequired: true, organicRequired: false, standLocation: "TBD",
     accommodation: "TBD",
