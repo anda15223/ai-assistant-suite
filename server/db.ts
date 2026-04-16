@@ -1,8 +1,8 @@
 import { eq, desc, and, sql, isNotNull, isNull, or, notInArray, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { users, emailAccounts, emails, tasks, draftReplies, invoiceDetails, supplierSettings, emailAttachments, oauthTokens } from "../drizzle/schema";
-import type { InsertUser, InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply, InsertInvoiceDetail, InsertSupplierSetting, InsertEmailAttachment } from "../drizzle/schema";
+import { users, emailAccounts, emails, tasks, draftReplies, invoiceDetails, supplierSettings, emailAttachments, oauthTokens, brainLessons, brainAgentLog, brainChatMessages, brainPlaybooks } from "../drizzle/schema";
+import type { InsertUser, InsertEmailAccount, InsertEmail, InsertTask, InsertDraftReply, InsertInvoiceDetail, InsertSupplierSetting, InsertEmailAttachment, InsertBrainLesson, InsertBrainAgentLog, InsertBrainChatMessage, InsertBrainPlaybook } from "../drizzle/schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _client: ReturnType<typeof postgres> | null = null;
@@ -816,4 +816,146 @@ export async function deleteOAuthToken(userId: number, provider: string) {
   if (!database) return;
   await database.delete(oauthTokens)
     .where(and(eq(oauthTokens.userId, userId), eq(oauthTokens.provider, provider)));
+}
+
+// ============================================================
+// Festival Brain — Lessons, Chat, Agent Log, Playbooks
+// ============================================================
+
+export async function insertBrainLessons(lessons: InsertBrainLesson[]): Promise<number[]> {
+  const database = await getDb();
+  if (!database || lessons.length === 0) return [];
+  const result = await database.insert(brainLessons).values(lessons).returning({ id: brainLessons.id });
+  return result.map(r => r.id);
+}
+
+export async function getBrainLessons(festivalSlug?: string, category?: string, limit = 100) {
+  const database = await getDb();
+  if (!database) return [];
+  const conditions = [];
+  if (festivalSlug) conditions.push(eq(brainLessons.festivalSlug, festivalSlug));
+  if (category) conditions.push(eq(brainLessons.category, category as any));
+
+  return database.select().from(brainLessons)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(brainLessons.createdAt))
+    .limit(limit);
+}
+
+export async function getBrainLessonsByConfidence(minConfidence: number, festivalSlug?: string) {
+  const database = await getDb();
+  if (!database) return [];
+  const conditions = [sql`${brainLessons.confidence} >= ${minConfidence}`];
+  if (festivalSlug) conditions.push(eq(brainLessons.festivalSlug, festivalSlug));
+  return database.select().from(brainLessons)
+    .where(and(...conditions))
+    .orderBy(desc(brainLessons.confidence));
+}
+
+export async function updateLessonConfidence(lessonId: number, wasCorrect: boolean) {
+  const database = await getDb();
+  if (!database) return;
+  const [lesson] = await database.select().from(brainLessons).where(eq(brainLessons.id, lessonId));
+  if (!lesson) return;
+
+  const newApplied = lesson.timesApplied + 1;
+  const newCorrect = lesson.timesCorrect + (wasCorrect ? 1 : 0);
+  // Bayesian-ish confidence update
+  const boost = wasCorrect ? Math.max(2, 15 - lesson.timesApplied * 2) : -Math.max(5, 20 - lesson.timesApplied);
+  const newConfidence = Math.min(100, Math.max(10, lesson.confidence + boost));
+
+  await database.update(brainLessons)
+    .set({ timesApplied: newApplied, timesCorrect: newCorrect, confidence: newConfidence })
+    .where(eq(brainLessons.id, lessonId));
+}
+
+export async function overrideLesson(lessonId: number, reason: string) {
+  const database = await getDb();
+  if (!database) return;
+  await database.update(brainLessons)
+    .set({ humanOverridden: true, overrideReason: reason })
+    .where(eq(brainLessons.id, lessonId));
+}
+
+// ── Chat messages ────────────────────────────────────────────────────────
+
+export async function insertBrainChatMessage(msg: InsertBrainChatMessage): Promise<number> {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const result = await database.insert(brainChatMessages).values(msg).returning({ id: brainChatMessages.id });
+  return result[0].id;
+}
+
+export async function getBrainChatHistory(festivalSlug: string, limit = 100) {
+  const database = await getDb();
+  if (!database) return [];
+  return database.select().from(brainChatMessages)
+    .where(eq(brainChatMessages.festivalSlug, festivalSlug))
+    .orderBy(desc(brainChatMessages.createdAt))
+    .limit(limit);
+}
+
+// ── Agent log ────────────────────────────────────────────────────────────
+
+export async function insertAgentLog(log: InsertBrainAgentLog): Promise<number> {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const result = await database.insert(brainAgentLog).values(log).returning({ id: brainAgentLog.id });
+  return result[0].id;
+}
+
+export async function getAgentLogs(festivalSlug?: string, limit = 50) {
+  const database = await getDb();
+  if (!database) return [];
+  const conditions = festivalSlug ? eq(brainAgentLog.festivalSlug, festivalSlug) : undefined;
+  return database.select().from(brainAgentLog)
+    .where(conditions)
+    .orderBy(desc(brainAgentLog.timestamp))
+    .limit(limit);
+}
+
+// ── Playbooks ────────────────────────────────────────────────────────────
+
+export async function savePlaybook(data: InsertBrainPlaybook): Promise<number> {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const result = await database.insert(brainPlaybooks).values(data).returning({ id: brainPlaybooks.id });
+  return result[0].id;
+}
+
+export async function getLatestPlaybook(sourceFestivalSlug: string) {
+  const database = await getDb();
+  if (!database) return null;
+  const results = await database.select().from(brainPlaybooks)
+    .where(eq(brainPlaybooks.sourceFestivalSlug, sourceFestivalSlug))
+    .orderBy(desc(brainPlaybooks.createdAt))
+    .limit(1);
+  return results[0] || null;
+}
+
+// ── Brain stats ──────────────────────────────────────────────────────────
+
+export async function getBrainStats(festivalSlug?: string) {
+  const database = await getDb();
+  if (!database) return { totalLessons: 0, byCategory: {}, avgConfidence: 0, highConfidence: 0 };
+
+  const conditions = festivalSlug ? eq(brainLessons.festivalSlug, festivalSlug) : undefined;
+  const allLessons = await database.select().from(brainLessons).where(conditions);
+
+  const byCategory: Record<string, number> = {};
+  let totalConfidence = 0;
+  let highConfidence = 0;
+
+  for (const l of allLessons) {
+    byCategory[l.category] = (byCategory[l.category] || 0) + 1;
+    totalConfidence += l.confidence;
+    if (l.confidence >= 80) highConfidence++;
+  }
+
+  return {
+    totalLessons: allLessons.length,
+    byCategory,
+    avgConfidence: allLessons.length > 0 ? Math.round(totalConfidence / allLessons.length) : 0,
+    highConfidence,
+  };
 }

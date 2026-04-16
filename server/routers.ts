@@ -13,6 +13,7 @@ import { classifyEmail, generateDraftReply, scoreTaskUrgency, computeEscalation,
 import { sendWhatsAppMessage } from "./whatsappService";
 import { runChatAgent, type ChatMessage } from "./chatAgent";
 import { getGoogleAuthUrl, handleGoogleCallback, getDriveConnectionStatus } from "./googleDrive";
+import { extractLessons, generateBrainResponse, lessonsToInserts, generateDebriefQuestions } from "./brainService";
 
 export const appRouter = router({
   system: systemRouter,
@@ -1089,6 +1090,213 @@ export const appRouter = router({
         });
         console.log(`[Supplier] Upserted: ${input.supplierName} (configured: ${input.isConfigured})`);
         return { success: true };
+      }),
+  }),
+
+  // ── Festival Brain ───────────────────────────────────────────
+  brain: router({
+    // Send a message to the brain — extracts lessons and responds
+    chat: protectedProcedure
+      .input(z.object({
+        festivalSlug: z.string(),
+        festivalName: z.string(),
+        message: z.string().min(1),
+        concept: z.string().optional(),
+        dayNumber: z.number().optional(),
+        totalDays: z.number().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // 1. Save user message
+        const userMsgId = await db.insertBrainChatMessage({
+          userId: ctx.user.id,
+          festivalSlug: input.festivalSlug,
+          role: "user",
+          content: input.message,
+        });
+
+        // 2. Extract lessons
+        const lessons = await extractLessons(input.message, {
+          festivalSlug: input.festivalSlug,
+          festivalName: input.festivalName,
+          concept: input.concept,
+          dayNumber: input.dayNumber,
+          totalDays: input.totalDays,
+        });
+
+        // 3. Save lessons to DB
+        let lessonIds: number[] = [];
+        if (lessons.length > 0) {
+          const inserts = lessonsToInserts(lessons, {
+            festivalSlug: input.festivalSlug,
+            festivalName: input.festivalName,
+            concept: input.concept,
+            dayNumber: input.dayNumber,
+            totalDays: input.totalDays,
+          }, "you_said", input.message);
+          lessonIds = await db.insertBrainLessons(inserts);
+        }
+
+        // 4. Generate brain response
+        const brainResponse = await generateBrainResponse(input.message, lessons);
+
+        // 5. Save brain response
+        await db.insertBrainChatMessage({
+          userId: ctx.user.id,
+          festivalSlug: input.festivalSlug,
+          role: "brain",
+          content: brainResponse,
+          lessonsExtracted: lessonIds,
+        });
+
+        // 6. Log the agent action
+        await db.insertAgentLog({
+          agent: "lessonExtractor",
+          model: "claude-sonnet",
+          festivalSlug: input.festivalSlug,
+          action: "extract_lessons_from_chat",
+          inputSummary: input.message.substring(0, 200),
+          outputSummary: `${lessons.length} lessons extracted`,
+          lessonsUsed: null,
+          success: true,
+        });
+
+        return {
+          response: brainResponse,
+          lessonsExtracted: lessons.length,
+          lessonIds,
+        };
+      }),
+
+    // Get chat history for a festival
+    chatHistory: protectedProcedure
+      .input(z.object({
+        festivalSlug: z.string(),
+        limit: z.number().optional().default(100),
+      }))
+      .query(async ({ input }) => {
+        const messages = await db.getBrainChatHistory(input.festivalSlug, input.limit);
+        return messages.reverse(); // chronological order
+      }),
+
+    // Get all lessons (optionally filtered)
+    lessons: protectedProcedure
+      .input(z.object({
+        festivalSlug: z.string().optional(),
+        category: z.string().optional(),
+        limit: z.number().optional().default(100),
+      }).optional())
+      .query(async ({ input }) => {
+        return db.getBrainLessons(input?.festivalSlug, input?.category, input?.limit);
+      }),
+
+    // Get lessons by minimum confidence
+    lessonsByConfidence: protectedProcedure
+      .input(z.object({
+        minConfidence: z.number(),
+        festivalSlug: z.string().optional(),
+      }))
+      .query(async ({ input }) => {
+        return db.getBrainLessonsByConfidence(input.minConfidence, input.festivalSlug);
+      }),
+
+    // Override a lesson
+    overrideLesson: protectedProcedure
+      .input(z.object({
+        lessonId: z.number(),
+        reason: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.overrideLesson(input.lessonId, input.reason);
+        return { success: true };
+      }),
+
+    // Get brain stats
+    stats: protectedProcedure
+      .input(z.object({ festivalSlug: z.string().optional() }).optional())
+      .query(async ({ input }) => {
+        return db.getBrainStats(input?.festivalSlug);
+      }),
+
+    // Get agent logs
+    agentLogs: protectedProcedure
+      .input(z.object({
+        festivalSlug: z.string().optional(),
+        limit: z.number().optional().default(50),
+      }).optional())
+      .query(async ({ input }) => {
+        return db.getAgentLogs(input?.festivalSlug, input?.limit);
+      }),
+
+    // Generate debrief questions for tonight
+    generateDebrief: protectedProcedure
+      .input(z.object({
+        festivalSlug: z.string(),
+        festivalName: z.string(),
+        dayNumber: z.number(),
+        salesData: z.object({
+          covers: z.number(),
+          revenue: z.number(),
+          vsForecastPct: z.number(),
+        }).optional(),
+      }))
+      .query(({ input }) => {
+        return { questions: generateDebriefQuestions(input.festivalName, input.dayNumber, input.salesData) };
+      }),
+
+    // Submit debrief answers (processes through lesson extractor)
+    submitDebrief: protectedProcedure
+      .input(z.object({
+        festivalSlug: z.string(),
+        festivalName: z.string(),
+        dayNumber: z.number(),
+        totalDays: z.number(),
+        answers: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // Save as chat message
+        await db.insertBrainChatMessage({
+          userId: ctx.user.id,
+          festivalSlug: input.festivalSlug,
+          role: "user",
+          content: `[DEBRIEF Day ${input.dayNumber}] ${input.answers}`,
+        });
+
+        // Extract lessons from the debrief
+        const lessons = await extractLessons(input.answers, {
+          festivalSlug: input.festivalSlug,
+          festivalName: input.festivalName,
+          dayNumber: input.dayNumber,
+          totalDays: input.totalDays,
+        });
+
+        let lessonIds: number[] = [];
+        if (lessons.length > 0) {
+          const inserts = lessonsToInserts(lessons, {
+            festivalSlug: input.festivalSlug,
+            festivalName: input.festivalName,
+            dayNumber: input.dayNumber,
+            totalDays: input.totalDays,
+          }, "debrief", input.answers);
+          lessonIds = await db.insertBrainLessons(inserts);
+        }
+
+        const brainResponse = await generateBrainResponse(
+          `Debrief day ${input.dayNumber}: ${input.answers}`,
+          lessons,
+        );
+
+        await db.insertBrainChatMessage({
+          userId: ctx.user.id,
+          festivalSlug: input.festivalSlug,
+          role: "brain",
+          content: brainResponse,
+          lessonsExtracted: lessonIds,
+        });
+
+        return {
+          response: brainResponse,
+          lessonsExtracted: lessons.length,
+        };
       }),
   }),
 });

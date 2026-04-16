@@ -1,4 +1,5 @@
-import { integer, serial, pgTable, text, timestamp, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
+import { integer, serial, pgTable, text, timestamp, varchar, boolean, jsonb, numeric, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /**
  * Postgres schema for ai-assistant-suite (Supabase-compatible).
@@ -251,3 +252,92 @@ export const oauthTokens = pgTable("oauth_tokens", {
 
 export type OAuthToken = typeof oauthTokens.$inferSelect;
 export type InsertOAuthToken = typeof oauthTokens.$inferInsert;
+
+// ============================================================
+// Festival Brain Tables — Shadow Mode Learning System
+// ============================================================
+
+export const brainLessons = pgTable("brain_lessons", {
+  id: serial("id").primaryKey(),
+  createdAt: timestamp("blCreatedAt").defaultNow().notNull(),
+
+  // Source context
+  festivalSlug: varchar("festivalSlug", { length: 100 }).notNull(),
+  concept: varchar("blConcept", { length: 100 }),
+  dayNumber: integer("dayNumber"),
+  source: text("blSource").$type<"you_said" | "file_change" | "sales_data" | "debrief" | "post_festival">().notNull(),
+  rawInput: text("rawInput").notNull(),
+
+  // The extracted rule
+  category: text("blCategory").$type<"order" | "staff" | "logistics" | "timing" | "finance" | "ops" | "safety" | "quality">().notNull(),
+  rule: text("blRule").notNull(),
+  ruleCondition: text("ruleCondition"),
+  confidence: integer("confidence").default(60).notNull(),
+
+  // Numbers
+  forecastValue: numeric("forecastValue"),
+  actualValue: numeric("actualValue"),
+  deviationPct: numeric("deviationPct"),
+
+  // Action
+  actionNextTime: text("actionNextTime").notNull(),
+
+  // Usage tracking
+  timesApplied: integer("timesApplied").default(0).notNull(),
+  timesCorrect: integer("timesCorrect").default(0).notNull(),
+
+  // Human override
+  humanOverridden: boolean("humanOverridden").default(false).notNull(),
+  overrideReason: text("overrideReason"),
+});
+
+export type BrainLesson = typeof brainLessons.$inferSelect;
+export type InsertBrainLesson = typeof brainLessons.$inferInsert;
+
+export const brainAgentLog = pgTable("brain_agent_log", {
+  id: serial("id").primaryKey(),
+  timestamp: timestamp("balTimestamp").defaultNow().notNull(),
+  agent: varchar("agent", { length: 100 }).notNull(),
+  model: varchar("balModel", { length: 100 }),
+  festivalSlug: varchar("balFestivalSlug", { length: 100 }),
+  action: text("balAction").notNull(),
+  inputSummary: text("inputSummary"),
+  outputSummary: text("outputSummary"),
+  lessonsUsed: jsonb("lessonsUsed").$type<number[]>(),
+  tokensUsed: integer("tokensUsed"),
+  durationMs: integer("durationMs"),
+  success: boolean("balSuccess").default(true).notNull(),
+  humanApproved: boolean("humanApproved"),
+  humanChangedOutput: boolean("humanChangedOutput"),
+  changeReason: text("changeReason"),
+});
+
+export type BrainAgentLog = typeof brainAgentLog.$inferSelect;
+export type InsertBrainAgentLog = typeof brainAgentLog.$inferInsert;
+
+export const brainChatMessages = pgTable("brain_chat_messages", {
+  id: serial("id").primaryKey(),
+  userId: integer("bcmUserId").notNull(),
+  festivalSlug: varchar("bcmFestivalSlug", { length: 100 }).notNull(),
+  role: text("bcmRole").$type<"user" | "brain">().notNull(),
+  content: text("bcmContent").notNull(),
+  lessonsExtracted: jsonb("lessonsExtracted").$type<number[]>(),
+  createdAt: timestamp("bcmCreatedAt").defaultNow().notNull(),
+});
+
+export type BrainChatMessage = typeof brainChatMessages.$inferSelect;
+export type InsertBrainChatMessage = typeof brainChatMessages.$inferInsert;
+
+export const brainPlaybooks = pgTable("brain_playbooks", {
+  id: serial("id").primaryKey(),
+  sourceFestivalSlug: varchar("sourceFestivalSlug", { length: 100 }).notNull(),
+  targetFestivalSlug: varchar("targetFestivalSlug", { length: 100 }),
+  playbook: jsonb("playbook").notNull(),
+  lessonsCount: integer("lessonsCount").default(0).notNull(),
+  avgConfidence: integer("avgConfidence").default(0).notNull(),
+  createdAt: timestamp("bpCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("bpUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type BrainPlaybook = typeof brainPlaybooks.$inferSelect;
+export type InsertBrainPlaybook = typeof brainPlaybooks.$inferInsert;

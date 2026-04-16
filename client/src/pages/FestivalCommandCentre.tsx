@@ -2089,6 +2089,13 @@ export default function FestivalCommandCentre() {
             <ArrowLeft className="h-4 w-4" />
             Dashboard
           </button>
+          <button
+            onClick={() => setLocation("/festival-brain")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 hover:text-amber-200 text-sm transition-colors border border-amber-600/30"
+          >
+            <span className="w-4 h-4">🧠</span>
+            Brain
+          </button>
           {/* Mobile toggle */}
           <button
             onClick={() => setMobileShowList(!mobileShowList)}

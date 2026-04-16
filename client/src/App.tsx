@@ -21,6 +21,7 @@ import Invoices from "./pages/Invoices";
 import Festivals from "./pages/Festivals";
 import Chat from "./pages/Chat";
 import FestivalCommandCentre from "./pages/FestivalCommandCentre";
+import FestivalBrain from "./pages/FestivalBrain";
 
 function Router() {
   return (
@@ -85,6 +86,9 @@ function Router() {
       </Route>
       <Route path={"/festival-command-centre"}>
         <FestivalCommandCentre />
+      </Route>
+      <Route path={"/festival-brain"}>
+        <FestivalBrain />
       </Route>
       <Route path={"/settings"}>
         <DashboardLayout>
