@@ -1136,8 +1136,8 @@ export const appRouter = router({
           lessonIds = await db.insertBrainLessons(inserts);
         }
 
-        // 4. Generate brain response
-        const brainResponse = await generateBrainResponse(input.message, lessons);
+        // 4. Generate brain response (briefing injected for known festivals)
+        const brainResponse = await generateBrainResponse(input.message, lessons, input.festivalSlug);
 
         // 5. Save brain response
         await db.insertBrainChatMessage({
@@ -1283,6 +1283,7 @@ export const appRouter = router({
         const brainResponse = await generateBrainResponse(
           `Debrief day ${input.dayNumber}: ${input.answers}`,
           lessons,
+          input.festivalSlug,
         );
 
         await db.insertBrainChatMessage({

@@ -51,6 +51,7 @@ import {
   type ContractInfo,
   type CostEstimate,
 } from "@/data/festivals";
+import { FESTIVAL_BRIEFINGS } from "@shared/festivalBriefings";
 
 // Local persistence key for task overrides + notes + extra docs
 const STORAGE_KEY = "festivals-state-v1";
@@ -72,13 +73,32 @@ const emptyState: PersistedState = {
 };
 
 function loadState(): PersistedState {
+  let base: PersistedState = emptyState;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyState;
-    return { ...emptyState, ...JSON.parse(raw) };
+    if (raw) base = { ...emptyState, ...JSON.parse(raw) };
   } catch {
-    return emptyState;
+    base = emptyState;
   }
+
+  // Hydrate from shared festival briefings: notes + extraDocs from the briefing
+  // module serve as DEFAULTS — user overrides in localStorage win.
+  const seededNotes = { ...base.festivalNotes };
+  const seededDocs = { ...base.extraDocs };
+  for (const [slug, briefing] of Object.entries(FESTIVAL_BRIEFINGS)) {
+    if (!seededNotes[slug] || seededNotes[slug].trim() === "") {
+      seededNotes[slug] = briefing.notes;
+    }
+    const existingDocs = seededDocs[slug] ?? [];
+    const merged = [...existingDocs];
+    for (const doc of briefing.extraDocs) {
+      if (!merged.some((d) => d.url === doc.url && d.title === doc.title)) {
+        merged.push(doc);
+      }
+    }
+    seededDocs[slug] = merged;
+  }
+  return { ...base, festivalNotes: seededNotes, extraDocs: seededDocs };
 }
 
 function saveState(s: PersistedState) {

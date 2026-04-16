@@ -7,6 +7,7 @@
 
 import { invokeLLM } from "./_core/llm";
 import type { InsertBrainLesson, InsertBrainAgentLog, InsertBrainChatMessage } from "../drizzle/schema";
+import { getBriefingForPrompt } from "../shared/festivalBriefings";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,8 @@ Context:
 - Day: {DAY_INFO}
 - Sales so far: {SALES_SUMMARY}
 
+{FESTIVAL_BRIEFING}
+
 Extract 1-3 operational rules from this message. For each rule return a JSON object:
 {
   "category": "order|staff|logistics|timing|finance|ops|safety|quality",
@@ -75,6 +78,11 @@ export async function extractLessons(
   userMessage: string,
   context: ExtractionContext,
 ): Promise<ExtractedLesson[]> {
+  const briefing = getBriefingForPrompt(context.festivalSlug);
+  const briefingBlock = briefing
+    ? `Reference facts you already know about this festival (use them to ground your extraction; do not extract them again as "lessons"):\n\n${briefing}\n`
+    : "";
+
   const prompt = LESSON_EXTRACTOR_PROMPT
     .replace("{USER_MESSAGE}", userMessage)
     .replace("{FESTIVAL_NAME}", context.festivalName)
@@ -83,7 +91,8 @@ export async function extractLessons(
     .replace("{DAY_INFO}", context.dayNumber
       ? `Day ${context.dayNumber} of ${context.totalDays || "?"}`
       : "Pre-festival / not specified")
-    .replace("{SALES_SUMMARY}", context.salesSummary || "No sales data yet");
+    .replace("{SALES_SUMMARY}", context.salesSummary || "No sales data yet")
+    .replace("{FESTIVAL_BRIEFING}", briefingBlock);
 
   const startTime = Date.now();
 
@@ -136,30 +145,39 @@ You just received a message from the operator and extracted {LESSON_COUNT} opera
 Extracted lessons:
 {LESSONS_JSON}
 
+{FESTIVAL_BRIEFING}
+
 Write a short, casual response (2-4 sentences max) that:
 1. Acknowledges what they said
-2. Confirms what you learned from it (the rule you extracted)
-3. Mentions how you'll apply it next time, if relevant
+2. If they asked a factual question about the festival (contacts, deadlines, tent size, power, contracts, sortiment, Godik, menu, opening hours, etc.), answer directly using the reference facts above.
+3. Otherwise: confirm what you learned from it (the rule you extracted) and mention how you'll apply it next time, if relevant.
 
 Keep the tone like a smart colleague — not formal, not robotic. Use emojis sparingly (max 1).
-If no lessons were extracted, just acknowledge the message naturally.
+If no lessons were extracted and no factual question was asked, just acknowledge the message naturally.
 
-Respond in English. Be concise.`;
+Respond in English (mix in Danish terms like "kontrakt", "strøm", "sortiment" when that's what the source uses). Be concise.`;
 
 export async function generateBrainResponse(
   userMessage: string,
   lessons: ExtractedLesson[],
+  festivalSlug?: string,
 ): Promise<string> {
+  const briefing = festivalSlug ? getBriefingForPrompt(festivalSlug) : "";
+  const briefingBlock = briefing
+    ? `Reference facts you know about this festival — use these to answer direct questions from the operator:\n\n${briefing}\n`
+    : "";
+
   const prompt = BRAIN_RESPONSE_PROMPT
     .replace("{LESSON_COUNT}", String(lessons.length))
-    .replace("{LESSONS_JSON}", JSON.stringify(lessons, null, 2));
+    .replace("{LESSONS_JSON}", JSON.stringify(lessons, null, 2))
+    .replace("{FESTIVAL_BRIEFING}", briefingBlock);
 
   const response = await invokeLLM({
     messages: [
       { role: "system", content: prompt },
       { role: "user", content: userMessage },
     ],
-    maxTokens: 512,
+    maxTokens: 1024,
   });
 
   return response.choices[0]?.message?.content ?? "Got it. Noted.";
