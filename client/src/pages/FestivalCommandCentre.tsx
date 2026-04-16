@@ -21,6 +21,10 @@ import {
   ClipboardList,
   FileText,
   UtensilsCrossed,
+  FolderOpen,
+  Mail,
+  ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -31,6 +35,23 @@ type FestivalStatus = "CRITICAL" | "URGENT" | "ON TRACK" | "PLANNING" | "CANCELL
 interface SetupChecklistItem {
   status: ChecklistStatus;
   details: string;
+}
+
+interface DriveDoc {
+  title: string;
+  type: "doc" | "sheet" | "pdf" | "folder" | "pptx" | "docx" | "image";
+  driveId: string;
+  summary?: string;
+  missingItems?: string[];
+}
+
+interface FestivalEmail {
+  date: string;
+  from: string;
+  subject: string;
+  summary: string;
+  direction: "inbox" | "sent";
+  hasAttachments?: boolean;
 }
 
 interface FestivalData {
@@ -48,6 +69,8 @@ interface FestivalData {
   organicRequired: boolean;
   standLocation: string;
   accommodation: string;
+  documents?: DriveDoc[];
+  emails?: FestivalEmail[];
   contracts: { signed: boolean; critical: boolean };
   setupChecklist: Record<string, SetupChecklistItem>;
 }
@@ -75,15 +98,88 @@ const festivalsData: FestivalData[] = [
     gasRequired: true, organicRequired: false, standLocation: "Main arena",
     accommodation: "TBD",
     contracts: { signed: true, critical: true },
+    documents: [
+      {
+        title: "Production Plan Jelling",
+        type: "doc",
+        driveId: "1ldDFa8qVi-L-BmzsF6KUzkPUyBZgXtikk6N-2Ks_DuM",
+        summary: "Week schedule Mon 18 May – Mon 25 May. Only cooling containers filled in (arrive Tue 19 07:00-18:00, pickup Mon 25 07:00-18:00). Address: ???. Daily blocks EMPTY.",
+        missingItems: [
+          "Festival address",
+          "Team arrival time",
+          "Fidibus build team arrival time",
+          "Grocery delivery time",
+          "BC-Catering leftover pickup",
+          "Volunteer shift times",
+          "Accommodation check-in/check-out",
+          "Electricity on/off times",
+          "Setup start/deadline",
+          "Festival departure deadline",
+          "Opening hours",
+          "Gas check time",
+          "Full setup deadline",
+        ],
+      },
+      {
+        title: "Menu + Prices",
+        type: "doc",
+        driveId: "1Ei99klmCBMKiusn8wqli9riF85rwA9yWu_3PiJV9pUM",
+        summary: "Fish: 119kr burger, 149kr combo, 125kr Fish N Chips, 50kr fries. Gyros: 109kr chicken gyros, 149kr combo. Crepes: 95kr salty, 55kr nutella/banana, 50kr sugar/cinnamon. Chicken concept (KFC-style buckets + burger + salad) discussed with Jonas 17 Feb.",
+      },
+    ],
+    emails: [
+      {
+        date: "2026-04-14",
+        from: "akkreditering@jellingmusikfestival.dk",
+        subject: "Akkreditering til Jelling Musikfestival 2026",
+        summary: "4 accreditation logins received for aa@thefishproject.dk. Each login gives access to register staff/crew for festival entry. System at jellingmusikfestival.dk accreditation portal.",
+        direction: "inbox",
+      },
+      {
+        date: "2026-03-13",
+        from: "Jonas Kring (festival)",
+        subject: "Power layout Jelling",
+        summary: "Jonas sent power layout. Need to confirm: 32A for fridge container, 230V for La Creperie, Chicks & Buns power needs. REPLY NEEDED.",
+        direction: "inbox",
+      },
+      {
+        date: "2026-03-10",
+        from: "Lea Haldrup (økonomi)",
+        subject: "Jelling Musikfestival - information om sortimenter",
+        summary: "POS sortiment template due 15 April. Need: full product list + prices, contact person, bank account for payout, POS-user emails, confirm 2x POS units per concept. DEADLINE PASSED.",
+        direction: "inbox",
+      },
+      {
+        date: "2026-02-17",
+        from: "Jonas Kring (festival)",
+        subject: "Jelling, fish project setup",
+        summary: "Tent setup: can we use 2x 6×6m side-by-side (middle sides removed) instead of 12×6m? Filip replied proposing 12×9m tent (6m fish + 6m gyros) at festival + 2x 6×6m at camping. Awaiting Jonas confirmation.",
+        direction: "inbox",
+      },
+      {
+        date: "2026-02-17",
+        from: "Filip Færgeman (sent)",
+        subject: "Re: Jelling, fish project setup",
+        summary: "Sent tent proposal: FESTIVAL 12×9m tent (6m fish + 6m gyros), CAMPING 6×6m Crepes + 6×6m Chicken concept.",
+        direction: "sent",
+      },
+      {
+        date: "2026-01-29",
+        from: "Filip Færgeman (sent)",
+        subject: "Re: Heatmap data",
+        summary: "Thanked Jonas for heatmap / hourly transaction data from previous years.",
+        direction: "sent",
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "pending", details: "Amperage TBD, cost TBD" },
-      tent: { status: "warning", details: "Deadline passed - confirm flame-retardant cert" },
-      cooling: { status: "pending", details: "Container delivery needed" },
-      gasSafety: { status: "pending", details: "Gas check required" },
-      pos: { status: "critical", details: "POS template critical deadline!" },
-      foodDelivery: { status: "pending", details: "BC-Catering coordination" },
-      staffAccred: { status: "pending", details: "Photo/ID deadlines" },
-      accommodation: { status: "pending", details: "Lodging arrangements" },
+      electricity: { status: "pending", details: "Jonas sent power layout Mar 13 — need to confirm 32A fridge container + 230V per concept. REPLY NEEDED." },
+      tent: { status: "warning", details: "2x 6×6m vs 12×6m discussion with Jonas (Feb 17). Awaiting confirmation. Flame-retardant cert needed." },
+      cooling: { status: "confirmed", details: "2x cooling containers: arrive Tue 19 May 07:00-18:00, pickup Mon 25 May 07:00-18:00" },
+      gasSafety: { status: "pending", details: "Gas check required — no date set yet" },
+      pos: { status: "critical", details: "POS sortiment template deadline 15 April — PASSED! Lea Haldrup needs filled xlsx with prices, bank account, POS-user emails." },
+      foodDelivery: { status: "pending", details: "BC-Catering coordination needed. Leftover equipment pickup TBD." },
+      staffAccred: { status: "confirmed", details: "4 accreditation logins received Apr 14 from jellingmusikfestival.dk. Register staff at accreditation portal." },
+      accommodation: { status: "pending", details: "20-person rooms at Cabinn Vejle mentioned — not confirmed" },
     },
   },
   {
@@ -102,159 +198,349 @@ const festivalsData: FestivalData[] = [
     gasRequired: true, organicRequired: false, standLocation: "TBD",
     accommodation: "TBD",
     contracts: { signed: true, critical: false },
+    documents: [
+      {
+        title: "Production Plan Heartland",
+        type: "doc",
+        driveId: "1Pq_n9XrS48z3ni0wSMwQ8lHYMYGHyEUP69O01em2wm0",
+        summary: "Address: Egeskov Gade 20, 5772 Kværndrup. Setup Tue 16 Jun 08:00, cooling arrives same day 07:00-18:00. Approval deadline Wed 17 Jun 08:00. Full setup Thu 18 10:00, doors 12:00. Sales close 03:00 nightly.",
+        missingItems: [
+          "Team arrival time",
+          "Fidibus build team arrival",
+          "Grocery delivery time",
+          "Volunteer shift times",
+          "Accommodation check-in/check-out",
+          "Electricity on/off times",
+        ],
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "pending", details: "Amperage/cost TBD" },
+      electricity: { status: "pending", details: "Electricity on/off times MISSING from production plan" },
       tent: { status: "pending", details: "Size/type TBD" },
-      cooling: { status: "pending", details: "Not yet arranged" },
-      gasSafety: { status: "pending", details: "Gas check appointment needed" },
+      cooling: { status: "confirmed", details: "Cooling container arrives Tue 16 Jun 07:00-18:00 (from production plan)" },
+      gasSafety: { status: "pending", details: "Gas check approval deadline Wed 17 Jun 08:00" },
       pos: { status: "warning", details: "Deadline passed - coordinate" },
-      foodDelivery: { status: "pending", details: "Supplier coordination pending" },
+      foodDelivery: { status: "pending", details: "Grocery delivery time MISSING from plan" },
       staffAccred: { status: "warning", details: "Photo deadlines passed" },
-      accommodation: { status: "pending", details: "No arrangements yet" },
+      accommodation: { status: "pending", details: "Check-in/check-out MISSING from plan" },
     },
   },
   {
     id: 4, name: "Copenhell", dates: "13-21 Jun 2026", daysAway: 58, status: "ON TRACK",
-    notes: "Has plan + confirmed menu",
+    notes: "Has production plan + menu. Address: Refshalevej 211, KBH. 10 missing items.",
     commission: 12, exclusivity: "Fish + Gyros", powerIncluded: true, powerCost: 0,
-    gasRequired: true, organicRequired: false, standLocation: "Food village area",
+    gasRequired: true, organicRequired: false, standLocation: "Refshalevej 211, 1432 København",
     accommodation: "Copenhagen area",
     contracts: { signed: true, critical: false },
+    documents: [
+      {
+        title: "Production Plan Copenhell",
+        type: "doc",
+        driveId: "1EeOHux8PeGOJkjl60Gj0qN3AKBF5fbbdB8mrwfm2AcU",
+        summary: "Address: Refshalevej 211, 1432 København. Possible setup Sat 13 or Sun 14 Jun (coordinate with Food Manager). Mon 15 access by 16:00 latest. Front disks Mon 16:00 for festival POS install.",
+        missingItems: [
+          "Setup arrival date/time",
+          "Team arrival time",
+          "Grocery delivery time",
+          "Volunteer shift times",
+          "Accommodation check-in/check-out",
+          "Electricity on/off times",
+          "Cooling container arrival/pickup",
+        ],
+      },
+      {
+        title: "Menu + Prices (Copenhell)",
+        type: "doc",
+        driveId: "10BkjG8OdoZ5vqFa9GY73g-D50ZkrMojZthnxhHEAVlk",
+        summary: "Sent to organizers 19 Jan 2026. Fish N chips: 139kr, Fiskeburger: 109kr, Burger menu (burger+fritter+dyppelse): 149kr, Fritter+dyppelse: 55kr, Ekstra dyppelse: 15kr, Ekstra fisk: 45kr, Ekstra ost burger: 15kr.",
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "complete", details: "Power included in contract" },
-      tent: { status: "confirmed", details: "3x3m standard tent" },
-      cooling: { status: "confirmed", details: "Container booked, pickup scheduled" },
-      gasSafety: { status: "pending", details: "Gas check - Jun 8" },
-      pos: { status: "confirmed", details: "SumUp terminals ordered" },
-      foodDelivery: { status: "pending", details: "BC-Catering - Jun 10" },
-      staffAccred: { status: "confirmed", details: "Wristbands arranged" },
-      accommodation: { status: "confirmed", details: "Airbnb booked" },
+      electricity: { status: "pending", details: "Electricity on/off times MISSING from plan" },
+      tent: { status: "pending", details: "Size/type TBD — coordinate with Food Manager" },
+      cooling: { status: "pending", details: "Cooling arrival/pickup times MISSING from plan" },
+      gasSafety: { status: "pending", details: "Gas check date TBD" },
+      pos: { status: "pending", details: "Front disks due Mon 15 Jun 16:00 for festival POS install" },
+      foodDelivery: { status: "pending", details: "Grocery delivery time MISSING" },
+      staffAccred: { status: "pending", details: "Check in at festival on arrival" },
+      accommodation: { status: "pending", details: "Check-in/check-out MISSING from plan" },
     },
   },
   {
     id: 5, name: "Tinderbox", dates: "22-28 Jun 2026", daysAway: 67, status: "ON TRACK",
-    notes: "Has plan, special veggie requirements noted",
+    notes: "Has plan + reminder doc. Special: no 'veggie/vegetarian' naming allowed! Fire-retardant tent cert needed.",
     commission: 10, exclusivity: "Fish + Gyros", powerIncluded: false, powerCost: 3500,
-    gasRequired: true, organicRequired: false, standLocation: "Main food zone",
+    gasRequired: true, organicRequired: false, standLocation: "Falen 177, 5250 Odense",
     accommodation: "Hotel nearby",
     contracts: { signed: true, critical: false },
+    documents: [
+      {
+        title: "Production Plan Tinderbox",
+        type: "doc",
+        driveId: "1_sIZq9Qm1ACO4r3RfmWqb8Alxm-2uKKyCu-H6WxnkZI",
+        summary: "Address: Falen 177, 5250 Odense. Mon 22 Jun: Cooling container (Boxit) arrives, check in 08:00, front disks by 16:00. Tue 23: Setup from 08:00, cooling trailers delivered. Wed 24: Approval deadline 08:00, groceries from 12:00. Thu 25: Full setup by 10:00.",
+        missingItems: [
+          "Team arrival time",
+          "Fidibus build team arrival",
+          "Grocery delivery time",
+          "Volunteer shift times",
+          "Accommodation check-in/check-out",
+          "Electricity on time",
+        ],
+      },
+      {
+        title: "Reminder — Stuff for Tinderbox",
+        type: "doc",
+        driveId: "1Z877oBCxi9FZi81LvLPu5bVx2Psy5x8Ec3p0IF6wcUc",
+        summary: "IMPORTANT: Veggie gyros renamed 'Fried Croquettes' — organizers ban 'veggie/vegetarian' names. Vegetarian dishes must be TOP of menu card. Pop-up tents need: fire-retardant cert (DS/EN 13501-1 A1/A2), storm-securing, plastic floor for cooking.",
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "confirmed", details: "125A supply, 3,500 DKK cost" },
-      tent: { status: "confirmed", details: "4x4m marquee" },
-      cooling: { status: "confirmed", details: "Double container" },
-      gasSafety: { status: "pending", details: "June 20" },
-      pos: { status: "confirmed", details: "SumUp dual terminals" },
-      foodDelivery: { status: "pending", details: "Veggie supplier coordination critical" },
-      staffAccred: { status: "confirmed", details: "Band wristbands" },
-      accommodation: { status: "pending", details: "Hotel reservation in progress" },
+      electricity: { status: "pending", details: "Electricity on time MISSING from plan" },
+      tent: { status: "warning", details: "Pop-up tents need fire-retardant cert (DS/EN 13501-1), storm-securing, plastic floor for cooking" },
+      cooling: { status: "confirmed", details: "Cooling container (Boxit) arrives Mon 22 Jun, trailers Tue 23 Jun" },
+      gasSafety: { status: "pending", details: "Gas approval deadline Wed 24 Jun 08:00" },
+      pos: { status: "pending", details: "Front disks due Mon 22 Jun 16:00 for POS install" },
+      foodDelivery: { status: "pending", details: "Earliest groceries Wed 24 Jun 12:00" },
+      staffAccred: { status: "pending", details: "Check in at festival on arrival" },
+      accommodation: { status: "pending", details: "Check-in/check-out MISSING from plan" },
     },
   },
   {
-    id: 6, name: "Cirkus Summarum", dates: "22-28 Jun 2026", daysAway: 67, status: "ON TRACK",
-    notes: "Has plan - overlaps with Tinderbox dates",
+    id: 6, name: "Cirkus Summarum", dates: "22-28 Jun 2026", daysAway: 67, status: "URGENT",
+    notes: "Production plan mostly EMPTY — dual location (CPH + Aarhus). Overlaps with Tinderbox.",
     commission: 11, exclusivity: "Fish + Gyros", powerIncluded: false, powerCost: 4200,
-    gasRequired: true, organicRequired: false, standLocation: "To confirm",
+    gasRequired: true, organicRequired: false, standLocation: "CPH: Kræmmerpladsen, Skovlunde / Aarhus: Tangkrogen",
     accommodation: "Local",
     contracts: { signed: true, critical: false },
+    documents: [
+      {
+        title: "Production Plan Cirkus Summarum",
+        type: "doc",
+        driveId: "1x6x33wh5A5ihO3gKNrZMA5i4CGIpRCrKOxCAc14Go8s",
+        summary: "DUAL LOCATION. Copenhagen: Kræmmerpladsen, Marbækvej 5, 2740 Skovlunde. Aarhus: Tangkrogen, Marselisborg Havnevej 1, 8000 Aarhus C. Schedule Mon 22 – Sun 28 Jun is COMPLETELY EMPTY.",
+        missingItems: [
+          "Team arrival time",
+          "Grocery delivery time",
+          "Accommodation check-in/check-out",
+          "Electricity on/off times",
+          "Entire daily schedule",
+        ],
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "pending", details: "125A, 4,200 DKK" },
-      tent: { status: "confirmed", details: "4x4m structure" },
-      cooling: { status: "confirmed", details: "Container with backup" },
-      gasSafety: { status: "pending", details: "Gas check June 20" },
-      pos: { status: "confirmed", details: "Dual SumUp" },
-      foodDelivery: { status: "pending", details: "June 19 delivery window" },
-      staffAccred: { status: "pending", details: "Wristbands TBD" },
-      accommodation: { status: "pending", details: "Arrangements pending" },
+      electricity: { status: "pending", details: "Electricity on/off MISSING — entire schedule empty" },
+      tent: { status: "pending", details: "Dual-location tent setup TBD" },
+      cooling: { status: "pending", details: "Not mentioned in plan" },
+      gasSafety: { status: "pending", details: "Gas check TBD" },
+      pos: { status: "pending", details: "Dual-location POS TBD" },
+      foodDelivery: { status: "pending", details: "Grocery delivery MISSING" },
+      staffAccred: { status: "pending", details: "Check in at event on arrival" },
+      accommodation: { status: "pending", details: "Check-in/check-out MISSING" },
     },
   },
   {
-    id: 7, name: "Vig Festival", dates: "6-12 Jul 2026", daysAway: 81, status: "ON TRACK",
-    notes: "Has plan - Vig location confirmed",
+    id: 7, name: "Vig Festival", dates: "6-12 Jul 2026", daysAway: 81, status: "URGENT",
+    notes: "Production plan has 18 MISSING items! Address unknown. Schedule completely empty.",
     commission: 10, exclusivity: "Fish + Gyros + Crepes", powerIncluded: false, powerCost: 2800,
-    gasRequired: true, organicRequired: false, standLocation: "Food court",
-    accommodation: "Local hotel",
+    gasRequired: true, organicRequired: false, standLocation: "Address: ???",
+    accommodation: "TBD",
     contracts: { signed: true, critical: false },
+    documents: [
+      {
+        title: "Production Plan Vig",
+        type: "doc",
+        driveId: "1mOlf5RBGM1rtLoMpVFMz4xUWuhXjfvfrkpD9AckQHJU",
+        summary: "Address: UNKNOWN. Schedule Mon 6 – Sun 12 Jul is COMPLETELY EMPTY. 18 missing items — the most of any festival.",
+        missingItems: [
+          "Festival address",
+          "Team arrival time",
+          "Fidibus build team arrival",
+          "Grocery delivery time",
+          "BC-Catering leftover pickup",
+          "Volunteer shift times",
+          "Accommodation check-in/check-out",
+          "Electricity on/off times",
+          "Cooling unit arrival/pickup",
+          "Setup start time",
+          "Setup deadline",
+          "Festival departure deadline",
+          "Opening hours",
+          "Gas check time",
+          "Full setup deadline",
+        ],
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "pending", details: "125A, 2,800 DKK" },
-      tent: { status: "confirmed", details: "3x3m tent" },
-      cooling: { status: "confirmed", details: "Standard container" },
-      gasSafety: { status: "pending", details: "July 3" },
-      pos: { status: "confirmed", details: "SumUp terminals" },
-      foodDelivery: { status: "pending", details: "July 4" },
-      staffAccred: { status: "pending", details: "Wristbands - TBD" },
-      accommodation: { status: "pending", details: "Hotel booking pending" },
+      electricity: { status: "pending", details: "Electricity on/off MISSING" },
+      tent: { status: "pending", details: "No info in plan" },
+      cooling: { status: "pending", details: "Cooling arrival/pickup MISSING" },
+      gasSafety: { status: "pending", details: "Gas check time MISSING" },
+      pos: { status: "pending", details: "No POS info" },
+      foodDelivery: { status: "pending", details: "Grocery delivery MISSING, BC-Catering pickup TBD" },
+      staffAccred: { status: "pending", details: "No info" },
+      accommodation: { status: "pending", details: "Check-in/check-out MISSING" },
     },
   },
   {
     id: 8, name: "Grøn Koncert", dates: "13-22 Jul 2026", daysAway: 88, status: "ON TRACK",
-    notes: "Has plan, multi-venue structure (multiple stages)",
+    notes: "Multi-city touring: Tårnby (Thu 16), Kolding (Fri 17), Aarhus (Sat 18). 18 missing items.",
     commission: 12, exclusivity: "Fish + Gyros", powerIncluded: false, powerCost: 5600,
-    gasRequired: true, organicRequired: false, standLocation: "Main food area - confirmed",
+    gasRequired: true, organicRequired: false, standLocation: "Multiple cities — addresses MISSING",
     accommodation: "Multiple venues",
     contracts: { signed: true, critical: false },
+    documents: [
+      {
+        title: "Production Plan Grøn Koncert",
+        type: "doc",
+        driveId: "1dFZuF2OkBV8sJ3HnLaGM5ZPbgv_TU14nc1N3zeSZgqU",
+        summary: "Multi-city touring festival. Addresses: UNKNOWN. Thu 16 Jul: Grøn Tårnby. Fri 17: Grøn Kolding. Sat 18: Grøn Aarhus. 18 missing items — same as Vig.",
+        missingItems: [
+          "All venue addresses",
+          "Team arrival time",
+          "Fidibus build team arrival",
+          "Grocery delivery time",
+          "BC-Catering leftover pickup",
+          "Volunteer shift times",
+          "Accommodation check-in/check-out",
+          "Electricity on/off times",
+          "Cooling unit arrival/pickup",
+          "Setup start/deadline",
+          "Opening hours",
+          "Gas check time",
+        ],
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "pending", details: "250A total, 5,600 DKK" },
-      tent: { status: "confirmed", details: "2x multiple 4x4m tents" },
-      cooling: { status: "confirmed", details: "Triple containers" },
-      gasSafety: { status: "pending", details: "July 10" },
-      pos: { status: "confirmed", details: "Multi-register setup" },
-      foodDelivery: { status: "pending", details: "July 11" },
-      staffAccred: { status: "pending", details: "Multi-site wristbands" },
-      accommodation: { status: "pending", details: "Staff housing confirmed" },
+      electricity: { status: "pending", details: "Multi-site electricity — all MISSING" },
+      tent: { status: "pending", details: "Multi-site tent setup TBD" },
+      cooling: { status: "pending", details: "Cooling arrival/pickup MISSING" },
+      gasSafety: { status: "pending", details: "Gas check MISSING" },
+      pos: { status: "pending", details: "Multi-register per city TBD" },
+      foodDelivery: { status: "pending", details: "Multi-city delivery logistics MISSING" },
+      staffAccred: { status: "pending", details: "Multi-site accreditation TBD" },
+      accommodation: { status: "pending", details: "Multi-city accommodation MISSING" },
     },
   },
   {
     id: 9, name: "Syd For Solen", dates: "10-16 Aug 2026", daysAway: 116, status: "PLANNING",
-    notes: "Active negotiation - 2 stands, fully electric setup, 125A power costs 23,200 DKK",
+    notes: "Production plan sparse. Cooling arrives Tue 11 Aug. First day Thu 13 Aug. 16 missing items.",
     commission: 10, exclusivity: "Fish + Gyros + Crepes", powerIncluded: false, powerCost: 23200,
-    gasRequired: false, organicRequired: false, standLocation: "2 separate food stands",
+    gasRequired: false, organicRequired: false, standLocation: "Address: ??",
     accommodation: "Beach area accommodation",
     contracts: { signed: false, critical: false },
+    documents: [
+      {
+        title: "Production Plan Syd For Solen",
+        type: "doc",
+        driveId: "18aTYRGgXQXehd7VixxnNSCnRhnUTw3GUJ-kwMLWNEo8",
+        summary: "Address: UNKNOWN. Cooling container arrives Tue 11 Aug 07:00-18:00, pickup Sun 16 Aug 07:00-18:00. First day Thu 13 Aug, last day Sat 15 Aug (3 days).",
+        missingItems: [
+          "Festival address",
+          "Team arrival time",
+          "Fidibus build team arrival",
+          "Grocery delivery time",
+          "BC-Catering leftover pickup",
+          "Volunteer shift times",
+          "Accommodation check-in/check-out",
+          "Electricity on/off times",
+          "Setup start/deadline",
+          "Opening hours",
+          "Gas check time",
+        ],
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "pending", details: "125A x2 stands, 23,200 DKK TOTAL" },
-      tent: { status: "pending", details: "Large beach tents x2" },
-      cooling: { status: "pending", details: "High-capacity cooling critical" },
-      gasSafety: { status: "pending", details: "NO GAS - fully electric" },
-      pos: { status: "pending", details: "Dual register system per stand" },
-      foodDelivery: { status: "pending", details: "Aug 8" },
-      staffAccred: { status: "pending", details: "Double crew requirement" },
-      accommodation: { status: "pending", details: "Beach lodging" },
+      electricity: { status: "pending", details: "Electricity on/off MISSING" },
+      tent: { status: "pending", details: "No tent info" },
+      cooling: { status: "confirmed", details: "Cooling container arrives Tue 11 Aug 07:00-18:00, pickup Sun 16 Aug 07:00-18:00" },
+      gasSafety: { status: "pending", details: "Gas check MISSING" },
+      pos: { status: "pending", details: "No POS info" },
+      foodDelivery: { status: "pending", details: "Grocery delivery MISSING" },
+      staffAccred: { status: "pending", details: "No info" },
+      accommodation: { status: "pending", details: "Check-in/check-out MISSING" },
     },
   },
   {
     id: 10, name: "Suset", dates: "17-25 Aug 2026", daysAway: 130, status: "URGENT",
-    notes: "Template only, 46 emails! Contract urgency - signed with 50% organic concern, Tobias wants week of Apr 15",
+    notes: "Production plan nearly empty. 18 missing items! First day Fri 21 Aug, last day Sat 22 Aug. Contract urgency.",
     commission: 8, exclusivity: "Fish-only + organic requirements", powerIncluded: false, powerCost: 4500,
-    gasRequired: true, organicRequired: true, standLocation: "Premium food zone",
+    gasRequired: true, organicRequired: true, standLocation: "Address: ???",
     accommodation: "Hotel - TBD",
     contracts: { signed: true, critical: true },
+    documents: [
+      {
+        title: "Production Plan Suset",
+        type: "doc",
+        driveId: "1qgjpgviMm1-pe1ZDMQlH5VtshH1qRilVNDTu_fCk6Zw",
+        summary: "Address: UNKNOWN. First day Fri 21 Aug, last day Sat 22 Aug (2 days only). 18 missing items — schedule almost entirely empty.",
+        missingItems: [
+          "Festival address",
+          "Team arrival time",
+          "Fidibus build team arrival",
+          "Grocery delivery time",
+          "BC-Catering leftover pickup",
+          "Volunteer shift times",
+          "Accommodation check-in/check-out",
+          "Electricity on/off times",
+          "Cooling unit arrival/pickup",
+          "Setup start/deadline",
+          "Opening hours",
+          "Gas check time",
+          "Full setup deadline",
+        ],
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "pending", details: "125A, 4,500 DKK" },
-      tent: { status: "pending", details: "Premium marquee" },
-      cooling: { status: "pending", details: "Backup cooling for organic concerns" },
-      gasSafety: { status: "pending", details: "Gas check required" },
-      pos: { status: "pending", details: "SumUp + organic tracking" },
-      foodDelivery: { status: "critical", details: "ORGANIC SOURCING - 50% requirement critical!" },
-      staffAccred: { status: "pending", details: "Wristbands + accreditation" },
-      accommodation: { status: "pending", details: "Hotel booking urgent" },
+      electricity: { status: "pending", details: "Electricity on/off MISSING" },
+      tent: { status: "pending", details: "No tent info" },
+      cooling: { status: "pending", details: "Cooling arrival/pickup MISSING" },
+      gasSafety: { status: "pending", details: "Gas check MISSING" },
+      pos: { status: "pending", details: "No POS info" },
+      foodDelivery: { status: "critical", details: "ORGANIC SOURCING — 50% requirement! Supplier coordination MISSING." },
+      staffAccred: { status: "pending", details: "No info" },
+      accommodation: { status: "pending", details: "Check-in/check-out MISSING" },
     },
   },
   {
     id: 11, name: "Tønder", dates: "24-30 Aug 2026", daysAway: 131, status: "ON TRACK",
-    notes: "Has plan - one week after Suset",
+    notes: "Has plan. Day 1 Wed 26 Aug – Day 4 Sat 29 Aug. 18 missing items.",
     commission: 10, exclusivity: "Fish + Gyros", powerIncluded: false, powerCost: 3800,
-    gasRequired: true, organicRequired: false, standLocation: "Main festival area",
+    gasRequired: true, organicRequired: false, standLocation: "Address: ???",
     accommodation: "Local hotel",
     contracts: { signed: true, critical: false },
+    documents: [
+      {
+        title: "Production Plan Tønder",
+        type: "doc",
+        driveId: "1jRu_Ih4EEEwxuyRHfkNUhlzZ4raZ2a79KXrmBJwOrKA",
+        summary: "Address: UNKNOWN. Day 1 Wed 26 Aug, Day 2 Thu 27, Day 3 Fri 28, Day 4 Sat 29 (4 festival days). 18 missing items.",
+        missingItems: [
+          "Festival address",
+          "Team arrival time",
+          "Fidibus build team arrival",
+          "Grocery delivery time",
+          "BC-Catering leftover pickup",
+          "Volunteer shift times",
+          "Accommodation check-in/check-out",
+          "Electricity on/off times",
+          "Cooling unit arrival/pickup",
+          "Setup start/deadline",
+          "Opening hours",
+          "Gas check time",
+          "Full setup deadline",
+        ],
+      },
+    ],
     setupChecklist: {
-      electricity: { status: "pending", details: "125A, 3,800 DKK" },
-      tent: { status: "pending", details: "4x4m tent" },
-      cooling: { status: "pending", details: "Standard container" },
-      gasSafety: { status: "pending", details: "Gas check August 22" },
-      pos: { status: "pending", details: "SumUp terminals" },
-      foodDelivery: { status: "pending", details: "August 23" },
-      staffAccred: { status: "pending", details: "Wristbands" },
-      accommodation: { status: "pending", details: "Hotel reservation" },
+      electricity: { status: "pending", details: "Electricity on/off MISSING" },
+      tent: { status: "pending", details: "No tent info" },
+      cooling: { status: "pending", details: "Cooling arrival/pickup MISSING" },
+      gasSafety: { status: "pending", details: "Gas check MISSING" },
+      pos: { status: "pending", details: "No POS info" },
+      foodDelivery: { status: "pending", details: "Grocery delivery MISSING" },
+      staffAccred: { status: "pending", details: "No info" },
+      accommodation: { status: "pending", details: "Check-in/check-out MISSING" },
     },
   },
   {
@@ -329,11 +615,12 @@ const CHECKLIST_CATEGORIES: { key: string; label: string; icon: typeof Zap; colo
   { key: "accommodation", label: "Accommodation", icon: MapPin, color: "text-pink-400" },
 ];
 
-type TabId = "overview" | "timeline" | "todo" | "setup" | "contracts" | "costs" | "menu";
+type TabId = "overview" | "timeline" | "todo" | "setup" | "contracts" | "costs" | "menu" | "documents";
 
 const TABS: { id: TabId; label: string; icon: typeof LayoutGrid }[] = [
   { id: "overview", label: "Overview", icon: LayoutGrid },
   { id: "timeline", label: "Timeline", icon: Calendar },
+  { id: "documents", label: "Documents", icon: FolderOpen },
   { id: "todo", label: "To-Do", icon: ListChecks },
   { id: "setup", label: "Setup", icon: ClipboardList },
   { id: "contracts", label: "Contracts", icon: FileText },
@@ -659,6 +946,133 @@ function SetupTab({
   );
 }
 
+function DocumentsTab() {
+  const festivalsWithDocs = festivalsData.filter(
+    (f) => f.status !== "CANCELLED" && ((f.documents && f.documents.length > 0) || (f.emails && f.emails.length > 0))
+  );
+
+  function driveUrl(id: string, type: string): string {
+    if (type === "folder") return `https://drive.google.com/drive/folders/${id}`;
+    if (type === "sheet") return `https://docs.google.com/spreadsheets/d/${id}/edit`;
+    return `https://docs.google.com/document/d/${id}/edit`;
+  }
+
+  return (
+    <div className="space-y-6">
+      {festivalsWithDocs.map((f) => (
+        <div key={f.id} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="p-5 border-b border-slate-700 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h3 className="text-white font-bold text-lg">{f.name}</h3>
+              {statusBadge(f.status)}
+            </div>
+            <span className="text-sm text-slate-400">
+              {(f.documents?.length || 0)} docs · {(f.emails?.length || 0)} emails
+            </span>
+          </div>
+
+          {/* Drive Documents */}
+          {f.documents && f.documents.length > 0 && (
+            <div className="p-5 border-b border-slate-700/50">
+              <h4 className="text-sm font-semibold text-blue-400 mb-3 flex items-center gap-2">
+                <FolderOpen className="h-4 w-4" /> Google Drive Documents
+              </h4>
+              <div className="space-y-3">
+                {f.documents.map((doc, i) => (
+                  <div key={i} className="bg-slate-900/50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-slate-400" />
+                        <span className="text-white font-medium">{doc.title}</span>
+                        <span className="text-xs bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded">
+                          {doc.type}
+                        </span>
+                      </div>
+                      <a
+                        href={driveUrl(doc.driveId, doc.type)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 flex items-center gap-1 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Open <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    {doc.summary && (
+                      <p className="text-sm text-slate-300 mb-2">{doc.summary}</p>
+                    )}
+                    {doc.missingItems && doc.missingItems.length > 0 && (
+                      <div className="mt-2 bg-red-950/30 border border-red-800/40 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-red-400 mb-1 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" /> {doc.missingItems.length} MISSING items:
+                        </p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {doc.missingItems.map((item, j) => (
+                            <span key={j} className="text-xs text-red-300/80">• {item}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Emails */}
+          {f.emails && f.emails.length > 0 && (
+            <div className="p-5">
+              <h4 className="text-sm font-semibold text-amber-400 mb-3 flex items-center gap-2">
+                <Mail className="h-4 w-4" /> Related Emails
+              </h4>
+              <div className="space-y-2">
+                {f.emails.map((email, i) => (
+                  <div key={i} className="flex items-start gap-3 bg-slate-900/50 rounded-lg p-3">
+                    <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${
+                      email.direction === "sent" ? "bg-green-500" : "bg-blue-500"
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs text-slate-500 font-mono">{email.date}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          email.direction === "sent"
+                            ? "bg-green-900/30 text-green-400"
+                            : "bg-blue-900/30 text-blue-400"
+                        }`}>
+                          {email.direction}
+                        </span>
+                      </div>
+                      <p className="text-sm text-white font-medium truncate">{email.subject}</p>
+                      <p className="text-xs text-slate-400">{email.from}</p>
+                      <p className="text-xs text-slate-300 mt-1">{email.summary}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Festivals without docs */}
+      {festivalsData.filter(f => f.status !== "CANCELLED" && !f.documents?.length && !f.emails?.length).length > 0 && (
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+          <h4 className="text-white font-semibold mb-2">Festivals awaiting document upload</h4>
+          <div className="flex flex-wrap gap-2">
+            {festivalsData
+              .filter(f => f.status !== "CANCELLED" && !f.documents?.length && !f.emails?.length)
+              .map(f => (
+                <span key={f.id} className="bg-slate-700/60 text-slate-300 px-3 py-1 rounded-lg text-sm">
+                  {f.name}
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ContractsTab() {
   const eligible = festivalsData.filter((f) => f.status !== "PLANNING");
 
@@ -947,6 +1361,7 @@ export default function FestivalCommandCentre() {
             setSetupChecked={setSetupChecked}
           />
         )}
+        {activeTab === "documents" && <DocumentsTab />}
         {activeTab === "contracts" && <ContractsTab />}
         {activeTab === "costs" && <CostsTab />}
         {activeTab === "menu" && <MenuTab />}
