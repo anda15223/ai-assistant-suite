@@ -1,7 +1,3 @@
-/*
- * DESIGN: Command Center — Challenges & Considerations
- * Alert-style cards for key risks and mitigations.
- */
 import { motion } from "framer-motion";
 import { ShieldAlert, Eye, TrendingUp, AlertTriangle } from "lucide-react";
 
@@ -38,33 +34,31 @@ const challenges = [
 
 const severityStyles = {
   critical: {
-    border: "border-destructive/30 hover:border-destructive/50",
-    bg: "bg-destructive/5",
-    iconBg: "bg-destructive/10 border-destructive/20",
-    iconColor: "text-destructive",
-    badge: "bg-destructive/10 text-destructive border-destructive/20",
+    border: "border-red-200 hover:border-red-300",
+    bg: "bg-red-50",
+    iconBg: "bg-red-100 border-red-200",
+    iconColor: "text-red-500",
+    badge: "bg-red-100 text-red-600 border-red-200",
   },
   high: {
-    border: "border-amber/30 hover:border-amber/50",
-    bg: "bg-amber-dim",
-    iconBg: "bg-amber/10 border-amber/20",
-    iconColor: "text-amber",
-    badge: "bg-amber/10 text-amber border-amber/20",
+    border: "border-amber-200 hover:border-amber-300",
+    bg: "bg-amber-50",
+    iconBg: "bg-amber-100 border-amber-200",
+    iconColor: "text-amber-600",
+    badge: "bg-amber-100 text-amber-600 border-amber-200",
   },
   medium: {
-    border: "border-teal/30 hover:border-teal/50",
-    bg: "bg-teal-dim",
-    iconBg: "bg-teal/10 border-teal/20",
-    iconColor: "text-teal",
-    badge: "bg-teal/10 text-teal border-teal/20",
+    border: "border-blue-200 hover:border-blue-300",
+    bg: "bg-blue-50",
+    iconBg: "bg-blue-100 border-blue-200",
+    iconColor: "text-blue-500",
+    badge: "bg-blue-100 text-blue-600 border-blue-200",
   },
 };
 
 export default function ChallengesSection() {
   return (
-    <section className="py-24 relative">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
+    <section className="py-24 relative bg-[#f8f9fc]">
       <div className="container">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -73,13 +67,13 @@ export default function ChallengesSection() {
           transition={{ duration: 0.6 }}
           className="mb-14"
         >
-          <span className="font-mono text-[11px] uppercase tracking-widest text-destructive mb-3 block">
+          <span className="text-[11px] uppercase tracking-widest text-red-500 font-medium mb-3 block">
             Risk Assessment
           </span>
-          <h2 className="font-heading font-bold text-3xl sm:text-4xl text-foreground mb-4">
+          <h2 className="font-semibold text-3xl sm:text-4xl text-[#111827] mb-4">
             Key Challenges
           </h2>
-          <p className="text-muted-foreground max-w-2xl leading-relaxed">
+          <p className="text-[#6b7280] max-w-2xl leading-relaxed">
             Critical considerations that must be addressed during implementation
             to ensure a reliable, secure, and trusted AI assistant ecosystem.
           </p>
@@ -95,7 +89,7 @@ export default function ChallengesSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.5 }}
-                className={`rounded-lg border ${styles.border} ${styles.bg} p-6 transition-all duration-300`}
+                className={`rounded-xl border ${styles.border} ${styles.bg} p-6 transition-all duration-300`}
               >
                 <div className="flex items-start gap-4">
                   <div
@@ -105,16 +99,16 @@ export default function ChallengesSection() {
                   </div>
                   <div>
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-heading font-semibold text-foreground">
+                      <h3 className="font-semibold text-[#111827]">
                         {c.title}
                       </h3>
                       <span
-                        className={`font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border ${styles.badge}`}
+                        className={`text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border ${styles.badge}`}
                       >
                         {c.severity}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                    <p className="text-sm text-[#6b7280] leading-relaxed">
                       {c.description}
                     </p>
                   </div>

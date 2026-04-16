@@ -44,7 +44,7 @@ export default function WhatsAppDetail() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin h-8 w-8 text-amber-500" />
+        <Loader2 className="animate-spin h-8 w-8 text-[#6366f1]" />
       </div>
     );
   }
@@ -96,15 +96,15 @@ export default function WhatsAppDetail() {
 
       {/* AI Analysis */}
       {data.aiSummary && (
-        <Card className="bg-card border-amber-500/30">
+        <Card className="bg-card border-[#6366f1]/30">
           <CardHeader>
-            <CardTitle className="text-amber-500 text-sm">AI Analysis</CardTitle>
+            <CardTitle className="text-[#6366f1] text-sm">AI Analysis</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-foreground">{data.aiSummary}</p>
             {analysis?.suggestedAction && (
-              <div className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20">
-                <p className="text-xs text-amber-400 font-semibold mb-1">Suggested Action:</p>
+              <div className="bg-[#eef2ff] rounded-lg p-3 border border-[#e0e7ff]">
+                <p className="text-xs text-[#6366f1] font-semibold mb-1">Suggested Action:</p>
                 <p className="text-sm text-foreground">{analysis.suggestedAction}</p>
               </div>
             )}
@@ -147,7 +147,7 @@ export default function WhatsAppDetail() {
                           updateMut.mutate({ draftId: draft.id, replyText: editText });
                           setEditingDraftId(null);
                         }}
-                        className="bg-amber-500 hover:bg-amber-600 text-black"
+                        className="bg-[#6366f1] hover:bg-[#4f46e5] text-white"
                       >
                         Save
                       </Button>

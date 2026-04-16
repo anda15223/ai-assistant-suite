@@ -202,7 +202,7 @@ export default function Invoices() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <FileText className="w-7 h-7 text-amber-400" />
+            <FileText className="w-7 h-7 text-[#6366f1]" />
             Invoice Dashboard
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -225,7 +225,7 @@ export default function Invoices() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <Card className="bg-card/50 border-border/50">
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-amber-400">{stats?.total || 0}</div>
+            <div className="text-2xl font-bold text-[#6366f1]">{stats?.total || 0}</div>
             <div className="text-xs text-muted-foreground">Total</div>
           </CardContent>
         </Card>
@@ -270,13 +270,13 @@ export default function Invoices() {
       </div>
 
       {/* Invoice Processing Actions */}
-      <Card className="border-amber-500/50 bg-amber-500/5">
+      <Card className="border-[#6366f1]/30 bg-[#eef2ff]">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
-            <FileText className="w-5 h-5 text-amber-400" />
+            <FileText className="w-5 h-5 text-[#6366f1]" />
             <p className="text-sm font-bold text-foreground">Invoice Processing</p>
             {pendingCount && pendingCount.needExtraction > 0 && (
-              <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 ml-2">
+              <Badge variant="outline" className="bg-[#eef2ff] text-[#6366f1] border-[#6366f1]/30 ml-2">
                 {pendingCount.needExtraction} need{pendingCount.needReExtraction ? ` (${pendingCount.needReExtraction} re-extract)` : ""} processing
               </Badge>
             )}
@@ -305,7 +305,7 @@ export default function Invoices() {
             <Button
               onClick={handleExtractBatch}
               disabled={isExtracting || (pendingCount?.needExtraction === 0)}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
+              className="bg-[#6366f1] hover:bg-[#4f46e5] text-white"
               size="sm"
             >
               {isExtracting ? (
@@ -340,7 +340,7 @@ export default function Invoices() {
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-amber-400" />
+              <Building2 className="w-5 h-5 text-[#6366f1]" />
               Supplier e-conomic Settings
             </CardTitle>
             <CardDescription>
@@ -415,7 +415,7 @@ export default function Invoices() {
               variant={activeTab === tab.key ? "default" : "outline"}
               size="sm"
               onClick={() => setActiveTab(tab.key)}
-              className={activeTab === tab.key ? "bg-amber-500 hover:bg-amber-600 text-black" : ""}
+              className={activeTab === tab.key ? "bg-[#6366f1] hover:bg-[#4f46e5] text-white" : ""}
             >
               {tab.label}
               {tab.count > 0 && (
@@ -438,7 +438,7 @@ export default function Invoices() {
       {/* Invoice Table */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#6366f1]" />
         </div>
       ) : filtered.length === 0 ? (
         <Card className="bg-card/50 border-border/50">
@@ -470,13 +470,13 @@ export default function Invoices() {
             const supplierConfigured = suppliers.some((s: any) => s.supplierName === inv.supplier && s.isConfigured);
 
             return (
-              <Card key={inv.id} className="bg-card/50 border-border/50 hover:border-amber-500/30 transition-colors">
+              <Card key={inv.id} className="bg-card/50 border-border/50 hover:border-[#6366f1]/30 transition-colors">
                 <CardContent className="p-4">
                   {/* Main Row */}
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
                     {/* Supplier */}
                     <div className="col-span-3 flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-amber-400 shrink-0" />
+                      <Building2 className="w-4 h-4 text-[#6366f1] shrink-0" />
                       <div>
                         <p className="font-medium text-sm text-foreground truncate">{inv.supplier}</p>
                         <div className="flex items-center gap-1 mt-0.5">

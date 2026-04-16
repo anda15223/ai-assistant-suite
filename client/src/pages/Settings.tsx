@@ -21,7 +21,6 @@ export default function Settings() {
     onSuccess: (data) => {
       toast.success(`Google Drive connected: ${data.email}`);
       driveStatus.refetch();
-      // Clean URL
       window.history.replaceState({}, "", "/settings");
     },
     onError: (err) => toast.error(`Failed to connect: ${err.message}`),
@@ -34,7 +33,6 @@ export default function Settings() {
     onError: (err) => toast.error(err.message),
   });
 
-  // Handle OAuth redirect code
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("google_code");
@@ -94,27 +92,27 @@ export default function Settings() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-[#111827]">Settings</h1>
+        <p className="text-[#6b7280] text-sm mt-1">
           Configure your email account and assistant preferences
         </p>
       </div>
 
       {/* Email Account */}
-      <Card>
+      <Card className="border-[#e5e7eb]">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
+              <CardTitle className="flex items-center gap-2 text-[#111827]">
+                <Mail className="w-4 h-4 text-[#6366f1]" />
                 Email Account
               </CardTitle>
-              <CardDescription className="mt-1">
+              <CardDescription className="mt-1 text-[#6b7280]">
                 Connect your one.com email for AI-powered email management
               </CardDescription>
             </div>
             {account.data && (
-              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+              <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
                 <Check className="w-3 h-3 mr-1" /> Connected
               </Badge>
             )}
@@ -122,49 +120,51 @@ export default function Settings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
+            <Label htmlFor="email" className="text-[#111827]">Email Address</Label>
             <Input
               id="email"
               type="email"
               placeholder="you@yourdomain.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              className="border-[#e5e7eb] focus:border-[#6366f1] focus:ring-[#6366f1]/20"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="text-[#111827]">Password</Label>
             <Input
               id="password"
               type="password"
               placeholder={account.data ? "••••••••" : "Enter your email password"}
               value={password}
               onChange={e => setPassword(e.target.value)}
+              className="border-[#e5e7eb] focus:border-[#6366f1] focus:ring-[#6366f1]/20"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-[#9ca3af]">
               Your password is stored securely and used only for IMAP/SMTP connections.
             </p>
           </div>
 
           {/* Advanced settings */}
-          <div className="pt-2 border-t border-border">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Server Settings</p>
+          <div className="pt-2 border-t border-[#e5e7eb]">
+            <p className="text-xs font-medium text-[#9ca3af] uppercase tracking-wider mb-3">Server Settings</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="imapHost" className="text-xs">IMAP Host</Label>
-                <Input id="imapHost" value={imapHost} onChange={e => setImapHost(e.target.value)} className="h-8 text-sm" />
+                <Label htmlFor="imapHost" className="text-xs text-[#111827]">IMAP Host</Label>
+                <Input id="imapHost" value={imapHost} onChange={e => setImapHost(e.target.value)} className="h-8 text-sm border-[#e5e7eb]" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="imapPort" className="text-xs">IMAP Port</Label>
-                <Input id="imapPort" type="number" value={imapPort} onChange={e => setImapPort(parseInt(e.target.value))} className="h-8 text-sm" />
+                <Label htmlFor="imapPort" className="text-xs text-[#111827]">IMAP Port</Label>
+                <Input id="imapPort" type="number" value={imapPort} onChange={e => setImapPort(parseInt(e.target.value))} className="h-8 text-sm border-[#e5e7eb]" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="smtpHost" className="text-xs">SMTP Host</Label>
-                <Input id="smtpHost" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="h-8 text-sm" />
+                <Label htmlFor="smtpHost" className="text-xs text-[#111827]">SMTP Host</Label>
+                <Input id="smtpHost" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} className="h-8 text-sm border-[#e5e7eb]" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="smtpPort" className="text-xs">SMTP Port</Label>
-                <Input id="smtpPort" type="number" value={smtpPort} onChange={e => setSmtpPort(parseInt(e.target.value))} className="h-8 text-sm" />
+                <Label htmlFor="smtpPort" className="text-xs text-[#111827]">SMTP Port</Label>
+                <Input id="smtpPort" type="number" value={smtpPort} onChange={e => setSmtpPort(parseInt(e.target.value))} className="h-8 text-sm border-[#e5e7eb]" />
               </div>
             </div>
           </div>
@@ -173,7 +173,7 @@ export default function Settings() {
             <Button
               onClick={handleSave}
               disabled={saveAccount.isPending}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
+              className="bg-[#6366f1] hover:bg-[#4f46e5] text-white"
             >
               {saveAccount.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               {account.data ? "Update Account" : "Connect Account"}
@@ -183,6 +183,7 @@ export default function Settings() {
                 variant="outline"
                 onClick={() => testConn.mutate()}
                 disabled={testConn.isPending}
+                className="border-[#e5e7eb] text-[#6b7280] hover:bg-[#f8f9fc]"
               >
                 {testConn.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wifi className="w-4 h-4 mr-2" />}
                 Test Connection
@@ -193,20 +194,20 @@ export default function Settings() {
       </Card>
 
       {/* Google Drive */}
-      <Card>
+      <Card className="border-[#e5e7eb]">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <HardDrive className="w-4 h-4" />
+              <CardTitle className="flex items-center gap-2 text-[#111827]">
+                <HardDrive className="w-4 h-4 text-[#6366f1]" />
                 Google Drive
               </CardTitle>
-              <CardDescription className="mt-1">
+              <CardDescription className="mt-1 text-[#6b7280]">
                 Connect Google Drive so the AI Chat can search and read your documents
               </CardDescription>
             </div>
             {driveStatus.data?.connected && (
-              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+              <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
                 <Check className="w-3 h-3 mr-1" /> Connected
               </Badge>
             )}
@@ -215,10 +216,10 @@ export default function Settings() {
         <CardContent>
           {driveStatus.data?.connected ? (
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Connected as <span className="text-foreground font-medium">{driveStatus.data.email}</span>
+              <p className="text-sm text-[#6b7280]">
+                Connected as <span className="text-[#111827] font-medium">{driveStatus.data.email}</span>
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-[#9ca3af]">
                 The AI Chat can now search and read files from your Google Drive. Try asking: "Search Drive for vendor contracts"
               </p>
               <Button
@@ -226,7 +227,7 @@ export default function Settings() {
                 size="sm"
                 onClick={() => driveDisconnect.mutate()}
                 disabled={driveDisconnect.isPending}
-                className="text-destructive hover:text-destructive"
+                className="text-red-500 border-red-200 hover:bg-red-50"
               >
                 {driveDisconnect.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Unlink className="w-4 h-4 mr-2" />}
                 Disconnect
@@ -234,13 +235,13 @@ export default function Settings() {
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-[#6b7280]">
                 Connect your Google Drive to let the AI assistant search and read your documents, spreadsheets, and files.
               </p>
               <Button
                 onClick={() => driveAuthUrl.mutate()}
                 disabled={driveAuthUrl.isPending || driveCallback.isPending}
-                className="bg-amber-500 hover:bg-amber-600 text-black"
+                className="bg-[#6366f1] hover:bg-[#4f46e5] text-white"
               >
                 {(driveAuthUrl.isPending || driveCallback.isPending) ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -255,19 +256,19 @@ export default function Settings() {
       </Card>
 
       {/* About */}
-      <Card>
+      <Card className="border-[#e5e7eb]">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SettingsIcon className="w-4 h-4" />
-            About AI Assistant Suite
+          <CardTitle className="flex items-center gap-2 text-[#111827]">
+            <SettingsIcon className="w-4 h-4 text-[#6366f1]" />
+            About AI Suite
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p><strong className="text-foreground">Inbox Intelligence</strong> — Reads your emails, classifies them (invoices, tasks, reminders), extracts action items, and drafts replies for your approval.</p>
-            <p><strong className="text-foreground">Task Board</strong> — Automatically creates tasks from email analysis. Manage priorities, track progress, and stay organized.</p>
-            <p><strong className="text-foreground">Festival Architect</strong> — Coming soon. Automated event planning and logistics.</p>
-            <p><strong className="text-foreground">Workforce Concierge</strong> — Coming soon. WhatsApp-based employee communication and task extraction.</p>
+          <div className="space-y-2 text-sm text-[#6b7280]">
+            <p><strong className="text-[#111827]">Inbox Intelligence</strong> — Reads your emails, classifies them (invoices, tasks), extracts action items, and drafts replies for your approval.</p>
+            <p><strong className="text-[#111827]">Task Board</strong> — Automatically creates tasks from email analysis. Manage priorities, track progress, and stay organized.</p>
+            <p><strong className="text-[#111827]">Festival Architect</strong> — Festival planning, logistics tracking, and command centre for all your events.</p>
+            <p><strong className="text-[#111827]">Workforce Concierge</strong> — WhatsApp-based employee communication and task extraction.</p>
           </div>
         </CardContent>
       </Card>

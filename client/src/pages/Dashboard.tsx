@@ -31,7 +31,6 @@ export default function Dashboard() {
       if (data.remaining > 0) {
         setBatchProgress(prev => ({ ...prev, processed: prev.processed + data.classified, failed: prev.failed + data.failed, remaining: data.remaining }));
         toast.info(`Batch done: ${data.classified} classified. ${data.remaining} remaining...`);
-        // Auto-continue with next batch after a short delay
         setTimeout(() => {
           classifyBatch.mutate();
         }, 1500);
@@ -118,9 +117,9 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Command Center</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Your AI-powered email, WhatsApp, and task management dashboard
+          <h1 className="text-2xl font-semibold tracking-tight text-[#111827]">Dashboard</h1>
+          <p className="text-[#6b7280] text-sm mt-1">
+            Your AI-powered email, WhatsApp, and task management overview
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -129,7 +128,7 @@ export default function Dashboard() {
               <Button
                 onClick={() => handleSync(false)}
                 disabled={syncing || reclassifying}
-                className="bg-amber-500 hover:bg-amber-600 text-black"
+                className="bg-[#6366f1] hover:bg-[#4f46e5] text-white"
               >
                 {syncing && syncType === "regular" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                 {syncing && syncType === "regular" ? "Syncing..." : "Sync New"}
@@ -138,14 +137,14 @@ export default function Dashboard() {
                 onClick={() => handleSync(true)}
                 disabled={syncing || reclassifying}
                 variant="outline"
-                className="border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+                className="border-[#6366f1]/30 text-[#6366f1] hover:bg-[#eef2ff]"
               >
                 {syncing && syncType === "full" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <History className="w-4 h-4 mr-2" />}
                 {syncing && syncType === "full" ? "Full sync..." : "Full Resync (since Mar 1)"}
               </Button>
             </>
           ) : (
-            <Button onClick={() => navigate("/settings")} variant="outline">
+            <Button onClick={() => navigate("/settings")} variant="outline" className="border-[#e5e7eb]">
               Configure Email Account
             </Button>
           )}
@@ -154,18 +153,18 @@ export default function Dashboard() {
 
       {/* Setup prompt if no account */}
       {!hasAccount && !account.isLoading && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
+        <Card className="border-[#fde68a] bg-[#fffbeb]">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <div className="w-10 h-10 rounded-lg bg-[#fef3c7] border border-[#fde68a] flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-[#d97706]" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-foreground mb-1">Email Account Required</h3>
-                <p className="text-sm text-muted-foreground mb-3">
+                <h3 className="font-semibold text-[#111827] mb-1">Email Account Required</h3>
+                <p className="text-sm text-[#6b7280] mb-3">
                   Connect your one.com email account to start using the AI email assistant.
                 </p>
-                <Button onClick={() => navigate("/settings")} size="sm" className="bg-amber-500 hover:bg-amber-600 text-black">
+                <Button onClick={() => navigate("/settings")} size="sm" className="bg-[#6366f1] hover:bg-[#4f46e5] text-white">
                   Go to Settings <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Button>
               </div>
@@ -176,13 +175,13 @@ export default function Dashboard() {
 
       {/* EMAIL ACCOUNTING SUMMARY */}
       {acct && acct.totalEmails > 0 && (
-        <Card className={`border-2 ${acct.matched ? "border-green-500/40 bg-green-500/5" : "border-red-500/40 bg-red-500/5"}`}>
+        <Card className={`border-2 ${acct.matched ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
           <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3 mb-4">
-              <Mail className={`w-5 h-5 ${acct.matched ? "text-green-500" : "text-red-500"}`} />
-              <h3 className="font-bold text-lg">Email-to-Task Accounting</h3>
+              <Mail className={`w-5 h-5 ${acct.matched ? "text-green-600" : "text-red-500"}`} />
+              <h3 className="font-semibold text-lg text-[#111827]">Email-to-Task Accounting</h3>
               {acct.matched ? (
-                <span className="flex items-center gap-1 text-green-500 text-sm font-medium ml-auto">
+                <span className="flex items-center gap-1 text-green-600 text-sm font-medium ml-auto">
                   <CheckCircle className="w-4 h-4" /> Balanced
                 </span>
               ) : (
@@ -193,24 +192,24 @@ export default function Dashboard() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold">{acct.totalEmails}</div>
-                <div className="text-xs text-muted-foreground mt-1">Total Emails</div>
+                <div className="text-2xl font-bold text-[#111827]">{acct.totalEmails}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Total Emails</div>
               </div>
-              <div className="text-center text-muted-foreground text-2xl font-bold">=</div>
+              <div className="text-center text-[#9ca3af] text-2xl font-bold">=</div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-amber-500">{acct.invoiceTasks}</div>
-                <div className="text-xs text-muted-foreground mt-1">Invoice Tasks</div>
+                <div className="text-2xl font-bold text-[#6366f1]">{acct.invoiceTasks}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Invoice Tasks</div>
               </div>
-              <div className="text-center text-muted-foreground text-2xl font-bold">+</div>
+              <div className="text-center text-[#9ca3af] text-2xl font-bold">+</div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-teal-500">{acct.regularTasks}</div>
-                <div className="text-xs text-muted-foreground mt-1">Regular Tasks</div>
+                <div className="text-2xl font-bold text-[#0ea5e9]">{acct.regularTasks}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Regular Tasks</div>
               </div>
             </div>
-            <div className="mt-3 text-center text-xs text-muted-foreground">
-              Total Tasks: <strong className="text-foreground">{acct.totalTasks}</strong>
+            <div className="mt-3 text-center text-xs text-[#6b7280]">
+              Total Tasks: <strong className="text-[#111827]">{acct.totalTasks}</strong>
               {!acct.matched && (
-                <span className="text-red-400 ml-2">
+                <span className="text-red-500 ml-2">
                   ({acct.totalEmails - acct.totalTasks > 0 ? `${acct.totalEmails - acct.totalTasks} emails missing tasks` : `${acct.totalTasks - acct.totalEmails} extra tasks`})
                 </span>
               )}
@@ -220,25 +219,25 @@ export default function Dashboard() {
                 {reclassifying && batchProgress.processing ? (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-amber-400 flex items-center gap-2">
+                      <span className="text-[#6366f1] flex items-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Processing emails in batches of 5...
                       </span>
-                      <span className="text-muted-foreground">
+                      <span className="text-[#6b7280]">
                         {batchProgress.processed} done / {batchProgress.remaining} remaining
                       </span>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2">
+                    <div className="w-full bg-[#e5e7eb] rounded-full h-2">
                       <div
-                        className="bg-amber-500 h-2 rounded-full transition-all duration-500"
+                        className="bg-[#6366f1] h-2 rounded-full transition-all duration-500"
                         style={{ width: `${Math.min(100, ((batchProgress.processed) / (batchProgress.processed + batchProgress.remaining)) * 100)}%` }}
                       />
                     </div>
                     {batchProgress.failed > 0 && (
-                      <p className="text-xs text-red-400">{batchProgress.failed} failed (fallback tasks created)</p>
+                      <p className="text-xs text-red-500">{batchProgress.failed} failed (fallback tasks created)</p>
                     )}
                     <div className="flex justify-center">
-                      <Button onClick={handleStopBatch} variant="outline" size="sm" className="border-red-500/30 text-red-400 hover:bg-red-500/10">
+                      <Button onClick={handleStopBatch} variant="outline" size="sm" className="border-red-200 text-red-500 hover:bg-red-50">
                         Stop Processing
                       </Button>
                     </div>
@@ -259,7 +258,7 @@ export default function Dashboard() {
             )}
             {acct.matched && hasAccount && (
               <div className="mt-3 flex justify-center">
-                <span className="text-xs text-green-500/70">All emails have tasks — accounting is balanced</span>
+                <span className="text-xs text-green-600">All emails have tasks — accounting is balanced</span>
               </div>
             )}
           </CardContent>
@@ -268,13 +267,13 @@ export default function Dashboard() {
 
       {/* WHATSAPP ACCOUNTING SUMMARY */}
       {waAcc && waAcc.totalMessages > 0 && (
-        <Card className={`border-2 ${waAcc.matched ? "border-green-500/40 bg-green-500/5" : "border-red-500/40 bg-red-500/5"}`}>
+        <Card className={`border-2 ${waAcc.matched ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
           <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3 mb-4">
-              <MessageCircle className={`w-5 h-5 ${waAcc.matched ? "text-green-500" : "text-red-500"}`} />
-              <h3 className="font-bold text-lg">WhatsApp Message-to-Task Accounting</h3>
+              <MessageCircle className={`w-5 h-5 ${waAcc.matched ? "text-green-600" : "text-red-500"}`} />
+              <h3 className="font-semibold text-lg text-[#111827]">WhatsApp Message-to-Task Accounting</h3>
               {waAcc.matched ? (
-                <span className="flex items-center gap-1 text-green-500 text-sm font-medium ml-auto">
+                <span className="flex items-center gap-1 text-green-600 text-sm font-medium ml-auto">
                   <CheckCircle className="w-4 h-4" /> Balanced
                 </span>
               ) : (
@@ -285,33 +284,33 @@ export default function Dashboard() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold">{waAcc.totalMessages}</div>
-                <div className="text-xs text-muted-foreground mt-1">Total Messages</div>
+                <div className="text-2xl font-bold text-[#111827]">{waAcc.totalMessages}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Total Messages</div>
               </div>
-              <div className="text-center text-muted-foreground text-2xl font-bold">=</div>
+              <div className="text-center text-[#9ca3af] text-2xl font-bold">=</div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-400">{waStats.data?.problems ?? 0}</div>
-                <div className="text-xs text-muted-foreground mt-1">Problems</div>
+                <div className="text-2xl font-bold text-red-500">{waStats.data?.problems ?? 0}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Problems</div>
               </div>
-              <div className="text-center text-muted-foreground text-2xl font-bold">+</div>
+              <div className="text-center text-[#9ca3af] text-2xl font-bold">+</div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-400">{waStats.data?.questions ?? 0}</div>
-                <div className="text-xs text-muted-foreground mt-1">Questions</div>
+                <div className="text-2xl font-bold text-blue-500">{waStats.data?.questions ?? 0}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Questions</div>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-3">
               <div className="text-center">
-                <div className="text-xl font-bold text-teal-400">{waStats.data?.updates ?? 0}</div>
-                <div className="text-xs text-muted-foreground mt-1">Updates</div>
+                <div className="text-xl font-bold text-[#0ea5e9]">{waStats.data?.updates ?? 0}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Updates</div>
               </div>
-              <div className="text-center text-muted-foreground text-xl font-bold">+</div>
+              <div className="text-center text-[#9ca3af] text-xl font-bold">+</div>
               <div className="text-center">
-                <div className="text-xl font-bold text-amber-400">{waStats.data?.requests ?? 0}</div>
-                <div className="text-xs text-muted-foreground mt-1">Requests</div>
+                <div className="text-xl font-bold text-[#6366f1]">{waStats.data?.requests ?? 0}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Requests</div>
               </div>
             </div>
-            <div className="mt-3 text-center text-xs text-muted-foreground">
-              Total Tasks from WhatsApp: <strong className="text-foreground">{waAcc.totalTasks}</strong>
+            <div className="mt-3 text-center text-xs text-[#6b7280]">
+              Total Tasks from WhatsApp: <strong className="text-[#111827]">{waAcc.totalTasks}</strong>
             </div>
           </CardContent>
         </Card>
@@ -319,53 +318,61 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/emails")}>
+        <Card className="cursor-pointer border-[#e5e7eb] hover:border-[#6366f1]/30 hover:shadow-md transition-all" onClick={() => navigate("/emails")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Emails</CardTitle>
-            <Mail className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-[#6b7280]">Total Emails</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-[#eef2ff] flex items-center justify-center">
+              <Mail className="w-4 h-4 text-[#6366f1]" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{emailStats.data?.total ?? "—"}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="text-2xl font-bold text-[#111827]">{emailStats.data?.total ?? "—"}</div>
+            <p className="text-xs text-[#6b7280] mt-1">
               {emailStats.data?.unread ?? 0} unread
             </p>
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/whatsapp")}>
+        <Card className="cursor-pointer border-[#e5e7eb] hover:border-green-300 hover:shadow-md transition-all" onClick={() => navigate("/whatsapp")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">WhatsApp Messages</CardTitle>
-            <MessageCircle className="w-4 h-4 text-green-500" />
+            <CardTitle className="text-sm font-medium text-[#6b7280]">WhatsApp Messages</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+              <MessageCircle className="w-4 h-4 text-green-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{waStats.data?.total ?? "—"}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="text-2xl font-bold text-[#111827]">{waStats.data?.total ?? "—"}</div>
+            <p className="text-xs text-[#6b7280] mt-1">
               {waStats.data?.problems ?? 0} problems, {waStats.data?.questions ?? 0} questions
             </p>
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/tasks")}>
+        <Card className="cursor-pointer border-[#e5e7eb] hover:border-[#6366f1]/30 hover:shadow-md transition-all" onClick={() => navigate("/tasks")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Active Tasks</CardTitle>
-            <CheckSquare className="w-4 h-4 text-teal-500" />
+            <CardTitle className="text-sm font-medium text-[#6b7280]">Active Tasks</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-[#eef2ff] flex items-center justify-center">
+              <CheckSquare className="w-4 h-4 text-[#6366f1]" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{taskStats.data?.pending ?? "—"}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="text-2xl font-bold text-[#111827]">{taskStats.data?.pending ?? "—"}</div>
+            <p className="text-xs text-[#6b7280] mt-1">
               {taskStats.data?.inProgress ?? 0} in progress
             </p>
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:border-amber-500/30 transition-colors" onClick={() => navigate("/emails")}>
+        <Card className="cursor-pointer border-[#e5e7eb] hover:border-orange-300 hover:shadow-md transition-all" onClick={() => navigate("/emails")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
-            <Clock className="w-4 h-4 text-orange-500" />
+            <CardTitle className="text-sm font-medium text-[#6b7280]">Pending Approvals</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-orange-500" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(pendingDrafts.data?.length ?? 0) + (waPendingDrafts.data?.length ?? 0)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="text-2xl font-bold text-[#111827]">{(pendingDrafts.data?.length ?? 0) + (waPendingDrafts.data?.length ?? 0)}</div>
+            <p className="text-xs text-[#6b7280] mt-1">
               {pendingDrafts.data?.length ?? 0} email, {waPendingDrafts.data?.length ?? 0} WhatsApp
             </p>
           </CardContent>
@@ -374,21 +381,21 @@ export default function Dashboard() {
 
       {/* AUTO-ARCHIVE CARD */}
       {(autoArchiveStats.data?.candidates ?? 0) > 0 && (
-        <Card className="border-2 border-orange-500/30 bg-orange-500/5">
+        <Card className="border-2 border-orange-200 bg-orange-50">
           <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3 mb-3">
-              <Archive className="w-5 h-5 text-orange-400" />
-              <h3 className="font-bold text-lg">Auto-Archive</h3>
-              <span className="text-xs text-muted-foreground ml-auto">30-day inactivity rule</span>
+              <Archive className="w-5 h-5 text-orange-500" />
+              <h3 className="font-semibold text-lg text-[#111827]">Auto-Archive</h3>
+              <span className="text-xs text-[#6b7280] ml-auto">30-day inactivity rule</span>
             </div>
             <div className="flex items-center gap-6">
               <div>
-                <div className="text-3xl font-bold text-orange-400">{autoArchiveStats.data?.candidates ?? 0}</div>
-                <div className="text-xs text-muted-foreground mt-1">Tasks ready to dismiss</div>
+                <div className="text-3xl font-bold text-orange-500">{autoArchiveStats.data?.candidates ?? 0}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Tasks ready to dismiss</div>
               </div>
               <div>
-                <div className="text-xl font-bold text-muted-foreground">{autoArchiveStats.data?.alreadyArchived ?? 0}</div>
-                <div className="text-xs text-muted-foreground mt-1">Previously auto-archived</div>
+                <div className="text-xl font-bold text-[#9ca3af]">{autoArchiveStats.data?.alreadyArchived ?? 0}</div>
+                <div className="text-xs text-[#6b7280] mt-1">Previously auto-archived</div>
               </div>
               <div className="ml-auto">
                 <Button
@@ -397,7 +404,7 @@ export default function Dashboard() {
                     autoArchiveRun.mutate();
                   }}
                   disabled={autoArchiving || syncing || reclassifying}
-                  className="bg-orange-500 hover:bg-orange-600 text-black font-semibold"
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-semibold"
                 >
                   {autoArchiving ? (
                     <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Archiving...</>
@@ -407,7 +414,7 @@ export default function Dashboard() {
                 </Button>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">
+            <p className="text-xs text-[#6b7280] mt-3">
               These tasks are in the Archive quadrant and have had no activity for 30+ days. Dismissing them removes them from active views.
             </p>
           </CardContent>
@@ -416,38 +423,38 @@ export default function Dashboard() {
 
       {/* Station Status */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-teal-500/20">
+        <Card className="border-[#e5e7eb] hover:border-[#6366f1]/20 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-2 h-2 rounded-full bg-amber-400" />
-              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Station Alpha</span>
+              <div className="w-2 h-2 rounded-full bg-[#6366f1] animate-pulse" />
+              <span className="text-[10px] uppercase tracking-wider text-[#9ca3af] font-medium">Station Alpha</span>
             </div>
-            <h3 className="font-semibold mb-1">Festival Architect</h3>
-            <p className="text-xs text-muted-foreground">Coming soon — event planning and logistics automation.</p>
+            <h3 className="font-semibold text-[#111827] mb-1">Festival Architect</h3>
+            <p className="text-xs text-[#6b7280]">Active — festival planning, logistics tracking, and command centre.</p>
           </CardContent>
         </Card>
 
-        <Card className={hasAccount ? "border-green-500/20" : "border-amber-500/20"}>
+        <Card className={`border-[#e5e7eb] ${hasAccount ? "hover:border-green-300" : "hover:border-[#6366f1]/20"} transition-colors`}>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className={`w-2 h-2 rounded-full ${hasAccount ? "bg-green-400 animate-pulse" : "bg-amber-400"}`} />
-              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Station Beta</span>
+              <div className={`w-2 h-2 rounded-full ${hasAccount ? "bg-green-500 animate-pulse" : "bg-[#6366f1]"}`} />
+              <span className="text-[10px] uppercase tracking-wider text-[#9ca3af] font-medium">Station Beta</span>
             </div>
-            <h3 className="font-semibold mb-1">Inbox Intelligence</h3>
-            <p className="text-xs text-muted-foreground">
+            <h3 className="font-semibold text-[#111827] mb-1">Inbox Intelligence</h3>
+            <p className="text-xs text-[#6b7280]">
               {hasAccount ? "Active — reading, classifying, and managing your emails." : "Waiting for email account configuration."}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-green-500/20">
+        <Card className="border-[#e5e7eb] hover:border-green-300 transition-colors">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Station Gamma</span>
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[10px] uppercase tracking-wider text-[#9ca3af] font-medium">Station Gamma</span>
             </div>
-            <h3 className="font-semibold mb-1">Workforce Concierge</h3>
-            <p className="text-xs text-muted-foreground">Active — WhatsApp employee communication and task extraction. Connect your Meta Business API to start receiving messages.</p>
+            <h3 className="font-semibold text-[#111827] mb-1">Workforce Concierge</h3>
+            <p className="text-xs text-[#6b7280]">Active — WhatsApp employee communication and task extraction.</p>
           </CardContent>
         </Card>
       </div>

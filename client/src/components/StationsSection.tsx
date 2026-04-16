@@ -1,17 +1,10 @@
 /*
- * DESIGN: Command Center — Stations Overview
+ * DESIGN: Light theme — Stations Overview
  * Three station cards in a responsive grid.
  */
 import { motion } from "framer-motion";
 import { Calendar, Mail, MessageSquare } from "lucide-react";
 import StationCard from "./StationCard";
-
-const FESTIVAL_IMG =
-  "https://d2xsxph8kpxj0f.cloudfront.net/310519663480602866/KuriegSE9E2r7xqu9W7qQS/festival-architect-ejtTSKhfbJL7temJhi7icc.webp";
-const INBOX_IMG =
-  "https://d2xsxph8kpxj0f.cloudfront.net/310519663480602866/KuriegSE9E2r7xqu9W7qQS/inbox-intelligence-5iY5NhVuBwFC28tcYhDPbY.webp";
-const WHATSAPP_IMG =
-  "https://d2xsxph8kpxj0f.cloudfront.net/310519663480602866/KuriegSE9E2r7xqu9W7qQS/workforce-concierge-gg4nkpquJuUzawdcovzPwd.webp";
 
 const stations = [
   {
@@ -21,7 +14,7 @@ const stations = [
     description:
       "End-to-end festival planning powered by AI. From scheduling performances and optimizing vendor routes to monitoring weather and triggering contingency plans — all automated.",
     icon: Calendar,
-    image: FESTIVAL_IMG,
+    image: "",
     status: "active" as const,
     features: [
       {
@@ -46,13 +39,11 @@ const stations = [
       },
     ],
     tools: [
-      { name: "OpenAI GPT-4o", category: "LLM" },
-      { name: "LangChain", category: "Orchestration" },
+      { name: "Claude Sonnet", category: "LLM" },
+      { name: "tRPC", category: "API" },
       { name: "Google Calendar API", category: "Scheduling" },
       { name: "Google Maps Platform", category: "Logistics" },
       { name: "Stripe API", category: "Payments" },
-      { name: "Eventbrite API", category: "Ticketing" },
-      { name: "OpenWeatherMap", category: "Data" },
     ],
     workflow: [
       "User interacts via web dashboard or conversational interface.",
@@ -70,7 +61,7 @@ const stations = [
     description:
       "Dual-purpose email assistant that extracts tasks and invoices from your inbox, then drafts contextual replies for your approval. Never sends without your sign-off.",
     icon: Mail,
-    image: INBOX_IMG,
+    image: "",
     status: "active" as const,
     features: [
       {
@@ -95,17 +86,15 @@ const stations = [
       },
     ],
     tools: [
-      { name: "Gmail / Outlook API", category: "Email" },
-      { name: "Parseur / Nanonets", category: "OCR" },
-      { name: "OpenAI GPT-4o", category: "LLM" },
-      { name: "Asana / Jira API", category: "Tasks" },
-      { name: "QuickBooks / Xero", category: "Accounting" },
-      { name: "n8n", category: "Workflow" },
+      { name: "IMAP / SMTP", category: "Email" },
+      { name: "Claude Sonnet", category: "LLM" },
+      { name: "Drizzle ORM", category: "Database" },
+      { name: "tRPC", category: "API" },
     ],
     workflow: [
-      "System monitors inbox via Gmail/Outlook API for new emails.",
-      "AI classifies each email: Task, Invoice, Reminder, or Irrelevant.",
-      "For invoices: OCR extracts vendor, amount, due date from attachments.",
+      "System monitors inbox via IMAP for new emails.",
+      "AI classifies each email: Task or Invoice.",
+      "For invoices: extracts vendor, amount, due date from content.",
       "For tasks: NLP identifies action items, deadlines, and responsible parties.",
       "AI drafts a contextual reply based on email content and your tone history.",
       "You receive a notification with the draft — approve, edit, or regenerate.",
@@ -119,7 +108,7 @@ const stations = [
     description:
       "Your WhatsApp-based interface for employee management. Answers routine queries, converts reported problems into formal tasks, and notifies the right managers instantly.",
     icon: MessageSquare,
-    image: WHATSAPP_IMG,
+    image: "",
     status: "active" as const,
     features: [
       {
@@ -145,15 +134,13 @@ const stations = [
     ],
     tools: [
       { name: "WhatsApp Business API", category: "Messaging" },
-      { name: "Twilio", category: "Communication" },
-      { name: "FastAPI", category: "Backend" },
-      { name: "OpenAI GPT-4o", category: "LLM" },
-      { name: "Jira / Trello API", category: "Tasks" },
+      { name: "Meta Cloud API", category: "Communication" },
+      { name: "Claude Sonnet", category: "LLM" },
       { name: "PostgreSQL", category: "Database" },
     ],
     workflow: [
       "Employee sends a message via WhatsApp to the business number.",
-      "Webhook receives the message and forwards it to the FastAPI backend.",
+      "Webhook receives the message and forwards it to the backend.",
       "LLM processes the message to understand intent and extract information.",
       "For queries: AI generates an answer from the knowledge base.",
       "For problems: AI creates a task ticket with priority and assigns it.",
@@ -165,7 +152,7 @@ const stations = [
 
 export default function StationsSection() {
   return (
-    <section id="stations" className="py-24 relative">
+    <section id="stations" className="py-24 relative bg-white">
       {/* Section header */}
       <div className="container mb-14">
         <motion.div
@@ -174,13 +161,13 @@ export default function StationsSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <span className="font-mono text-[11px] uppercase tracking-widest text-amber mb-3 block">
+          <span className="text-[11px] uppercase tracking-widest text-[#6366f1] font-medium mb-3 block">
             Active Stations
           </span>
-          <h2 className="font-heading font-bold text-3xl sm:text-4xl text-foreground mb-4">
+          <h2 className="font-semibold text-3xl sm:text-4xl text-[#111827] mb-4">
             Your AI Command Stations
           </h2>
-          <p className="text-muted-foreground max-w-2xl leading-relaxed">
+          <p className="text-[#6b7280] max-w-2xl leading-relaxed">
             Each station is a specialized AI agent designed for a specific
             operational domain. They share a common intelligence core but
             operate independently, with human-in-the-loop safeguards for

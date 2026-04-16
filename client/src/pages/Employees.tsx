@@ -37,7 +37,7 @@ export default function Employees() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin h-8 w-8 text-amber-500" />
+        <Loader2 className="animate-spin h-8 w-8 text-[#6366f1]" />
       </div>
     );
   }
@@ -46,12 +46,12 @@ export default function Employees() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-heading text-foreground">Employees</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#111827]">Employees</h1>
           <p className="text-muted-foreground mt-1">Manage your employee directory for WhatsApp integration</p>
         </div>
         <Button
           onClick={() => setShowForm(!showForm)}
-          className="bg-amber-500 hover:bg-amber-600 text-black"
+          className="bg-[#6366f1] hover:bg-[#4f46e5] text-white"
         >
           <Plus className="h-4 w-4 mr-2" /> Add Employee
         </Button>
@@ -59,9 +59,9 @@ export default function Employees() {
 
       {/* Add Employee Form */}
       {showForm && (
-        <Card className="bg-card border-amber-500/30">
+        <Card className="bg-card border-[#6366f1]/30">
           <CardHeader>
-            <CardTitle className="text-amber-500">Add New Employee</CardTitle>
+            <CardTitle className="text-[#6366f1]">Add New Employee</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -118,7 +118,7 @@ export default function Employees() {
                 <Button
                   type="submit"
                   disabled={createMut.isPending}
-                  className="bg-amber-500 hover:bg-amber-600 text-black"
+                  className="bg-[#6366f1] hover:bg-[#4f46e5] text-white"
                 >
                   {createMut.isPending ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                   Save Employee
@@ -143,13 +143,13 @@ export default function Employees() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {employees.map((emp: any) => (
-            <Card key={emp.id} className="bg-card border-border hover:border-amber-500/30 transition-colors">
+            <Card key={emp.id} className="bg-card border-border hover:border-[#6366f1]/30 transition-colors">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-foreground">{emp.name}</p>
                     <p className="text-sm text-muted-foreground">{emp.phone}</p>
-                    {emp.role && <p className="text-xs text-amber-400 mt-1">{emp.role}</p>}
+                    {emp.role && <p className="text-xs text-[#6366f1] mt-1">{emp.role}</p>}
                     {emp.department && <p className="text-xs text-muted-foreground">{emp.department}</p>}
                   </div>
                   <Button

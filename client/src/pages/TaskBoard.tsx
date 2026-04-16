@@ -73,7 +73,7 @@ const sourceIcons: Record<string, any> = {
 function UrgencyBadge({ urgency, importance }: { urgency: number; importance: number }) {
   const score = Math.round(urgency * 0.6 + importance * 0.4);
   const color = score >= 8 ? "bg-red-500/20 text-red-400 border-red-500/40"
-    : score >= 6 ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+    : score >= 6 ? "bg-[#eef2ff] text-[#6366f1] border-[#6366f1]/30"
     : score >= 4 ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
     : "bg-gray-500/20 text-gray-400 border-gray-500/40";
 
@@ -209,14 +209,14 @@ export default function TaskBoard() {
         </div>
         <div className="flex items-center gap-2">
           <Link href="/priority">
-            <Button variant="outline" size="sm" className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10">
+            <Button variant="outline" size="sm" className="text-[#6366f1] border-[#6366f1]/30 hover:bg-[#eef2ff]">
               <Flame className="w-3.5 h-3.5 mr-1.5" />
               Priority Matrix
             </Button>
           </Link>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-amber-500 hover:bg-amber-600 text-black">
+              <Button className="bg-[#6366f1] hover:bg-[#4f46e5] text-white">
                 <Plus className="w-4 h-4 mr-2" /> New Task
               </Button>
             </DialogTrigger>
@@ -239,7 +239,7 @@ export default function TaskBoard() {
                 <Button
                   onClick={() => createTask.mutate({ title: newTitle, description: newDesc, priority: newPriority, source: "manual" })}
                   disabled={!newTitle || createTask.isPending}
-                  className="w-full bg-amber-500 hover:bg-amber-600 text-black"
+                  className="w-full bg-[#6366f1] hover:bg-[#4f46e5] text-white"
                 >
                   {createTask.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Create Task
@@ -260,7 +260,7 @@ export default function TaskBoard() {
         </Card>
         <Card className="cursor-pointer" onClick={() => setStatusFilter("active")}>
           <CardContent className="py-3 px-4">
-            <div className="text-xl font-bold text-amber-500">{taskStats.data?.pending ?? "—"}</div>
+            <div className="text-xl font-bold text-[#6366f1]">{taskStats.data?.pending ?? "—"}</div>
             <div className="text-xs text-muted-foreground">Pending</div>
           </CardContent>
         </Card>
@@ -299,7 +299,7 @@ export default function TaskBoard() {
                 variant={statusFilter === f.key ? "default" : "outline"}
                 size="sm"
                 onClick={() => setStatusFilter(f.key)}
-                className={statusFilter === f.key ? "bg-amber-500 hover:bg-amber-600 text-black" : ""}
+                className={statusFilter === f.key ? "bg-[#6366f1] hover:bg-[#4f46e5] text-white" : ""}
               >
                 {FIcon && <FIcon className="w-3 h-3 mr-1" />}
                 {f.label}
@@ -319,7 +319,7 @@ export default function TaskBoard() {
               variant={sortBy === s.key ? "default" : "ghost"}
               size="sm"
               onClick={() => setSortBy(s.key)}
-              className={`h-7 text-xs ${sortBy === s.key ? "bg-amber-500/20 text-amber-400" : ""}`}
+              className={`h-7 text-xs ${sortBy === s.key ? "bg-[#eef2ff] text-[#6366f1]" : ""}`}
             >
               {s.label}
             </Button>
@@ -356,7 +356,7 @@ export default function TaskBoard() {
             const hasEmail = task.emailId != null;
 
             return (
-              <Card key={task.id} className={`hover:border-amber-500/20 transition-colors ${task.isOverdue ? "border-red-500/30 bg-red-500/5" : ""}`}>
+              <Card key={task.id} className={`hover:border-[#6366f1]/20 transition-colors ${task.isOverdue ? "border-red-500/30 bg-red-500/5" : ""}`}>
                 <CardContent className="py-3 px-4">
                   <div className="flex items-start gap-3">
                     <div className="mt-1 flex flex-col items-center gap-1">
@@ -453,14 +453,14 @@ export default function TaskBoard() {
                           </Badge>
                         )}
                         {task.escalationLevel && task.escalationLevel > 0 && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/20 text-amber-400 border-amber-500/40">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-[#eef2ff] text-[#6366f1] border-[#6366f1]/30">
                             <ArrowUp className="inline h-2.5 w-2.5 mr-0.5" />
                             Esc. {task.escalationLevel}
                           </Badge>
                         )}
                       </div>
                       {task.suggestedAction && (
-                        <p className="text-xs text-amber-400/80 mb-1">
+                        <p className="text-xs text-[#6366f1]/80 mb-1">
                           <Zap className="inline h-3 w-3 mr-1" />
                           {task.suggestedAction}
                         </p>

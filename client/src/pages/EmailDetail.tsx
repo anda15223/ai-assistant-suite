@@ -347,7 +347,7 @@ export default function EmailDetail({ id }: { id: string }) {
             {analysis?.suggestedAction && (
               <div>
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Suggested Action</span>
-                <p className="text-sm text-amber-500 mt-1 font-medium">{analysis.suggestedAction}</p>
+                <p className="text-sm text-[#6366f1] mt-1 font-medium">{analysis.suggestedAction}</p>
               </div>
             )}
 
@@ -369,7 +369,7 @@ export default function EmailDetail({ id }: { id: string }) {
                     );
                   })()}
                 </div>
-                <div className="grid grid-cols-2 gap-3 p-3 rounded-md bg-amber-500/5 border border-amber-500/10">
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-md bg-[#eef2ff] border border-[#e0e7ff]">
                   <div>
                     <span className="text-xs text-muted-foreground">Vendor</span>
                     <p className="text-sm font-medium">{analysis.invoiceData.vendor}</p>
@@ -442,7 +442,7 @@ export default function EmailDetail({ id }: { id: string }) {
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  className="bg-amber-500 hover:bg-amber-600 text-black"
+                  className="bg-[#6366f1] hover:bg-[#4f46e5] text-white"
                   onClick={() => {
                     if (draftBody && draftBody !== pendingDraft.body) {
                       updateDraft.mutate({ draftId: pendingDraft.id, body: draftBody });

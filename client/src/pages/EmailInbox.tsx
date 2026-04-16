@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 
 const classificationConfig: Record<string, { label: string; color: string; icon: any }> = {
-  invoice: { label: "Invoice", color: "bg-amber-500/10 text-amber-500 border-amber-500/20", icon: FileText },
-  task: { label: "Task", color: "bg-teal-500/10 text-teal-500 border-teal-500/20", icon: CheckSquare },
+  invoice: { label: "Invoice", color: "bg-[#eef2ff] text-[#6366f1] border-[#e0e7ff]", icon: FileText },
+  task: { label: "Task", color: "bg-[#ecfdf5] text-[#059669] border-[#a7f3d0]", icon: CheckSquare },
 };
 
 export default function EmailInbox() {
@@ -62,12 +62,12 @@ export default function EmailInbox() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Email Inbox</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Every email is either an <strong className="text-amber-500">Invoice</strong> or a <strong className="text-teal-500">Task</strong>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#111827]">Email Inbox</h1>
+          <p className="text-[#6b7280] text-sm mt-1">
+            Every email is either an <strong className="text-[#6366f1]">Invoice</strong> or a <strong className="text-[#059669]">Task</strong>
           </p>
         </div>
-        <Button onClick={handleSync} disabled={syncing} className="bg-amber-500 hover:bg-amber-600 text-black">
+        <Button onClick={handleSync} disabled={syncing} className="bg-[#6366f1] hover:bg-[#4f46e5] text-white">
           {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
           {syncing ? "Syncing..." : "Sync Emails"}
         </Button>
@@ -76,12 +76,12 @@ export default function EmailInbox() {
       {/* Search and filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9ca3af]" />
           <Input
             placeholder="Search emails..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 border-[#e5e7eb] focus:border-[#6366f1] focus:ring-[#6366f1]/20"
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
@@ -91,7 +91,7 @@ export default function EmailInbox() {
               variant={filter === f.key ? "default" : "outline"}
               size="sm"
               onClick={() => setFilter(f.key)}
-              className={filter === f.key ? "bg-amber-500 hover:bg-amber-600 text-black" : ""}
+              className={filter === f.key ? "bg-[#6366f1] hover:bg-[#4f46e5] text-white" : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f8f9fc]"}
             >
               {f.label}
             </Button>
@@ -102,14 +102,14 @@ export default function EmailInbox() {
       {/* Email list */}
       {emailList.isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <Loader2 className="w-6 h-6 animate-spin text-[#6366f1]" />
         </div>
       ) : filteredEmails.length === 0 ? (
-        <Card>
+        <Card className="border-[#e5e7eb]">
           <CardContent className="py-16 text-center">
-            <Mail className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <h3 className="font-semibold text-foreground mb-1">No emails found</h3>
-            <p className="text-sm text-muted-foreground">
+            <Mail className="w-12 h-12 text-[#9ca3af] mx-auto mb-4 opacity-50" />
+            <h3 className="font-semibold text-[#111827] mb-1">No emails found</h3>
+            <p className="text-sm text-[#6b7280]">
               {emailList.data?.length === 0
                 ? "Click 'Sync Emails' to fetch your latest emails."
                 : "No emails match your current filter."}
@@ -125,31 +125,31 @@ export default function EmailInbox() {
             return (
               <Card
                 key={email.id}
-                className={`cursor-pointer hover:border-amber-500/30 transition-all ${!email.isRead ? "border-l-2 border-l-amber-500" : ""}`}
+                className={`cursor-pointer border-[#e5e7eb] hover:border-[#6366f1]/30 hover:shadow-sm transition-all ${!email.isRead ? "border-l-2 border-l-[#6366f1]" : ""}`}
                 onClick={() => navigate(`/emails/${email.id}`)}
               >
                 <CardContent className="py-3 px-4">
                   <div className="flex items-start gap-3">
-                    <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${cls === "invoice" ? "bg-amber-500/10" : "bg-teal-500/10"}`}>
-                      <IconComp className={`w-4 h-4 ${cls === "invoice" ? "text-amber-500" : "text-teal-500"}`} />
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${cls === "invoice" ? "bg-[#eef2ff]" : "bg-[#ecfdf5]"}`}>
+                      <IconComp className={`w-4 h-4 ${cls === "invoice" ? "text-[#6366f1]" : "text-[#059669]"}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`text-sm font-medium truncate ${!email.isRead ? "text-foreground" : "text-muted-foreground"}`}>
+                        <span className={`text-sm font-medium truncate ${!email.isRead ? "text-[#111827]" : "text-[#6b7280]"}`}>
                           {email.fromName || email.fromAddress}
                         </span>
                         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${config.color}`}>
                           {config.label}
                         </Badge>
-                        <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                        <span className="ml-auto text-xs text-[#9ca3af] shrink-0">
                           {email.receivedAt ? format(new Date(email.receivedAt), "MMM d, HH:mm") : ""}
                         </span>
                       </div>
-                      <p className={`text-sm truncate ${!email.isRead ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                      <p className={`text-sm truncate ${!email.isRead ? "font-medium text-[#111827]" : "text-[#6b7280]"}`}>
                         {email.subject || "(No Subject)"}
                       </p>
                       {email.aiSummary && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                        <p className="text-xs text-[#9ca3af] mt-1 line-clamp-1">
                           {email.aiSummary}
                         </p>
                       )}

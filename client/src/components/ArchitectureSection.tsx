@@ -1,19 +1,12 @@
-/*
- * DESIGN: Command Center — Unified Architecture
- * Shows the shared infrastructure diagram and tech stack.
- */
 import { motion } from "framer-motion";
 import { Database, Cpu, Workflow, Server, Lock, BarChart3 } from "lucide-react";
-
-const ARCH_IMG =
-  "https://d2xsxph8kpxj0f.cloudfront.net/310519663480602866/KuriegSE9E2r7xqu9W7qQS/architecture-diagram-QDPPCwVLtezmqVHxkhe7oj.webp";
 
 const infraItems = [
   {
     icon: Cpu,
     title: "LLM Provider",
     description:
-      "A single OpenAI GPT-4o API key powers all three stations, reducing cost and complexity.",
+      "Claude Sonnet via Anthropic API powers all three stations with consistent, high-quality AI reasoning.",
   },
   {
     icon: Database,
@@ -23,36 +16,33 @@ const infraItems = [
   },
   {
     icon: Workflow,
-    title: "n8n Automation",
+    title: "tRPC + React Query",
     description:
-      "Self-hosted workflow engine orchestrating multi-step processes across all stations.",
+      "Type-safe API layer with real-time mutations and optimistic updates across all stations.",
   },
   {
     icon: Server,
-    title: "FastAPI Backend",
+    title: "Node.js Backend",
     description:
-      "High-performance Python backend handling webhooks, API routing, and business logic.",
+      "Express + Hono backend handling webhooks, API routing, and business logic.",
   },
   {
     icon: Lock,
     title: "Security Layer",
     description:
-      "End-to-end encryption, GDPR compliance, and strict access controls for all data flows.",
+      "JWT auth, GDPR compliance, and strict access controls for all data flows.",
   },
   {
     icon: BarChart3,
     title: "Monitoring Stack",
     description:
-      "Prometheus + Grafana for real-time performance monitoring and alerting across all services.",
+      "Built-in accounting dashboards and health checks for real-time system visibility.",
   },
 ];
 
 export default function ArchitectureSection() {
   return (
-    <section id="architecture" className="py-24 relative">
-      {/* Subtle top border */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
+    <section id="architecture" className="py-24 relative bg-[#f8f9fc]">
       <div className="container">
         {/* Header */}
         <motion.div
@@ -62,33 +52,17 @@ export default function ArchitectureSection() {
           transition={{ duration: 0.6 }}
           className="mb-14"
         >
-          <span className="font-mono text-[11px] uppercase tracking-widest text-teal mb-3 block">
+          <span className="text-[11px] uppercase tracking-widest text-[#6366f1] font-medium mb-3 block">
             System Architecture
           </span>
-          <h2 className="font-heading font-bold text-3xl sm:text-4xl text-foreground mb-4">
+          <h2 className="font-semibold text-3xl sm:text-4xl text-[#111827] mb-4">
             Unified Infrastructure
           </h2>
-          <p className="text-muted-foreground max-w-2xl leading-relaxed">
+          <p className="text-[#6b7280] max-w-2xl leading-relaxed">
             All three stations reside on a shared backend to minimize costs and
-            complexity. A single LLM provider, database, and automation platform
+            complexity. A single LLM provider, database, and API layer
             serve the entire ecosystem.
           </p>
-        </motion.div>
-
-        {/* Architecture diagram */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="relative rounded-lg overflow-hidden border border-border mb-14 glow-teal"
-        >
-          <img
-            src={ARCH_IMG}
-            alt="System Architecture Diagram"
-            className="w-full h-auto"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-card/40 to-transparent" />
         </motion.div>
 
         {/* Infrastructure grid */}
@@ -100,15 +74,15 @@ export default function ArchitectureSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.5 }}
-              className="group p-5 rounded-lg bg-card border border-border hover:border-teal/30 transition-all duration-300"
+              className="group p-5 rounded-xl bg-white border border-[#e5e7eb] hover:border-[#6366f1]/30 hover:shadow-md transition-all duration-300"
             >
-              <div className="w-9 h-9 rounded-lg bg-teal/10 border border-teal/20 flex items-center justify-center mb-4 group-hover:bg-teal/20 transition-colors">
-                <item.icon className="w-4.5 h-4.5 text-teal" />
+              <div className="w-9 h-9 rounded-lg bg-[#eef2ff] border border-[#e0e7ff] flex items-center justify-center mb-4 group-hover:bg-[#e0e7ff] transition-colors">
+                <item.icon className="w-4.5 h-4.5 text-[#6366f1]" />
               </div>
-              <h3 className="font-heading font-semibold text-sm text-foreground mb-1.5">
+              <h3 className="font-semibold text-sm text-[#111827] mb-1.5">
                 {item.title}
               </h3>
-              <p className="font-mono text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-[11px] text-[#6b7280] leading-relaxed">
                 {item.description}
               </p>
             </motion.div>

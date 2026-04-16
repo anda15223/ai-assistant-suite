@@ -7,10 +7,10 @@ import { useLocation } from "wouter";
 import { useState, useMemo } from "react";
 
 const classificationConfig: Record<string, { label: string; color: string; icon: typeof AlertTriangle }> = {
-  problem: { label: "Problem", color: "bg-red-500/20 text-red-400 border-red-500/30", icon: AlertTriangle },
-  question: { label: "Question", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: HelpCircle },
-  update: { label: "Update", color: "bg-teal-500/20 text-teal-400 border-teal-500/30", icon: Info },
-  request: { label: "Request", color: "bg-amber-500/20 text-amber-400 border-amber-500/30", icon: ArrowUpRight },
+  problem: { label: "Problem", color: "bg-red-50 text-red-600 border-red-200", icon: AlertTriangle },
+  question: { label: "Question", color: "bg-blue-50 text-blue-600 border-blue-200", icon: HelpCircle },
+  update: { label: "Update", color: "bg-teal-50 text-teal-600 border-teal-200", icon: Info },
+  request: { label: "Request", color: "bg-orange-100 text-orange-600 border-orange-200", icon: ArrowUpRight },
 };
 
 export default function WhatsAppInbox() {
@@ -27,7 +27,7 @@ export default function WhatsAppInbox() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin h-8 w-8 text-amber-500" />
+        <Loader2 className="animate-spin h-8 w-8 text-[#6366f1]" />
       </div>
     );
   }
@@ -35,8 +35,8 @@ export default function WhatsAppInbox() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold font-heading text-foreground">WhatsApp Inbox</h1>
-        <p className="text-muted-foreground mt-1">Messages from your employees</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-[#111827]">WhatsApp Inbox</h1>
+        <p className="text-[#6b7280] text-sm mt-1">Messages from your employees</p>
       </div>
 
       {/* Filter tabs */}
@@ -45,7 +45,7 @@ export default function WhatsAppInbox() {
           variant={filter === "all" ? "default" : "outline"}
           size="sm"
           onClick={() => setFilter("all")}
-          className={filter === "all" ? "bg-amber-500 hover:bg-amber-600 text-black" : ""}
+          className={filter === "all" ? "bg-[#6366f1] hover:bg-[#4f46e5] text-white" : "border-[#e5e7eb] text-[#6b7280]"}
         >
           All ({messages?.length || 0})
         </Button>
@@ -57,7 +57,7 @@ export default function WhatsAppInbox() {
               variant={filter === key ? "default" : "outline"}
               size="sm"
               onClick={() => setFilter(key)}
-              className={filter === key ? "bg-amber-500 hover:bg-amber-600 text-black" : ""}
+              className={filter === key ? "bg-[#6366f1] hover:bg-[#4f46e5] text-white" : "border-[#e5e7eb] text-[#6b7280]"}
             >
               {config.label} ({count})
             </Button>
@@ -85,7 +85,7 @@ export default function WhatsAppInbox() {
             return (
               <Card
                 key={msg.id}
-                className="bg-card border-border hover:border-amber-500/50 transition-colors cursor-pointer"
+                className="bg-card border-border hover:border-[#6366f1]/30 transition-colors cursor-pointer"
                 onClick={() => navigate(`/whatsapp/${msg.id}`)}
               >
                 <CardContent className="p-4">
@@ -107,7 +107,7 @@ export default function WhatsAppInbox() {
                       </p>
                     </div>
                     {!msg.isProcessed && (
-                      <div className="h-2 w-2 rounded-full bg-amber-500 flex-shrink-0 mt-2" />
+                      <div className="h-2 w-2 rounded-full bg-[#6366f1] flex-shrink-0 mt-2" />
                     )}
                   </div>
                 </CardContent>

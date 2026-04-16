@@ -1,7 +1,3 @@
-/*
- * DESIGN: Command Center — Implementation Roadmap
- * Timeline-style roadmap with phase cards.
- */
 import { motion } from "framer-motion";
 import { Rocket, Mail, MessageSquare, Calendar } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -12,7 +8,7 @@ interface Phase {
   title: string;
   weeks: string;
   tasks: string[];
-  color: "amber" | "teal";
+  color: "indigo" | "blue";
 }
 
 const phases: Phase[] = [
@@ -20,61 +16,59 @@ const phases: Phase[] = [
     icon: Rocket,
     phase: "Phase 1",
     title: "Foundation",
-    weeks: "Weeks 1–2",
+    weeks: "Weeks 1-2",
     tasks: [
       "Set up WhatsApp Business API and Email API access",
-      "Deploy central n8n instance and PostgreSQL database",
+      "Deploy PostgreSQL database and backend API",
       "Configure security layer and authentication",
-      "Establish monitoring with Prometheus + Grafana",
+      "Establish monitoring and health checks",
     ],
-    color: "amber",
+    color: "indigo",
   },
   {
     icon: Mail,
     phase: "Phase 2",
     title: "Inbox Intelligence",
-    weeks: "Weeks 3–5",
+    weeks: "Weeks 3-5",
     tasks: [
-      "Implement invoice extraction and OCR pipeline",
-      "Build task creation logic with Asana/Jira integration",
+      "Implement invoice extraction and classification",
+      "Build task creation logic with priority scoring",
       "Develop the Draft & Approve web interface",
-      "Set up email classification model",
+      "Set up email classification model with Claude",
     ],
-    color: "teal",
+    color: "blue",
   },
   {
     icon: MessageSquare,
     phase: "Phase 3",
     title: "Workforce Concierge",
-    weeks: "Weeks 6–8",
+    weeks: "Weeks 6-8",
     tasks: [
-      "Develop WhatsApp webhook handler with FastAPI",
+      "Develop WhatsApp webhook handler",
       "Build knowledge base for employee queries",
       "Integrate with project management for task escalation",
       "Implement manager notification system",
     ],
-    color: "amber",
+    color: "indigo",
   },
   {
     icon: Calendar,
     phase: "Phase 4",
     title: "Festival Architect",
-    weeks: "Weeks 9–12",
+    weeks: "Weeks 9-12",
     tasks: [
-      "Build complex planning logic with LangChain",
+      "Build complex planning logic with AI",
       "Integrate Google Calendar and Maps APIs",
-      "Implement real-time weather monitoring triggers",
+      "Implement real-time monitoring triggers",
       "Test end-to-end festival planning workflow",
     ],
-    color: "teal",
+    color: "blue",
   },
 ];
 
 export default function RoadmapSection() {
   return (
-    <section id="roadmap" className="py-24 relative">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
+    <section id="roadmap" className="py-24 relative bg-white">
       <div className="container">
         {/* Header */}
         <motion.div
@@ -84,13 +78,13 @@ export default function RoadmapSection() {
           transition={{ duration: 0.6 }}
           className="mb-14"
         >
-          <span className="font-mono text-[11px] uppercase tracking-widest text-amber mb-3 block">
+          <span className="text-[11px] uppercase tracking-widest text-[#6366f1] font-medium mb-3 block">
             Implementation Plan
           </span>
-          <h2 className="font-heading font-bold text-3xl sm:text-4xl text-foreground mb-4">
+          <h2 className="font-semibold text-3xl sm:text-4xl text-[#111827] mb-4">
             Deployment Roadmap
           </h2>
-          <p className="text-muted-foreground max-w-2xl leading-relaxed">
+          <p className="text-[#6b7280] max-w-2xl leading-relaxed">
             A phased 12-week implementation plan that builds the foundation
             first, then deploys each station incrementally for controlled
             rollout and testing.
@@ -100,7 +94,7 @@ export default function RoadmapSection() {
         {/* Timeline */}
         <div className="relative">
           {/* Vertical line */}
-          <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-amber/40 via-teal/40 to-transparent hidden md:block" />
+          <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-[#6366f1]/40 via-[#818cf8]/30 to-transparent hidden md:block" />
 
           <div className="space-y-8">
             {phases.map((phase, i) => (
@@ -115,33 +109,33 @@ export default function RoadmapSection() {
                 {/* Timeline dot */}
                 <div
                   className={`hidden md:flex absolute left-0 top-6 w-12 h-12 rounded-lg border items-center justify-center ${
-                    phase.color === "amber"
-                      ? "bg-amber/10 border-amber/20"
-                      : "bg-teal/10 border-teal/20"
+                    phase.color === "indigo"
+                      ? "bg-[#eef2ff] border-[#e0e7ff]"
+                      : "bg-[#eff6ff] border-[#dbeafe]"
                   }`}
                 >
                   <phase.icon
                     className={`w-5 h-5 ${
-                      phase.color === "amber" ? "text-amber" : "text-teal"
+                      phase.color === "indigo" ? "text-[#6366f1]" : "text-[#3b82f6]"
                     }`}
                   />
                 </div>
 
                 {/* Card */}
-                <div className="rounded-lg border border-border bg-card p-6 hover:border-amber/20 transition-colors">
+                <div className="rounded-xl border border-[#e5e7eb] bg-white p-6 hover:border-[#6366f1]/20 hover:shadow-sm transition-all">
                   <div className="flex flex-wrap items-center gap-3 mb-4">
                     <span
-                      className={`font-mono text-[11px] uppercase tracking-widest font-bold ${
-                        phase.color === "amber" ? "text-amber" : "text-teal"
+                      className={`text-[11px] uppercase tracking-widest font-bold ${
+                        phase.color === "indigo" ? "text-[#6366f1]" : "text-[#3b82f6]"
                       }`}
                     >
                       {phase.phase}
                     </span>
-                    <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-                    <span className="font-heading font-semibold text-foreground">
+                    <span className="w-1 h-1 rounded-full bg-[#9ca3af]" />
+                    <span className="font-semibold text-[#111827]">
                       {phase.title}
                     </span>
-                    <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted-foreground px-2.5 py-1 rounded-full bg-navy-surface border border-border">
+                    <span className="ml-auto text-[10px] uppercase tracking-widest text-[#9ca3af] px-2.5 py-1 rounded-full bg-[#f8f9fc] border border-[#e5e7eb]">
                       {phase.weeks}
                     </span>
                   </div>
@@ -150,10 +144,10 @@ export default function RoadmapSection() {
                       <li key={j} className="flex items-start gap-2.5">
                         <span
                           className={`shrink-0 w-1.5 h-1.5 rounded-full mt-1.5 ${
-                            phase.color === "amber" ? "bg-amber/50" : "bg-teal/50"
+                            phase.color === "indigo" ? "bg-[#6366f1]/50" : "bg-[#3b82f6]/50"
                           }`}
                         />
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm text-[#6b7280]">
                           {task}
                         </span>
                       </li>

@@ -1,9 +1,6 @@
 import { motion } from "framer-motion";
 import { ChevronDown, Zap, Shield, Brain, LogIn, LayoutDashboard } from "lucide-react";
 
-const HERO_IMG =
-  "https://d2xsxph8kpxj0f.cloudfront.net/310519663480602866/KuriegSE9E2r7xqu9W7qQS/hero-command-center-AsK4ZoyFSSSh5CqjkPY8yn.webp";
-
 const stats = [
   { icon: Brain, label: "AI Agents", value: "3" },
   { icon: Zap, label: "Automations", value: "12+" },
@@ -20,18 +17,13 @@ export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: 
   return (
     <section
       id="hero"
-      className="relative min-h-screen flex items-center overflow-hidden"
+      className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-b from-[#eef2ff] via-[#f8f9fc] to-white"
     >
-      <div className="absolute inset-0">
-        <img
-          src={HERO_IMG}
-          alt="AI Command Center"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/80 to-background" />
+      {/* Decorative background elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-20 right-20 w-96 h-96 bg-[#6366f1]/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-20 w-72 h-72 bg-[#818cf8]/5 rounded-full blur-3xl" />
       </div>
-
-      <div className="absolute inset-0 scanline-overlay pointer-events-none" />
 
       <div className="container relative z-10 pt-28 pb-20">
         <div className="max-w-3xl">
@@ -39,11 +31,11 @@ export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber/10 border border-amber/20 mb-8"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#eef2ff] border border-[#e0e7ff] mb-8"
           >
-            <span className="w-2 h-2 rounded-full bg-amber status-blink" />
-            <span className="font-mono text-[11px] uppercase tracking-widest text-amber">
-              Blueprint v1.0 — Active
+            <span className="w-2 h-2 rounded-full bg-[#6366f1] animate-pulse" />
+            <span className="text-[11px] uppercase tracking-widest text-[#6366f1] font-medium">
+              v2.0 — Live
             </span>
           </motion.div>
 
@@ -51,10 +43,10 @@ export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.8 }}
-            className="font-heading font-800 text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-[1.05] tracking-tight text-foreground mb-6"
+            className="font-semibold text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-[1.05] tracking-tight text-[#111827] mb-6"
           >
             Multi-Agent{" "}
-            <span className="text-amber">AI Assistant</span>{" "}
+            <span className="text-[#6366f1]">AI Assistant</span>{" "}
             Suite
           </motion.h1>
 
@@ -62,7 +54,7 @@ export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.8 }}
-            className="text-lg sm:text-xl text-muted-foreground max-w-xl leading-relaxed mb-10"
+            className="text-lg sm:text-xl text-[#6b7280] max-w-xl leading-relaxed mb-10"
           >
             Three specialized AI stations working in concert — planning your
             festivals, managing your inbox, and coordinating your workforce.
@@ -78,7 +70,7 @@ export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: 
             {isAuthenticated ? (
               <button
                 onClick={onDashboard}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-amber text-navy font-heading font-semibold text-sm uppercase tracking-wider hover:bg-amber/90 transition-colors glow-amber"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[#6366f1] text-white font-semibold text-sm hover:bg-[#4f46e5] transition-colors shadow-lg shadow-[#6366f1]/25"
               >
                 <LayoutDashboard className="w-4 h-4" />
                 Open Dashboard
@@ -86,7 +78,7 @@ export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: 
             ) : (
               <a
                 href={loginUrl}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-amber text-navy font-heading font-semibold text-sm uppercase tracking-wider hover:bg-amber/90 transition-colors glow-amber"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[#6366f1] text-white font-semibold text-sm hover:bg-[#4f46e5] transition-colors shadow-lg shadow-[#6366f1]/25"
               >
                 <LogIn className="w-4 h-4" />
                 Sign In to Start
@@ -94,7 +86,7 @@ export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: 
             )}
             <a
               href="#stations"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-md border border-border text-muted-foreground font-heading font-medium text-sm uppercase tracking-wider hover:border-teal hover:text-teal transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-[#e5e7eb] text-[#6b7280] font-medium text-sm hover:border-[#6366f1] hover:text-[#6366f1] transition-colors bg-white"
             >
               Explore Stations
               <ChevronDown className="w-4 h-4" />
@@ -111,14 +103,14 @@ export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: 
           {stats.map((stat) => (
             <div
               key={stat.label}
-              className="flex items-center gap-3 px-4 py-3 rounded-md bg-navy-surface/60 border border-border backdrop-blur-sm"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg bg-white border border-[#e5e7eb] shadow-sm"
             >
-              <stat.icon className="w-5 h-5 text-teal shrink-0" />
+              <stat.icon className="w-5 h-5 text-[#6366f1] shrink-0" />
               <div>
-                <div className="font-heading font-bold text-lg text-foreground leading-none">
+                <div className="font-bold text-lg text-[#111827] leading-none">
                   {stat.value}
                 </div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
+                <div className="text-[10px] uppercase tracking-widest text-[#9ca3af] mt-0.5">
                   {stat.label}
                 </div>
               </div>
@@ -133,14 +125,14 @@ export default function HeroSection({ isAuthenticated, onDashboard, loginUrl }: 
         transition={{ delay: 1.8 }}
         className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
       >
-        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+        <span className="text-[10px] uppercase tracking-widest text-[#9ca3af]">
           Scroll to explore
         </span>
         <motion.div
           animate={{ y: [0, 8, 0] }}
           transition={{ repeat: Infinity, duration: 2 }}
         >
-          <ChevronDown className="w-4 h-4 text-amber/60" />
+          <ChevronDown className="w-4 h-4 text-[#6366f1]/60" />
         </motion.div>
       </motion.div>
     </section>

@@ -125,7 +125,7 @@ function TaskCard({ task, onSnooze, onStatusChange, onCategoryChange, onOpenEmai
   const catLabel = task.category ? (categoryLabelMap[task.category] || task.category) : "other";
 
   return (
-    <div className={`p-3 rounded-lg border transition-all hover:border-amber-500/40 ${
+    <div className={`p-3 rounded-lg border transition-all hover:border-[#6366f1]/30 ${
       isOverdue ? "border-red-500/50 bg-red-500/5" : isSnoozed ? "border-purple-500/30 bg-purple-500/5 opacity-60" : "border-border bg-card"
     }`}>
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -211,7 +211,7 @@ function TaskCard({ task, onSnooze, onStatusChange, onCategoryChange, onOpenEmai
       )}
 
       {task.suggestedAction && (
-        <p className="text-xs text-amber-400/80 mb-2 line-clamp-1">
+        <p className="text-xs text-[#6366f1]/80 mb-2 line-clamp-1">
           <Zap className="inline h-3 w-3 mr-1" />
           {task.suggestedAction}
         </p>
@@ -458,7 +458,7 @@ export default function PriorityView() {
               reprioritize.mutate();
             }}
             disabled={isReprioritizing}
-            className="bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+            className="bg-[#6366f1] hover:bg-[#4f46e5] text-white font-semibold"
           >
             {isReprioritizing ? (
               <>
@@ -497,7 +497,7 @@ export default function PriorityView() {
         {/* Eisenhower Matrix Grid */}
         {tasksLoading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#6366f1]" />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
