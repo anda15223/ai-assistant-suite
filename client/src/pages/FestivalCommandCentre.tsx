@@ -1263,14 +1263,33 @@ function buildPhases(f: FestivalData): Record<number, FestivalPhase> {
   };
 
   // Phase 4 - Staff & Accreditation
+  const accredEmail = f.emails?.find(e => e.subject.toLowerCase().includes("akkreditering") || e.subject.toLowerCase().includes("accredit"));
+  const hasAccred = !!accredEmail || (f.setupChecklist.staffAccred?.status === "confirmed" || f.setupChecklist.staffAccred?.status === "complete");
+  const staffDeadline = cd?.deadlines.find(d => d.description.toLowerCase().includes("staff") || d.description.toLowerCase().includes("medarbejder") || d.description.toLowerCase().includes("crew") || d.description.toLowerCase().includes("ruby"));
+
+  const phase4Steps: PhaseStep[] = [
+    { title: "Finalize staff roster", status: "not-started", details: "Assign team members to festival", actionNeeded: "Create shift roster for this festival" },
+    { title: "Send staff info letters", status: "not-started", details: "Brief all staff on logistics and roles", actionNeeded: "Use mass email template from OVERALL DOCUMENTS" },
+    {
+      title: "Submit headcount to organizer",
+      status: staffDeadline?.status === "passed" ? "blocked" : "not-started",
+      details: staffDeadline ? `Deadline: ${staffDeadline.date} — ${staffDeadline.description}` : "Report final staff numbers",
+      actionNeeded: staffDeadline?.status === "passed" ? "DEADLINE PASSED — coordinate immediately" : staffDeadline ? `Due by ${staffDeadline.date}` : "Submit when roster is final",
+    },
+    {
+      title: "Collect wristbands / accreditation",
+      status: hasAccred ? "in-progress" : "not-started",
+      details: hasAccred
+        ? (accredEmail ? `Accreditation received: ${accredEmail.summary.substring(0, 100)}...` : f.setupChecklist.staffAccred?.details || "Accreditation in progress")
+        : "Accreditation process TBD",
+      actionNeeded: hasAccred ? "Register staff in accreditation portal" : undefined,
+    },
+  ];
+
+  const phase4HasProgress = hasAccred || staffDeadline?.status === "passed";
   const phase4: FestivalPhase = {
-    status: "not-started",
-    steps: [
-      { title: "Finalize staff roster", status: "not-started", details: "Assign team members to festival" },
-      { title: "Send staff info letters", status: "not-started", details: "Brief all staff on logistics and roles" },
-      { title: "Submit headcount to organizer", status: "not-started", details: "Report final staff numbers" },
-      { title: "Collect wristbands / accreditation", status: "not-started", details: f.setupChecklist.staffAccred?.details || "Accreditation process TBD" },
-    ],
+    status: f.status === "CANCELLED" ? "not-started" : phase4HasProgress ? "in-progress" : "not-started",
+    steps: phase4Steps,
   };
 
   // Phase 5 - Logistics
