@@ -25,7 +25,9 @@ import {
   Mail,
   ExternalLink,
   AlertTriangle,
+  ArrowLeft,
 } from "lucide-react";
+import { useLocation } from "wouter";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -1264,6 +1266,7 @@ function MenuTab() {
 // ── Main Component ───────────────────────────────────────────────────────
 
 export default function FestivalCommandCentre() {
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [expandedFestival, setExpandedFestival] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1293,6 +1296,15 @@ export default function FestivalCommandCentre() {
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Header */}
       <div className="bg-slate-800 border-b border-slate-700 p-6 shadow-lg">
+        <div className="flex items-center gap-4 mb-2">
+          <button
+            onClick={() => setLocation("/dashboard")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-gray-300 hover:text-white text-sm transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Dashboard
+          </button>
+        </div>
         <h1 className="text-4xl font-bold">Festival Command Centre</h1>
         <p className="text-gray-400 mt-1">The Fish Project / Fidibus — 13 Festivals 2026</p>
         <p className="text-sm text-gray-500 mt-1">
