@@ -14,9 +14,11 @@ import { sendWhatsAppMessage } from "./whatsappService";
 import { runChatAgent, type ChatMessage } from "./chatAgent";
 import { getGoogleAuthUrl, handleGoogleCallback, getDriveConnectionStatus } from "./googleDrive";
 import { extractLessons, generateBrainResponse, lessonsToInserts, generateDebriefQuestions } from "./brainService";
+import { planRouter } from "./planRouter";
 
 export const appRouter = router({
   system: systemRouter,
+  plan: planRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

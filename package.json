@@ -10,7 +10,8 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
-    "db:push": "drizzle-kit generate && drizzle-kit migrate"
+    "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "seed:jelling": "tsx scripts/seed-jelling-2026/index.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

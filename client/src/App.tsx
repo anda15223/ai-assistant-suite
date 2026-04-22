@@ -23,6 +23,9 @@ import Chat from "./pages/Chat";
 import FestivalCommandCentre from "./pages/FestivalCommandCentre";
 import FestivalBrain from "./pages/FestivalBrain";
 import FestivalDashboard from "./pages/FestivalDashboard";
+import FestivalPlanSections from "./pages/FestivalPlanSections";
+import FestivalPlanSectionDetail from "./pages/FestivalPlanSectionDetail";
+import AdminSections from "./pages/AdminSections";
 
 function Router() {
   return (
@@ -90,6 +93,25 @@ function Router() {
       </Route>
       <Route path={"/festival-brain"}>
         <FestivalBrain />
+      </Route>
+      <Route path={"/festivals/:slug/sections/:sectionKey"}>
+        {(params) => (
+          <DashboardLayout>
+            <FestivalPlanSectionDetail slug={params.slug} sectionKey={params.sectionKey} />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/festivals/:slug/sections"}>
+        {(params) => (
+          <DashboardLayout>
+            <FestivalPlanSections slug={params.slug} />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/admin/sections"}>
+        <DashboardLayout>
+          <AdminSections />
+        </DashboardLayout>
       </Route>
       <Route path={"/festivals/:slug"}>
         {(params) => <FestivalDashboard slug={params.slug} />}

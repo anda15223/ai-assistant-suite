@@ -40,33 +40,37 @@ export const JELLING_BRIEFING: FestivalBriefing = {
 | Akkreditering | Jelling team | — | akkreditering@jellingmusikfestival.dk |
 | Godik (køl) account mgr | Jakob Muldbjerg | +45 9644 3313 | jmu@godik.dk |
 
-## 🍔 Concepts Signed (3 booths)
-All three signed under **The Fish Project ApS** (CVR 39236931, Bygade 14A, 3550 Slangerup). Alexandra Artimon (aa@thefishproject.dk / +45 4278 7738) is contact.
+## 🍔 Concepts Signed (4 concepts, 2 tents)
+All four concepts signed under **The Fish Project ApS** (CVR 39236931, Bygade 14A, 3550 Slangerup). Alexandra Artimon (aa@thefishproject.dk / +45 4278 7738) is contact. The four concepts occupy two physical tents — Fish & Chips + Gyros by Gaia share the INSIDE tent, La Creperie + Chicks 'n' Buns share the CAMPING tent.
 
-### 1. Chicks & Buns
-- **Menu:** Fried chicken box, chicken burger, chicken bowls, gourmet jumbo fries (min 1 vegetarian, gluten-free & lactose-free options required)
-- **Tent:** 12 facademeter × **6 m** dybde, shared with **La Creperie**. FF bestilt telt, plastgulv inkl. Pris modregnes i afregning.
-- **Back area:** 3 m bagområde (standard)
-- **Power:** 8 × 16/3A. Extra 16A = 1.000 kr/stk.
-- **Opening hours:** Day 1 (Thursday) 12:00–03:00; Days 2–4 (Fri/Sat/Sun) 07:00–03:00
-- **Location:** Markedspladsen / Campen
+### 1. Fish & Chips (The Fish Project) — INSIDE
+- **Menu:** Beer-battered fresh fish, fries, fish burger with coleslaw, tartar, remoulade, ketchup, mayo
+- **Tent:** 6×9 m inside tent + shared 3×3 m back dish area (shared with Gyros by Gaia)
+- **Power:** 1×16A baseline + 2×32A (Red Fox fish fryers) + 4×16A 3-phase (Amitek fries/burger)
+- **Opening hours:** Thu 16:00–02:00; Fri/Sat 11:30–02:00; Sun 11:30–01:00
+- **Wristbands:** 10 max (6 black partout, 4 normal partout)
 
-### 2. Gyros By Gaia
-- **Menu:** Chicken gyros + fries (+ vegetarian / gluten / lactose options)
-- **Tent:** 12 facademeter × **9 m** dybde, shared with **Fish Project**. FF bestilt telt.
-- **Back area:** 3 m bagområde
-- **Power:** 2 × 32A + 5 × 16A. Extra 16A = 1.000 kr/stk.
-- **Opening hours:** Match pladsens åbningstider
-- **Location:** main site
+### 2. Gyros by Gaia — INSIDE
+- **Menu:** Chicken gyros in pita and wrap, fries, tzatziki, mustard mayo, hummus, onion, tomato, veggies, spinach, sides
+- **Tent:** 6×9 m inside tent (shared with Fish & Chips)
+- **Power:** 1×16A baseline + 1×32A (griddle) + 4×16A 3-phase (Amitek fryers + oven + bain-marie)
+- **Gas:** Ronny VVS Fagor double gas fryers (replaces 3×16A electric)
+- **Opening hours:** Thu 16:00–02:00; Fri/Sat 11:30–02:00; Sun 11:30–01:00
+- **Wristbands:** 10 max (6 black partout, 4 normal partout)
 
-### 3. La Creperie
-- **Menu:** Sweet / savoury / breakfast pancakes (egg & bacon)
-- **Tent:** 12 × 6 m, shared with **Chicks & Buns**. FF bestilt.
-- **Power:** 7 × 230V. Extra 16A = 1.000 kr/stk.
-- **Opening hours:** Day 1 12:00–03:00; Days 2–4 07:00–03:00
+### 3. La Creperie — CAMPING
+- **Menu:** Sweet and savoury pancakes — Nutella, banana, strawberry, coconut, cinnamon, lemon; savoury with serrano, mozzarella/cheddar, spinach, tomato, mushrooms, sriracha, pesto
+- **Tent:** 6×6 m camping tent + shared 3×3 m back dish area (shared with Chicks 'n' Buns)
+- **Power:** 1×16A baseline + 12×230V pancake plates (6 prep + 3 service + 3 extra for peak)
+- **Opening hours:** Thu 12:00–03:00; Fri/Sat/Sun 07:00–03:00
+- **Wristbands:** 12 max (4 black partout, 8 normal partout)
 
-### 4. Fish Bistro (also operating?)
-- Menu (DK/EN 2026) in Drive: Fish & Chips 155 kr, Fish Burger Combo 145 kr, Moules Frites 135 kr, Tuna Tartar 145 kr, Fish of the Month 165 kr, Tuna Salad 145 kr, Fish Soup 130 kr, Shrimp Linguine 135 kr, Salmon Pasta 135 kr, Sardines Conservas 125 kr, Gillardeau Oysters 65 kr/stk, 6 stk 325 kr (+25 for 2 glas bobler). Sides: tuna salad 60, tiger prawns 65, bread & butter 35.
+### 4. Chicks 'n' Buns — CAMPING
+- **Menu:** Fried chicken, fries, chicken burger/buns
+- **Tent:** 6×6 m camping tent (shared with La Creperie)
+- **Power:** 1×16A baseline + 6×16A 3-phase (4 Amitek fryers + toaster + griddle; 2×16/3A spare — candidate to release for 2,000 DKK saving)
+- **Opening hours:** Thu 12:00–03:00; Fri/Sat/Sun 07:00–03:00
+- **Wristbands:** 12 max (4 black partout, 8 normal partout)
 
 ## 🥤 Beverage Rule — IMPORTANT
 **Only Egekilde spring water (Royal brand) may be sold.** No other drinks unless described in the menu section of the contract. Non-compliance = breach.
