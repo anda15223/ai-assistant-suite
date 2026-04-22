@@ -530,6 +530,11 @@ export const planConcepts = pgTable("plan_concepts", {
 export type PlanConcept = typeof planConcepts.$inferSelect;
 export type InsertPlanConcept = typeof planConcepts.$inferInsert;
 
+// plan_staff is a 1:1 row-to-SLOT table, not row-to-PERSON. A named Søborg
+// can appear once (e.g. Fif as a manager row) while the 19 concept shift
+// slots are separately modelled as unnamed placeholder rows. To count unique
+// Søborg humans, query `SELECT COUNT(DISTINCT name) WHERE source = 'soborg'
+// AND name IS NOT NULL` plus the unnamed-slot count — not `COUNT(*)`.
 export const planStaff = pgTable("plan_staff", {
   id: serial("id").primaryKey(),
   festivalId: integer("festivalId").notNull(),
