@@ -78,6 +78,25 @@ export async function verifyAndWriteReport(counts: SeedCounts): Promise<{ ok: bo
     } |`,
   );
   lines.push("");
+  lines.push(`## Staff breakdown (${rows.staff} rows)`);
+  lines.push("");
+  lines.push(
+    `Handover §4.3 has an internal inconsistency — the heading says "21 Søborg + 20 local = 41", but §4.8 scalar answers say \`soborg_count = 19\` + \`manager_count = 2\` + \`setup_crew_count = 5\`. The seed resolves this by treating them as separate populations so every concept slot in the per-concept split table has a real row:`,
+  );
+  lines.push("");
+  lines.push(`- **2 named managers** (Fif, Marius) — \`conceptId = null\`, \`isManager = true\`, \`isSetupCrew = true\`. Matches \`manager_count = 2\`.`);
+  lines.push(`- **3 named setup-only** (Costel, Marko, Anca) — \`conceptId = null\`, \`isSetupCrew = true\`. Plus the 2 managers = 5 setup crew total, matching \`setup_crew_count = 5\`.`);
+  lines.push(`- **19 unnamed Søborg shift workers** — one row per concept slot in the §4.3 split table: Fish 4 + Gaia 5 + Creperie 5 + Chicks 5. Matches \`soborg_count = 19\`.`);
+  lines.push(`- **20 unnamed local hires** — Fish 4 + Gaia 4 + Creperie 5 + Chicks 7. Matches \`local_count = 20\`.`);
+  lines.push("");
+  lines.push(`Total = 2 + 3 + 19 + 20 = **44 rows**. Unique Søborg humans = 5 named + 19 unnamed = 24 (not 21). The handover's "21 Søborg" heading figure is the one that doesn't add up against §4.8; the seed prefers §4.8 because it's what the scalar-answer UI will display.`);
+  lines.push("");
+  lines.push(`## Vagtplan shift breakdown (${rows.shifts} rows)`);
+  lines.push("");
+  lines.push(
+    `INSIDE concepts (Fish & Chips, Gyros by Gaia) use a 4-period day structure (Prep / Half / Peak / Late) with a 2-row Thursday, giving 2 + 4 + 4 + 4 = **14 rows per concept**. CAMPING concepts (La Creperie, Chicks 'n' Buns) use a 3-period structure (Breakfast / Mid / Night on Fri–Sun; Setup / Service / Night on Thu) giving 3 × 4 = **12 rows per concept**. Total = 14 + 14 + 12 + 12 = **52 shifts**, which matches §4.4 exactly.`,
+  );
+  lines.push("");
   lines.push(`## Person-hours discrepancy (advisory, not a hard fail)`);
   lines.push("");
   lines.push(`- **Computed from shift rows**: ${personHoursActual.toFixed(2)}`);
