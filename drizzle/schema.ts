@@ -422,3 +422,208 @@ export const inviteTokens = pgTable("invite_tokens", {
 
 export type InviteToken = typeof inviteTokens.$inferSelect;
 export type InsertInviteToken = typeof inviteTokens.$inferInsert;
+
+// ============================================================
+// Festival Planner — structured per-festival Operations Plan.
+//
+// Schema-driven: `plan_sections` + `plan_questions` define the master form,
+// and `plan_answers` stores scalar answers per festival. First-class sub-tables
+// (concepts, staff, vagtplan shifts, action items, vehicles, accommodation,
+// BC trolleys) hold the structured records that aren't simple scalars.
+//
+// `orgId` is inert single-tenant scaffolding today — every row gets org 1
+// (the seeded Fidibus Team org). When multi-tenant becomes real, app-layer
+// scoping drops into the tRPC middleware and the column already exists.
+// ============================================================
+
+export const planOrgs = pgTable("plan_orgs", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PlanOrg = typeof planOrgs.$inferSelect;
+export type InsertPlanOrg = typeof planOrgs.$inferInsert;
+
+export const planFestivals = pgTable("plan_festivals", {
+  id: serial("id").primaryKey(),
+  orgId: integer("orgId").notNull().default(1),
+  slug: varchar("slug", { length: 120 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  year: integer("year").notNull(),
+  startDate: timestamp("startDate").notNull(),
+  endDate: timestamp("endDate").notNull(),
+  location: text("location"),
+  organiserName: varchar("organiserName", { length: 255 }),
+  organiserPhone: varchar("organiserPhone", { length: 64 }),
+  organiserEmail: varchar("organiserEmail", { length: 320 }),
+  status: text("status").$type<"planning" | "active" | "complete">().default("planning").notNull(),
+  driveFolderId: varchar("driveFolderId", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type PlanFestival = typeof planFestivals.$inferSelect;
+export type InsertPlanFestival = typeof planFestivals.$inferInsert;
+
+export const planSections = pgTable("plan_sections", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 64 }).notNull().unique(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  orderIndex: integer("orderIndex").notNull(),
+  category: varchar("category", { length: 64 }).notNull(),
+  subEditorRoute: varchar("subEditorRoute", { length: 255 }),
+});
+
+export type PlanSection = typeof planSections.$inferSelect;
+export type InsertPlanSection = typeof planSections.$inferInsert;
+
+export const planQuestions = pgTable("plan_questions", {
+  id: serial("id").primaryKey(),
+  sectionId: integer("sectionId").notNull(),
+  key: varchar("key", { length: 128 }).notNull(),
+  prompt: text("prompt").notNull(),
+  kind: text("kind").$type<"single_select" | "multi_select" | "text" | "number" | "date" | "datetime">().notNull(),
+  options: jsonb("options").$type<{ label: string; value: string }[]>(),
+  helpText: text("helpText"),
+  required: boolean("required").default(false).notNull(),
+  orderIndex: integer("orderIndex").notNull(),
+});
+
+export type PlanQuestion = typeof planQuestions.$inferSelect;
+export type InsertPlanQuestion = typeof planQuestions.$inferInsert;
+
+export const planAnswers = pgTable("plan_answers", {
+  id: serial("id").primaryKey(),
+  festivalId: integer("festivalId").notNull(),
+  questionId: integer("questionId").notNull(),
+  value: jsonb("value").notNull(),
+  valueType: text("valueType").$type<"single_select" | "multi_select" | "text" | "number" | "date" | "datetime">().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type PlanAnswer = typeof planAnswers.$inferSelect;
+export type InsertPlanAnswer = typeof planAnswers.$inferInsert;
+
+export const planConcepts = pgTable("plan_concepts", {
+  id: serial("id").primaryKey(),
+  festivalId: integer("festivalId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  zone: text("zone").$type<"INSIDE" | "CAMPING">().notNull(),
+  salesHoursThu: varchar("salesHoursThu", { length: 64 }),
+  salesHoursFri: varchar("salesHoursFri", { length: 64 }),
+  salesHoursSat: varchar("salesHoursSat", { length: 64 }),
+  salesHoursSun: varchar("salesHoursSun", { length: 64 }),
+  powerBaseline: varchar("powerBaseline", { length: 64 }),
+  powerExtras: jsonb("powerExtras").$type<{ amperage: string; count: number; phase: string | null; notes: string }[]>(),
+  gasRequired: boolean("gasRequired").default(false).notNull(),
+  gasSupplier: varchar("gasSupplier", { length: 255 }),
+  wristbandMax: integer("wristbandMax"),
+  wristbandBlackPartout: integer("wristbandBlackPartout"),
+  wristbandNormalPartout: integer("wristbandNormalPartout"),
+  tentSize: varchar("tentSize", { length: 128 }),
+  productsSold: text("productsSold"),
+  orderIndex: integer("orderIndex").notNull(),
+});
+
+export type PlanConcept = typeof planConcepts.$inferSelect;
+export type InsertPlanConcept = typeof planConcepts.$inferInsert;
+
+export const planStaff = pgTable("plan_staff", {
+  id: serial("id").primaryKey(),
+  festivalId: integer("festivalId").notNull(),
+  conceptId: integer("conceptId"),
+  name: varchar("name", { length: 255 }),
+  source: text("source").$type<"soborg" | "local">().notNull(),
+  role: varchar("role", { length: 255 }),
+  isManager: boolean("isManager").default(false).notNull(),
+  isSetupCrew: boolean("isSetupCrew").default(false).notNull(),
+  wristbandType: text("wristbandType").$type<"black_partout" | "normal_partout" | "day">(),
+});
+
+export type PlanStaff = typeof planStaff.$inferSelect;
+export type InsertPlanStaff = typeof planStaff.$inferInsert;
+
+export const planVagtplanShifts = pgTable("plan_vagtplan_shifts", {
+  id: serial("id").primaryKey(),
+  conceptId: integer("conceptId").notNull(),
+  day: timestamp("day").notNull(),
+  shiftName: varchar("shiftName", { length: 64 }).notNull(),
+  startTime: varchar("startTime", { length: 8 }).notNull(),
+  endTime: varchar("endTime", { length: 8 }).notNull(),
+  peopleCount: integer("peopleCount").notNull(),
+  notes: text("notes"),
+  orderIndex: integer("orderIndex").notNull(),
+});
+
+export type PlanVagtplanShift = typeof planVagtplanShifts.$inferSelect;
+export type InsertPlanVagtplanShift = typeof planVagtplanShifts.$inferInsert;
+
+export const planActionItems = pgTable("plan_action_items", {
+  id: serial("id").primaryKey(),
+  festivalId: integer("festivalId").notNull(),
+  sectionKey: varchar("sectionKey", { length: 64 }),
+  title: text("title").notNull(),
+  deadline: timestamp("deadline"),
+  status: text("status").$type<"open" | "in_progress" | "done" | "blocked">().default("open").notNull(),
+  priority: text("priority").$type<"low" | "normal" | "high" | "hard_deadline">().default("normal").notNull(),
+  owner: varchar("owner", { length: 255 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PlanActionItem = typeof planActionItems.$inferSelect;
+export type InsertPlanActionItem = typeof planActionItems.$inferInsert;
+
+export const planVehicles = pgTable("plan_vehicles", {
+  id: serial("id").primaryKey(),
+  festivalId: integer("festivalId").notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  vehicleType: text("vehicleType").$type<"lift" | "iveco" | "van" | "own" | "duster">().notNull(),
+  status: text("status").$type<"booked" | "to_book" | "owned">().notNull(),
+  driver: varchar("driver", { length: 255 }),
+  purpose: text("purpose"),
+  travelDate: timestamp("travelDate"),
+  seats: integer("seats"),
+});
+
+export type PlanVehicle = typeof planVehicles.$inferSelect;
+export type InsertPlanVehicle = typeof planVehicles.$inferInsert;
+
+export const planAccommodation = pgTable("plan_accommodation", {
+  id: serial("id").primaryKey(),
+  festivalId: integer("festivalId").notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  status: text("status").$type<"booked" | "to_book">().notNull(),
+  checkIn: timestamp("checkIn"),
+  checkOut: timestamp("checkOut"),
+  peopleCount: integer("peopleCount"),
+  roomConfig: varchar("roomConfig", { length: 255 }),
+  notes: text("notes"),
+});
+
+export type PlanAccommodation = typeof planAccommodation.$inferSelect;
+export type InsertPlanAccommodation = typeof planAccommodation.$inferInsert;
+
+export const planBcTrolleys = pgTable("plan_bc_trolleys", {
+  id: serial("id").primaryKey(),
+  conceptId: integer("conceptId").notNull(),
+  trolleyNumber: integer("trolleyNumber").notNull(),
+  label: varchar("label", { length: 128 }).notNull(),
+});
+
+export type PlanBcTrolley = typeof planBcTrolleys.$inferSelect;
+export type InsertPlanBcTrolley = typeof planBcTrolleys.$inferInsert;
+
+export const planBcTrolleyItems = pgTable("plan_bc_trolley_items", {
+  id: serial("id").primaryKey(),
+  trolleyId: integer("trolleyId").notNull(),
+  category: text("category").$type<"cooking_gear" | "serving_packaging" | "cleaning" | "stationery">().notNull(),
+  itemName: varchar("itemName", { length: 255 }).notNull(),
+  quantity: varchar("quantity", { length: 64 }),
+  orderIndex: integer("orderIndex").notNull(),
+});
+
+export type PlanBcTrolleyItem = typeof planBcTrolleyItems.$inferSelect;
+export type InsertPlanBcTrolleyItem = typeof planBcTrolleyItems.$inferInsert;

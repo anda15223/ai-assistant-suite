@@ -38,6 +38,7 @@ import {
   Brain,
   Search,
   Bell,
+  ClipboardList,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -53,6 +54,7 @@ const menuItems = [
   { icon: Tent, label: "Festivals", path: "/festivals" },
   { icon: Command, label: "Command Centre", path: "/festival-command-centre" },
   { icon: Brain, label: "Festival Brain", path: "/festival-brain" },
+  { icon: ClipboardList, label: "Planner Admin", path: "/admin/sections" },
   { icon: Flame, label: "Priority Matrix", path: "/priority" },
   { icon: Sparkles, label: "AI Chat", path: "/chat" },
   { icon: Settings, label: "Settings", path: "/settings" },
