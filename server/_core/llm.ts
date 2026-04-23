@@ -163,7 +163,23 @@ function toAnthropicContent(
       return { type: "text", text: `[Image: ${url}]` };
     }
     if (part.type === "file_url") {
-      return { type: "text", text: `[File: ${part.file_url.url}]` };
+      // PDF as data: URL → Anthropic document block (base64). Needed for
+      // SmartCard extraction which streams PDFs into Claude Vision.
+      const url = part.file_url.url;
+      if (url.startsWith("data:")) {
+        const match = url.match(/^data:(application\/pdf);base64,(.+)$/);
+        if (match) {
+          return {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: match[2],
+            },
+          } as unknown as Anthropic.ContentBlockParam;
+        }
+      }
+      return { type: "text", text: `[File: ${url}]` };
     }
     return { type: "text", text: JSON.stringify(part) };
   });

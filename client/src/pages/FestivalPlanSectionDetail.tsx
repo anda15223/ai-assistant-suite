@@ -4,7 +4,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import { QuestionInput, type Question, type QuestionKind } from "@/components/festival/QuestionInput";
+import { SmartCard } from "@/components/festival/SmartCard";
+import { SectionPageChat } from "@/components/festival/SectionPageChat";
 import { toast } from "sonner";
+
+/**
+ * Section keys that render a SmartCard in addition to (or instead of)
+ * the scalar question form. Each entry is the card's visible title +
+ * optional empty-state warning shown before the first section is added.
+ */
+const SMART_CARDS: Record<string, { title: string; subtitle?: string; warning?: { label: string; description?: string } }> = {
+  equipment_list: {
+    title: "Equipment list",
+    subtitle: "One section per group (tables, trolleys, DAKA containers…). Upload + AI extraction come later — for now, add sections and lines manually.",
+    warning: { label: "No equipment registered yet", description: "Click Edit → Section to add a group, then lines inside it." },
+  },
+  cooling_storage: {
+    title: "Cooling & storage",
+    subtitle: "Container booking, units, pricing, delivery plan, deadlines.",
+    warning: { label: "No cooling/storage info yet", description: "Add at least the container booking and capacity." },
+  },
+  cooking_equipment: {
+    title: "Cooking equipment",
+    subtitle: "Stoves, fryers, ovens, gas, water hookups — grouped by concept or station.",
+    warning: { label: "No cooking equipment yet", description: "Add stoves, fryers, ovens, gas, water hookups." },
+  },
+  safety_compliance: {
+    title: "Safety & compliance",
+    subtitle: "Fire, first aid, certificates, inspections, insurance, expiry dates.",
+    warning: { label: "No safety documents logged", description: "Compliance docs, fire plan and certificates are required before opening." },
+  },
+};
 
 type Props = { slug: string; sectionKey: string };
 
@@ -89,6 +119,7 @@ export default function FestivalPlanSectionDetail({ slug, sectionKey }: Props) {
   for (const a of answersByFestival.data ?? []) answersByQ.set(a.questionId, a.value);
 
   const festivalId = overview.data.festival.id;
+  const smartCardConfig = SMART_CARDS[sectionKey];
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
@@ -108,12 +139,20 @@ export default function FestivalPlanSectionDetail({ slug, sectionKey }: Props) {
         </p>
       </div>
 
-      <Card>
-        <CardContent className="pt-6 space-y-6">
-          {sectionQuestions.length === 0 ? (
-            <p className="text-sm text-[#6b7280]">No questions defined for this section yet.</p>
-          ) : (
-            sectionQuestions.map((q) => (
+      {smartCardConfig && (
+        <SmartCard
+          festivalId={festivalId}
+          cardKey={sectionKey}
+          title={smartCardConfig.title}
+          subtitle={smartCardConfig.subtitle}
+          emptyStateWarning={smartCardConfig.warning}
+        />
+      )}
+
+      {sectionQuestions.length > 0 && (
+        <Card>
+          <CardContent className="pt-6 space-y-6">
+            {sectionQuestions.map((q) => (
               <QuestionInput
                 key={q.id}
                 question={toClientQuestion(q)}
@@ -127,10 +166,18 @@ export default function FestivalPlanSectionDetail({ slug, sectionKey }: Props) {
                   })
                 }
               />
-            ))
-          )}
-        </CardContent>
-      </Card>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {sectionQuestions.length === 0 && !smartCardConfig && (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-[#6b7280]">No questions defined for this section yet.</p>
+          </CardContent>
+        </Card>
+      )}
 
       {actionItems.data && actionItems.data.length > 0 && (
         <Card>
@@ -169,6 +216,12 @@ export default function FestivalPlanSectionDetail({ slug, sectionKey }: Props) {
           </CardContent>
         </Card>
       )}
+
+      <SectionPageChat
+        festivalId={festivalId}
+        sectionKey={sectionKey}
+        sectionTitle={section.title}
+      />
     </div>
   );
 }

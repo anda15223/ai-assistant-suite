@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ENV } from "./_core/env";
 
@@ -63,4 +63,10 @@ export async function storageGet(
   );
 
   return { key, url };
+}
+
+export async function storageDelete(relKey: string): Promise<void> {
+  const s3 = getS3Client();
+  const key = normalizeKey(relKey);
+  await s3.send(new DeleteObjectCommand({ Bucket: ENV.awsBucketName, Key: key }));
 }

@@ -632,3 +632,179 @@ export const planBcTrolleyItems = pgTable("plan_bc_trolley_items", {
 
 export type PlanBcTrolleyItem = typeof planBcTrolleyItems.$inferSelect;
 export type InsertPlanBcTrolleyItem = typeof planBcTrolleyItems.$inferInsert;
+
+// ============================================================
+// SmartCard — reusable card primitive (Equipment List, Cooling,
+// Cooking Equipment, Safety, Setup Timeline, Transportation, …).
+// Each card belongs to a festival (and optionally a concept) and
+// contains sections → lines, plus files, todos and a scoped chat.
+// ============================================================
+
+export const smartCards = pgTable("smart_cards", {
+  id: serial("id").primaryKey(),
+  festivalId: integer("festivalId").notNull(),
+  conceptId: integer("conceptId"),
+  cardKey: varchar("cardKey", { length: 80 }).notNull(),
+  title: varchar("title", { length: 255 }),
+  meta: jsonb("scMeta").$type<Record<string, unknown>>().default(sql`'{}'::jsonb`).notNull(),
+  createdAt: timestamp("scCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("scUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type SmartCard = typeof smartCards.$inferSelect;
+export type InsertSmartCard = typeof smartCards.$inferInsert;
+
+export const smartSections = pgTable("smart_sections", {
+  id: serial("id").primaryKey(),
+  cardId: integer("cardId").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  orderIndex: integer("orderIndex").default(0).notNull(),
+  source: text("ssSource").$type<"manual" | "upload" | "brain" | "ai">().default("manual").notNull(),
+  sourceFileId: integer("sourceFileId"),
+  meta: jsonb("ssMeta").$type<Record<string, unknown>>().default(sql`'{}'::jsonb`).notNull(),
+  createdAt: timestamp("ssCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("ssUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type SmartSection = typeof smartSections.$inferSelect;
+export type InsertSmartSection = typeof smartSections.$inferInsert;
+
+export const smartLines = pgTable("smart_lines", {
+  id: serial("id").primaryKey(),
+  sectionId: integer("sectionId").notNull(),
+  label: text("label"),
+  value: text("value"),
+  quantity: varchar("quantity", { length: 64 }),
+  notes: text("notes"),
+  status: varchar("status", { length: 32 }),
+  owner: varchar("owner", { length: 128 }),
+  dueDate: timestamp("dueDate", { mode: "date" }),
+  orderIndex: integer("orderIndex").default(0).notNull(),
+  source: text("slSource").$type<"manual" | "upload" | "brain" | "ai">().default("manual").notNull(),
+  sourceFileId: integer("sourceFileId"),
+  aiConfidence: numeric("aiConfidence"),
+  meta: jsonb("slMeta").$type<Record<string, unknown>>().default(sql`'{}'::jsonb`).notNull(),
+  createdAt: timestamp("slCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("slUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type SmartLine = typeof smartLines.$inferSelect;
+export type InsertSmartLine = typeof smartLines.$inferInsert;
+
+export const smartFiles = pgTable("smart_files", {
+  id: serial("id").primaryKey(),
+  cardId: integer("cardId").notNull(),
+  s3Key: text("s3Key").notNull(),
+  url: text("url"),
+  filename: varchar("filename", { length: 512 }),
+  mimeType: varchar("mimeType", { length: 128 }),
+  size: integer("size"),
+  extractedText: text("extractedText"),
+  aiSummary: text("aiSummary"),
+  parseStatus: text("parseStatus").$type<"pending" | "processing" | "done" | "error">().default("pending").notNull(),
+  parseError: text("parseError"),
+  warnings: jsonb("warnings").$type<Array<{ field: string; message: string; severity: "error" | "warn" }>>().default(sql`'[]'::jsonb`).notNull(),
+  meta: jsonb("sfMeta").$type<Record<string, unknown>>().default(sql`'{}'::jsonb`).notNull(),
+  uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
+});
+
+export type SmartFile = typeof smartFiles.$inferSelect;
+export type InsertSmartFile = typeof smartFiles.$inferInsert;
+
+export const smartTodos = pgTable("smart_todos", {
+  id: serial("id").primaryKey(),
+  cardId: integer("cardId").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  dueDate: timestamp("stDueDate", { mode: "date" }),
+  owner: varchar("stOwner", { length: 128 }),
+  status: text("stStatus").$type<"open" | "in_progress" | "done" | "blocked">().default("open").notNull(),
+  source: text("stSource").$type<"manual" | "ai" | "brain">().default("manual").notNull(),
+  relatedSectionId: integer("relatedSectionId"),
+  relatedLineId: integer("relatedLineId"),
+  orderIndex: integer("orderIndex").default(0).notNull(),
+  meta: jsonb("stMeta").$type<Record<string, unknown>>().default(sql`'{}'::jsonb`).notNull(),
+  createdAt: timestamp("stCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("stUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type SmartTodo = typeof smartTodos.$inferSelect;
+export type InsertSmartTodo = typeof smartTodos.$inferInsert;
+
+export const smartChatMessages = pgTable("smart_chat_messages", {
+  id: serial("id").primaryKey(),
+  cardId: integer("cardId").notNull(),
+  role: text("scmRole").$type<"user" | "assistant" | "tool">().notNull(),
+  content: text("scmContent").notNull(),
+  toolCalls: jsonb("toolCalls").$type<unknown[]>(),
+  createdAt: timestamp("scmCreatedAt").defaultNow().notNull(),
+});
+
+export type SmartChatMessage = typeof smartChatMessages.$inferSelect;
+export type InsertSmartChatMessage = typeof smartChatMessages.$inferInsert;
+
+// ============================================================
+// Brain entries — frequency-weighted knowledge keyed by festival
+// and/or concept and/or card_key. Parallel to brain_lessons which
+// stores operator-narrative lessons; this one stores structured
+// reusable facts (equipment, suppliers, contacts, typical orders…).
+// ============================================================
+
+export const brainEntries = pgTable("brain_entries", {
+  id: serial("id").primaryKey(),
+  keyName: varchar("keyName", { length: 255 }).notNull(),
+  displayName: varchar("displayName", { length: 255 }),
+  category: varchar("beCategory", { length: 80 }),
+  source: text("beSource").$type<"ai_extraction" | "user_correction" | "manual" | "seed">().default("manual").notNull(),
+  scope: text("beScope").$type<"global" | "festival" | "concept" | "section">().default("global").notNull(),
+  festivalId: integer("beFestivalId"),
+  lastSeenFestivalId: integer("lastSeenFestivalId"),
+  subjectType: varchar("subjectType", { length: 80 }),
+  subjectId: varchar("subjectId", { length: 128 }),
+  content: text("beContent"),
+  structuredData: jsonb("structuredData").$type<Record<string, unknown>>().default(sql`'{}'::jsonb`).notNull(),
+  tags: jsonb("beTags").$type<string[]>().default(sql`'[]'::jsonb`).notNull(),
+  frequency: integer("frequency").default(1).notNull(),
+  confidence: numeric("beConfidence").default("0.5").notNull(),
+  lastSeenAt: timestamp("lastSeenAt").defaultNow().notNull(),
+  createdAt: timestamp("beCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("beUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type BrainEntry = typeof brainEntries.$inferSelect;
+export type InsertBrainEntry = typeof brainEntries.$inferInsert;
+
+// ============================================================
+// Festival contacts & extra details — side panels for intro section
+// ============================================================
+
+export const festivalContacts = pgTable("festival_contacts", {
+  id: serial("id").primaryKey(),
+  festivalId: integer("festivalId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  role: varchar("fcRole", { length: 128 }),
+  phone: varchar("phone", { length: 64 }),
+  email: varchar("email", { length: 320 }),
+  notes: text("notes"),
+  orderIndex: integer("orderIndex").default(0).notNull(),
+  createdAt: timestamp("fcCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("fcUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type FestivalContact = typeof festivalContacts.$inferSelect;
+export type InsertFestivalContact = typeof festivalContacts.$inferInsert;
+
+export const festivalExtraDetails = pgTable("festival_extra_details", {
+  id: serial("id").primaryKey(),
+  festivalId: integer("festivalId").notNull(),
+  label: varchar("label", { length: 255 }).default("").notNull(),
+  value: text("value"),
+  notes: text("notes"),
+  orderIndex: integer("orderIndex").default(0).notNull(),
+  createdAt: timestamp("fedCreatedAt").defaultNow().notNull(),
+  updatedAt: timestamp("fedUpdatedAt").defaultNow().notNull().$onUpdate(updatedNow),
+});
+
+export type FestivalExtraDetail = typeof festivalExtraDetails.$inferSelect;
+export type InsertFestivalExtraDetail = typeof festivalExtraDetails.$inferInsert;

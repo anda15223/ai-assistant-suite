@@ -15,10 +15,12 @@ import { runChatAgent, type ChatMessage } from "./chatAgent";
 import { getGoogleAuthUrl, handleGoogleCallback, getDriveConnectionStatus } from "./googleDrive";
 import { extractLessons, generateBrainResponse, lessonsToInserts, generateDebriefQuestions } from "./brainService";
 import { planRouter } from "./planRouter";
+import { smartCardRouter } from "./smartCardRouter";
 
 export const appRouter = router({
   system: systemRouter,
   plan: planRouter,
+  smartCard: smartCardRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

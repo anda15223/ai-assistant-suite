@@ -25,6 +25,7 @@ import FestivalBrain from "./pages/FestivalBrain";
 import FestivalDashboard from "./pages/FestivalDashboard";
 import FestivalPlanSections from "./pages/FestivalPlanSections";
 import FestivalPlanSectionDetail from "./pages/FestivalPlanSectionDetail";
+import FestivalReport from "./pages/FestivalReport";
 import AdminSections from "./pages/AdminSections";
 
 function Router() {
@@ -98,6 +99,13 @@ function Router() {
         {(params) => (
           <DashboardLayout>
             <FestivalPlanSectionDetail slug={params.slug} sectionKey={params.sectionKey} />
+          </DashboardLayout>
+        )}
+      </Route>
+      <Route path={"/festivals/:slug/report"}>
+        {(params) => (
+          <DashboardLayout>
+            <FestivalReport slug={params.slug} />
           </DashboardLayout>
         )}
       </Route>

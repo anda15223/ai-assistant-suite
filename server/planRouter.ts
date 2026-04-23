@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { adminProcedure, protectedProcedure, router } from "./_core/trpc";
 import * as pdb from "./planDb";
+import { sendSectionChatMessage } from "./sectionPageChat";
 
 /**
  * Festival Planner tRPC router.
@@ -162,6 +163,44 @@ export const planRouter = router({
         await pdb.deleteSection(input.id);
         return { success: true };
       }),
+
+    // Per-section AI chat — Claude tool-loop that can update scalar answers,
+    // create action items, and (if the section has a SmartCard) mutate that
+    // card's lines and file warnings. Stateless: no chat history is stored
+    // on the server; the client passes the last ~12 turns with each send.
+    chat: router({
+      send: protectedProcedure
+        .input(
+          z.object({
+            festivalId: z.number().int().positive(),
+            sectionKey: z.string().min(1),
+            message: z.string().min(1).max(5000),
+            history: z
+              .array(
+                z.object({
+                  role: z.enum(["user", "assistant"]),
+                  content: z.string(),
+                }),
+              )
+              .optional(),
+          }),
+        )
+        .mutation(async ({ input }) => {
+          try {
+            return await sendSectionChatMessage({
+              festivalId: input.festivalId,
+              sectionKey: input.sectionKey,
+              message: input.message,
+              history: input.history ?? [],
+            });
+          } catch (err) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }),
+    }),
   }),
 
   // ===== QUESTIONS (master schema) =====

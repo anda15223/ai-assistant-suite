@@ -3,7 +3,8 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, ChevronRight, FileDown } from "lucide-react";
 
 type Props = { slug: string };
 
@@ -39,23 +40,31 @@ export default function FestivalPlanSections({ slug }: Props) {
         </Link>
       </div>
 
-      <div>
-        <h1 className="text-2xl font-semibold text-[#111827]">
-          {festival.name} <span className="text-[#6b7280] font-normal">· Operations Plan</span>
-        </h1>
-        <p className="text-sm text-[#6b7280] mt-1">
-          {new Date(festival.startDate).toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-          })}
-          {" – "}
-          {new Date(festival.endDate).toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
-          {festival.location ? ` · ${festival.location}` : ""}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-[#111827]">
+            {festival.name} <span className="text-[#6b7280] font-normal">· Operations Plan</span>
+          </h1>
+          <p className="text-sm text-[#6b7280] mt-1">
+            {new Date(festival.startDate).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+            })}
+            {" – "}
+            {new Date(festival.endDate).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+            {festival.location ? ` · ${festival.location}` : ""}
+          </p>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/festivals/${slug}/report`}>
+            <FileDown className="w-4 h-4 mr-1.5" />
+            Generate PDF
+          </Link>
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

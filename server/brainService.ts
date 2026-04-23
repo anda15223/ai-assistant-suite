@@ -104,7 +104,7 @@ export async function extractLessons(
     maxTokens: 2048,
   });
 
-  const content = response.choices[0]?.message?.content ?? "[]";
+  const content = (response.choices[0]?.message?.content as string) ?? "[]";
 
   // Parse JSON from response — handle markdown code fences
   let cleaned = content.trim();
@@ -180,7 +180,7 @@ export async function generateBrainResponse(
     maxTokens: 1024,
   });
 
-  return response.choices[0]?.message?.content ?? "Got it. Noted.";
+  return (response.choices[0]?.message?.content as string) ?? "Got it. Noted.";
 }
 
 // ── Evening Debrief Generator ────────────────────────────────────────────

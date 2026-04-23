@@ -36,6 +36,7 @@ const FESTIVALS = [
   { slug: "aarhus-festuge", name: "Aarhus Festuge", dates: "29 Aug-7 Sep 2026", status: "upcoming" as const },
 ] as const;
 
+type Festival = (typeof FESTIVALS)[number];
 type Tab = "chat" | "lessons" | "stats";
 
 // ── Category colors ──────────────────────────────────────────────────────
@@ -62,7 +63,7 @@ function confidenceBadge(confidence: number) {
 
 export default function FestivalBrain() {
   const [, setLocation] = useLocation();
-  const [selectedFestival, setSelectedFestival] = useState(FESTIVALS[0]);
+  const [selectedFestival, setSelectedFestival] = useState<Festival>(FESTIVALS[0]);
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [festivalDropdownOpen, setFestivalDropdownOpen] = useState(false);
 
